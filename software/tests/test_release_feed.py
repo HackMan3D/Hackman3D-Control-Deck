@@ -29,7 +29,7 @@ def test_release_feed_defaults_invalid_percentages_to_zero() -> None:
     payload = json.dumps(
         {
             "schema": 1,
-            "latest_version": "0.17.1",
+            "latest_version": "0.17.2",
             "downloads": {},
             "roadmap": {"plus": "unknown", "pro": -3},
         }

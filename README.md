@@ -4,13 +4,13 @@ HackMan3D Control Deck (HCD) is a programmable desktop controller built around a
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
-## Download version 0.17.1
+## Download version 0.17.2
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.1/HackMan3D-Control-Deck-macOS-0.17.1.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.1/HackMan3D-Control-Deck-Windows-0.17.1-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.2/HackMan3D-Control-Deck-macOS-0.17.2.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.2/HackMan3D-Control-Deck-Windows-0.17.2-Setup.exe)
 
 ## Interface
 
@@ -88,9 +88,10 @@ and the same two status lights:
 The Pro edition focuses on direct visual identification and a more compact,
 interactive surface:
 
-- 4 touch buttons;
+- multiple touch buttons, with the final quantity to be defined;
 - application images sent directly from the desktop application and displayed
-  on the corresponding controls;
+  on the corresponding touch controls;
+- 4 additional physical buttons;
 - 2 configurable potentiometers;
 - the same connection LED and action-feedback LED as HCD-BASE and HCD Plus;
 - configuration and integrated firmware installation from the HCD application.
@@ -230,7 +231,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-0.17.1-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-0.17.2-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 
