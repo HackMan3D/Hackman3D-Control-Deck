@@ -1,16 +1,24 @@
 # HackMan3D Control Deck
 
+![Version](https://img.shields.io/badge/Version-1.0.0-0A84FF?style=flat-square)
+![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows-0A84FF?style=flat-square)
+![Hardware](https://img.shields.io/badge/Hardware-Arduino%20Pro%20Micro-00979D?style=flat-square&logo=arduino&logoColor=white)
+![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
+![Controls](https://img.shields.io/badge/Controls-9%20MX%20Keys-7B61FF?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Private%20Preview-555555?style=flat-square)
+[![Support](https://img.shields.io/badge/Support-HackMan3D-EA6D2F?style=flat-square&logo=paypal&logoColor=white)](https://paypal.me/Hackman3D)
+
 HackMan3D Control Deck (HCD) is a programmable desktop controller built around an
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
-## Download version 0.17.2
+## Download version 1.0.0
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.2/HackMan3D-Control-Deck-macOS-0.17.2.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.2/HackMan3D-Control-Deck-Windows-0.17.2-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.0.0/HackMan3D-Control-Deck-macOS-1.0.0.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.0.0/HackMan3D-Control-Deck-Windows-1.0.0-Setup.exe)
 
 ## Interface
 
@@ -231,7 +239,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-0.17.2-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.0.0-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 
