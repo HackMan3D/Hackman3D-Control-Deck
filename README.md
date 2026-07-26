@@ -14,12 +14,12 @@ who have access to this repository.
 
 ## Interface
 
-![HackMan3D Control Deck main interface](docs/screenshots/main-window.png)
+![HackMan3D Control Deck main interface](docs/screenshots/main-window.jpg)
 
 Select any key on the 3D preview to configure its short-press and long-press
 actions from the editor.
 
-![HackMan3D Control Deck key editor](docs/screenshots/key-editor.png)
+![HackMan3D Control Deck key editor](docs/screenshots/key-editor.jpg)
 
 ## How it works
 
