@@ -4,13 +4,13 @@ HackMan3D Control Deck (HCD) is a programmable desktop controller built around a
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
-## Download version 0.17.0
+## Download version 0.17.1
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.0/HackMan3D-Control-Deck-macOS-0.17.0.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.0/HackMan3D-Control-Deck-Windows-0.17.0-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.1/HackMan3D-Control-Deck-macOS-0.17.1.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.1/HackMan3D-Control-Deck-Windows-0.17.1-Setup.exe)
 
 ## Interface
 
@@ -24,13 +24,15 @@ actions from the editor.
 ## How it works
 
 1. Connect the HCD to the computer and keep the desktop application running.
-2. The application detects the controller and maintains the connection LED
+2. Install or update the integrated HCD firmware directly from the application's
+   **Firmware** manager. Arduino IDE is not required.
+3. The application detects the controller and maintains the connection LED
    through the `HCD_PING` / `HCD_PONG` heartbeat.
-3. Create or select a profile, then click one of the nine keys in the 3D
+4. Create or select a profile, then click one of the nine keys in the 3D
    preview.
-4. Assign a shortcut, system command, text, website or application to the short
+5. Assign a shortcut, system command, text, website or application to the short
    press and, optionally, a different action to the long press.
-5. Minimize the application to the macOS menu bar or Windows notification area;
+6. Minimize the application to the macOS menu bar or Windows notification area;
    profiles and actions continue to work in the background.
 
 ## Hardware target
@@ -71,24 +73,27 @@ evolve after prototype testing and community feedback.
 
 ### HCD Plus
 
-The Plus edition is intended to expand the base experience while keeping the
-controller simple and accessible:
+The Plus edition expands the physical controls while keeping the same software
+and the same two status lights:
 
-- more physical controls or a larger configurable layout;
-- richer white or RGB visual feedback;
-- improved enclosure, ergonomics and customization;
-- stronger multi-profile and multi-deck workflows;
-- full compatibility with the existing HCD desktop application.
+- 12 physical buttons;
+- separate short-press and long-press assignments, providing up to 24 functions;
+- 2 configurable potentiometers, for example for volume or another continuous
+  control;
+- the same connection LED and action-feedback LED as HCD-BASE;
+- configuration and integrated firmware installation from the HCD application.
 
 ### HCD Pro
 
-The Pro edition is the longer-term, advanced-workflow direction:
+The Pro edition focuses on direct visual identification and a more compact,
+interactive surface:
 
-- dynamic visual identification of actions;
-- additional rotary, touch or display-based controls;
-- deeper application and automation integrations;
-- faster profile switching and advanced status feedback;
-- premium construction and options intended for intensive daily use.
+- 4 touch buttons;
+- application images sent directly from the desktop application and displayed
+  on the corresponding controls;
+- 2 configurable potentiometers;
+- the same connection LED and action-feedback LED as HCD-BASE and HCD Plus;
+- configuration and integrated firmware installation from the HCD application.
 
 Support for the current HCD directly contributes to the research and prototypes
 needed to explore these Plus and Pro editions.
@@ -225,7 +230,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-0.17.0-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-0.17.1-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 

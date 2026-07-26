@@ -646,6 +646,10 @@ class MainWindow(QMainWindow):
         self._roadmap_message.setText(self._text("roadmap_message"))
         self._plus_progress_label.setText(self._text("hcd_plus"))
         self._pro_progress_label.setText(self._text("hcd_pro"))
+        self._plus_progress_label.setToolTip(self._text("hcd_plus_details"))
+        self._plus_progress.setToolTip(self._text("hcd_plus_details"))
+        self._pro_progress_label.setToolTip(self._text("hcd_pro_details"))
+        self._pro_progress.setToolTip(self._text("hcd_pro_details"))
 
         if sys.platform == "darwin":
             self._start_at_login_checkbox.setText(self._text("start_with_mac"))

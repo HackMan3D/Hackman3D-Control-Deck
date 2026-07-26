@@ -47,6 +47,8 @@ def test_main_labels_are_available_in_every_language() -> None:
         "roadmap_message",
         "hcd_plus",
         "hcd_pro",
+        "hcd_plus_details",
+        "hcd_pro_details",
         "start_with_mac",
         "start_minimized",
         "reminder_title",
