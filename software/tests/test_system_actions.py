@@ -1,0 +1,90 @@
+from hackman_control_deck.action_runner import ActionRunner
+from hackman_control_deck.main_window import MainWindow
+from hackman_control_deck.models import Action
+from pynput.keyboard import Key
+
+_ = Key
+
+
+class KeyboardRecorder:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, object]] = []
+
+    def press(self, key: object) -> None:
+        self.events.append(("press", key))
+
+    def release(self, key: object) -> None:
+        self.events.append(("release", key))
+
+
+def test_system_action_is_loaded_from_profile_data() -> None:
+    action = Action.from_dict({"type": "system", "value": "volume_up", "label": "Increase volume"})
+
+    assert action.type == "system"
+    assert action.value == "volume_up"
+
+
+def test_media_system_command_presses_and_releases_key(monkeypatch) -> None:
+    recorder = KeyboardRecorder()
+    runner = ActionRunner()
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "win32")
+    monkeypatch.setattr(runner, "_keyboard_controller", lambda: recorder)
+
+    runner._system("volume_up")
+
+    assert [event for event, _ in recorder.events] == ["press", "release"]
+    assert recorder.events[0][1] == recorder.events[1][1]
+
+
+def test_macos_volume_uses_audio_command_without_accessibility(monkeypatch) -> None:
+    commands: list[str] = []
+    runner = ActionRunner()
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "darwin")
+    monkeypatch.setattr(runner, "_macos_audio", commands.append)
+
+    runner._system("volume_up")
+    runner._system("volume_down")
+    runner._system("volume_mute")
+
+    assert commands == ["volume_up", "volume_down", "volume_mute"]
+
+
+def test_macos_media_controls_still_use_system_events(monkeypatch) -> None:
+    key_types: list[int] = []
+    runner = ActionRunner()
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "darwin")
+    monkeypatch.setattr(runner, "_macos_system_key", key_types.append)
+
+    runner._system("media_play_pause")
+
+    assert key_types == [16]
+
+
+def test_unknown_system_command_is_rejected() -> None:
+    runner = ActionRunner()
+
+    try:
+        runner._system("not_a_command")
+    except ValueError as error:
+        assert "not_a_command" in str(error)
+    else:
+        raise AssertionError("Unknown commands must not be ignored")
+
+
+class PresetTranslator:
+    @staticmethod
+    def _text(key: str) -> str:
+        return key
+
+
+def test_shortcut_presets_are_platform_specific(monkeypatch) -> None:
+    translator = PresetTranslator()
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "darwin")
+    mac_shortcuts = dict(MainWindow._shortcut_presets(translator))
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "win32")
+    windows_shortcuts = dict(MainWindow._shortcut_presets(translator))
+
+    assert mac_shortcuts["command_copy"] == "CMD+C"
+    assert windows_shortcuts["command_copy"] == "CTRL+C"
+    assert mac_shortcuts["command_screenshot"] == "CMD+SHIFT+4"
+    assert windows_shortcuts["command_screenshot"] == "WIN+SHIFT+S"

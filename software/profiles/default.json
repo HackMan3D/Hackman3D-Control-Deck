@@ -1,0 +1,14 @@
+{
+  "name": "Default",
+  "keys": {
+    "1": {"type": "none", "value": "", "label": "Key 1"},
+    "2": {"type": "none", "value": "", "label": "Key 2"},
+    "3": {"type": "none", "value": "", "label": "Key 3"},
+    "4": {"type": "none", "value": "", "label": "Key 4"},
+    "5": {"type": "none", "value": "", "label": "Key 5"},
+    "6": {"type": "none", "value": "", "label": "Key 6"},
+    "7": {"type": "none", "value": "", "label": "Key 7"},
+    "8": {"type": "none", "value": "", "label": "Key 8"},
+    "9": {"type": "none", "value": "", "label": "Key 9"}
+  }
+}

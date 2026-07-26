@@ -1,0 +1,30 @@
+name: Build Windows application
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build application and installer
+        shell: pwsh
+        run: software/build_windows.ps1
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: HackMan3D-Control-Deck-Windows-0.17.0
+          path: software/dist/HackMan3D-Control-Deck-Windows-0.17.0-Setup.exe
+          if-no-files-found: error
