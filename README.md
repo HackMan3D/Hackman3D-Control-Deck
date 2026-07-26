@@ -4,6 +4,35 @@ HackMan3D Control Deck (HCD) is a programmable desktop controller built around a
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
+## Download version 0.17.0
+
+The project is currently private. These downloads are available only to people
+who have access to this repository.
+
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.0/HackMan3D-Control-Deck-macOS-0.17.0.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v0.17.0/HackMan3D-Control-Deck-Windows-0.17.0-Setup.exe)
+
+## Interface
+
+![HackMan3D Control Deck main interface](docs/screenshots/main-window.png)
+
+Select any key on the 3D preview to configure its short-press and long-press
+actions from the editor.
+
+![HackMan3D Control Deck key editor](docs/screenshots/key-editor.png)
+
+## How it works
+
+1. Connect the HCD to the computer and keep the desktop application running.
+2. The application detects the controller and maintains the connection LED
+   through the `HCD_PING` / `HCD_PONG` heartbeat.
+3. Create or select a profile, then click one of the nine keys in the 3D
+   preview.
+4. Assign a shortcut, system command, text, website or application to the short
+   press and, optionally, a different action to the long press.
+5. Minimize the application to the macOS menu bar or Windows notification area;
+   profiles and actions continue to work in the background.
+
 ## Hardware target
 
 - 9 MX switches in a 3 × 3 layout
@@ -17,6 +46,52 @@ more of the nine MX keys is held, but only while the desktop app is connected.
 
 The V1 deliberately has no rotary encoders. Pins D14 through D20 remain free for
 a possible V2.
+
+## Support matters
+
+HackMan3D Control Deck is designed, developed and shared free of charge.
+Donations help fund prototypes, electronics, printing tests and the time needed
+to improve the firmware and the macOS/Windows applications. Feedback and social
+media follows are also important: they help validate ideas and make the project
+visible.
+
+- [Support development with PayPal](https://paypal.me/Hackman3D)
+- [Send feedback by email](mailto:hackman3d.pro@gmail.com?subject=HackMan3D%20Control%20Deck%20feedback)
+- [Creality Cloud](https://www.crealitycloud.com/user/5221417142)
+- [MakerWorld](https://makerworld.com/fr/@HackMan3D)
+- [TikTok](https://www.tiktok.com/@hackman3d)
+- [Instagram](https://www.instagram.com/hackman_3dprint/)
+- [YouTube](https://www.youtube.com/@hackman3D)
+
+## HCD roadmap
+
+The progress indicators in the application show only a percentage. No donation
+amount or financial target is stored or displayed. The exact feature set will
+evolve after prototype testing and community feedback.
+
+### HCD Plus
+
+The Plus edition is intended to expand the base experience while keeping the
+controller simple and accessible:
+
+- more physical controls or a larger configurable layout;
+- richer white or RGB visual feedback;
+- improved enclosure, ergonomics and customization;
+- stronger multi-profile and multi-deck workflows;
+- full compatibility with the existing HCD desktop application.
+
+### HCD Pro
+
+The Pro edition is the longer-term, advanced-workflow direction:
+
+- dynamic visual identification of actions;
+- additional rotary, touch or display-based controls;
+- deeper application and automation integrations;
+- faster profile switching and advanced status feedback;
+- premium construction and options intended for intensive daily use.
+
+Support for the current HCD directly contributes to the research and prototypes
+needed to explore these Plus and Pro editions.
 
 ## Repository layout
 

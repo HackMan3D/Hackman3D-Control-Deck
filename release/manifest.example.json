@@ -2,9 +2,9 @@
   "schema": 1,
   "latest_version": "0.17.0",
   "downloads": {
-    "macos": "https://github.com/HackMan3D/HackMan3D-Control-Deck-Releases/releases/latest",
-    "windows": "https://github.com/HackMan3D/HackMan3D-Control-Deck-Releases/releases/latest",
-    "website": "https://github.com/HackMan3D/HackMan3D-Control-Deck-Releases/releases"
+    "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
+    "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
+    "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
   "release_notes": "",
   "roadmap": {
