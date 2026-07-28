@@ -43,7 +43,7 @@ actions from the editor.
 6. Minimize the application to the macOS menu bar or Windows notification area;
    profiles and actions continue to work in the background.
 
-## Hardware target
+## HCD-BASE hardware
 
 - 9 MX switches in a 3 × 3 layout
 - 1 red PC-connection LED
@@ -65,6 +65,25 @@ The nine switches use the Pro Micro's internal pull-ups and share a common
 ground. The connection LED and key-feedback light are switched by separate
 IRLB8721 MOSFETs. See the [complete wiring notes](docs/WIRING.md) before
 powering the controller.
+
+## HCD Plus hardware
+
+The repository also contains the first HCD Plus firmware target:
+
+- 12 physical buttons connected through an MCP23017;
+- 2 analog potentiometers on A0 and A1;
+- one push switch on each potentiometer;
+- the same red connection LED and white action-feedback LED as HCD-BASE;
+- automatic identification as `HCD-PLUS`.
+
+The desktop firmware manager lets the builder choose **HCD-BASE** or
+**HCD Plus** before flashing a new compatible board. Once programmed, the
+application reads the model identifier automatically and displays either the
+9-control Base editor or the 12-button Plus editor with its two clickable
+potentiometers.
+
+See the [HCD Plus wiring table](docs/HCD_PLUS_WIRING.md) for the complete
+MCP23017, potentiometer and LED pin assignment.
 
 ## Support matters
 
@@ -119,9 +138,10 @@ needed to explore these Plus and Pro editions.
 ## Repository layout
 
 ```text
-firmware/HackMan3DControlDeck/   Arduino firmware
-software/                      PySide6 desktop app
-docs/                          protocol and wiring notes
+firmware/HackMan3DControlDeck/       HCD-BASE firmware
+firmware/HackMan3DControlDeckPlus/   HCD Plus firmware
+software/                            shared PySide6 desktop app
+docs/                                protocol and wiring notes
 ```
 
 ## Desktop app
@@ -185,7 +205,8 @@ On macOS, volume up, volume down and mute use the native audio command and do
 not require Accessibility permission. Keyboard injection, brightness and media
 key events still require macOS Accessibility authorization.
 A live diagnostics window reports the HCD model, firmware, serial port,
-heartbeat, all nine physical key states and both LED states.
+heartbeat, every available physical control, both LED states and the two live
+potentiometer values on HCD Plus.
 When an older compatible HCD firmware is detected, the application offers to
 open the integrated firmware manager and install the included update.
 Changing the action type clears the previous editor values to avoid mixing two
@@ -254,16 +275,20 @@ and provides clean Start menu, optional desktop and uninstall entries.
 
 ## Firmware
 
-The desktop application contains the validated HCD-BASE firmware and flashes it
-directly from the **Firmware** manager. Arduino IDE is not required for normal
-installation or updates.
+The desktop application contains separate HCD-BASE and HCD Plus firmware
+images and flashes the selected model directly from the **Firmware** manager.
+Arduino IDE is not required for normal installation or updates. A programmed
+controller identifies its own model, so later updates automatically select the
+matching firmware.
 
 The source sketch remains available in
-`firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` for firmware
-development. It uses only the standard Arduino core.
+`firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` and
+`firmware/HackMan3DControlDeckPlus/HackMan3DControlDeckPlus.ino` for firmware
+development. Both use only the standard Arduino core.
 
 `software/build_firmware.sh` produces the branded firmware bundled with the
-app. It sets the USB product to **HackMan3D Control Deck** and the manufacturer to
+app. It gives each model its own USB product name and sets the manufacturer to
 **HackMan3D**.
 
-See [docs/WIRING.md](docs/WIRING.md) before connecting switches or LEDs.
+See the [HCD-BASE wiring notes](docs/WIRING.md) or the
+[HCD Plus wiring notes](docs/HCD_PLUS_WIRING.md) before connecting hardware.

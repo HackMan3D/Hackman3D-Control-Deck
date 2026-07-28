@@ -60,6 +60,20 @@ def test_profile_can_reset_all_nine_keys() -> None:
     assert profile.keys["9"].label == "Key 9"
 
 
+def test_profile_supports_hcd_plus_controls() -> None:
+    profile = Profile(name="HCD Plus")
+
+    profile.ensure_controls(12, 2)
+    profile.keys["12"] = Action("shortcut", "CTRL+S", "Save")
+    profile.keys["P1"] = Action("system", "volume_mute", "Mute")
+    profile.reset_controls(("12", "P1", "P2"))
+
+    assert len(profile.keys) == 14
+    assert profile.keys["12"].label == "Key 12"
+    assert profile.keys["P1"].label == "Potentiometer 1 click"
+    assert profile.keys["P2"].label == "Potentiometer 2 click"
+
+
 def test_short_and_long_press_actions_round_trip(tmp_path) -> None:
     store = ProfileStore(tmp_path)
     profile = Profile(name="Automation")

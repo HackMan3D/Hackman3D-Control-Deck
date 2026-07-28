@@ -20,16 +20,16 @@ from PySide6.QtWidgets import (
 
 from .constants import COMPATIBLE_PRODUCT_NAMES
 from .firmware_updater import (
-    BUNDLED_FIRMWARE_VERSION,
-    BUNDLED_MODEL_IDENTIFIER,
+    FIRMWARE_TARGETS,
     FirmwareUpdater,
+    firmware_target,
 )
 from .protocol import DeviceInfo
 
 
 class FirmwareDialog(QDialog):
-    update_requested = Signal(str)
-    install_requested = Signal(str)
+    update_requested = Signal(str, str)
+    install_requested = Signal(str, str)
 
     def __init__(
         self,
@@ -71,21 +71,30 @@ class FirmwareDialog(QDialog):
         info_layout.addWidget(QLabel(device_info.model_identifier if device_info else "—"), 1, 1)
         info_layout.addWidget(QLabel(text("installed_firmware")), 2, 0)
         info_layout.addWidget(QLabel(device_info.firmware_version if device_info else "—"), 2, 1)
+        detected_target = (
+            firmware_target(device_info.model_identifier) if device_info else None
+        )
+        included_version = detected_target.version if detected_target else "—"
         info_layout.addWidget(QLabel(text("included_firmware")), 3, 0)
-        info_layout.addWidget(QLabel(BUNDLED_FIRMWARE_VERSION), 3, 1)
+        info_layout.addWidget(QLabel(included_version), 3, 1)
         layout.addWidget(info_frame)
 
         update_row = QHBoxLayout()
         update_row.addStretch()
         update_label = (
             text("reinstall_connected_hcd")
-            if device_info and device_info.firmware_version == BUNDLED_FIRMWARE_VERSION
+            if device_info
+            and detected_target
+            and device_info.firmware_version == detected_target.version
             else text("update_connected_hcd")
         )
         self._update_button = QPushButton(update_label, objectName="accent")
         self._update_button.setEnabled(self._can_update_connected_device())
         self._update_button.clicked.connect(
-            lambda: self.update_requested.emit(self._connected_port)
+            lambda: self.update_requested.emit(
+                self._connected_port,
+                self._device_info.model_identifier if self._device_info else "",
+            )
         )
         update_row.addWidget(self._update_button)
         layout.addLayout(update_row)
@@ -98,6 +107,23 @@ class FirmwareDialog(QDialog):
         install_help = QLabel(text("install_new_arduino_help"), objectName="subtitle")
         install_help.setWordWrap(True)
         layout.addWidget(install_help)
+
+        model_row = QHBoxLayout()
+        self._model_label = QLabel(text("firmware_model_to_install"))
+        model_row.addWidget(self._model_label)
+        self._model_combo = QComboBox()
+        for target in FIRMWARE_TARGETS.values():
+            details = text(
+                "firmware_model_details",
+                keys=target.key_count,
+                pots=target.potentiometer_count,
+            )
+            self._model_combo.addItem(
+                f"{target.display_name} — {details}",
+                target.model_identifier,
+            )
+        model_row.addWidget(self._model_combo, 1)
+        layout.addLayout(model_row)
 
         port_row = QHBoxLayout()
         self._port_combo = QComboBox()
@@ -142,16 +168,13 @@ class FirmwareDialog(QDialog):
     def _can_update_connected_device(self) -> bool:
         if self._device_info is None or not self._connected_port:
             return False
-        compatible_model = self._device_info.model_identifier in {
-            BUNDLED_MODEL_IDENTIFIER,
-            "HCD-LEGACY",
-        }
+        target = firmware_target(self._device_info.model_identifier)
         compatible_product = self._device_info.product.startswith(COMPATIBLE_PRODUCT_NAMES)
         return (
-            compatible_model
+            target is not None
             and compatible_product
             and self._version_tuple(self._device_info.firmware_version)
-            <= self._version_tuple(BUNDLED_FIRMWARE_VERSION)
+            <= self._version_tuple(target.version)
         )
 
     @staticmethod
@@ -178,8 +201,9 @@ class FirmwareDialog(QDialog):
 
     def _request_install(self) -> None:
         port = str(self._port_combo.currentData() or "")
-        if port:
-            self.install_requested.emit(port)
+        model = str(self._model_combo.currentData() or "")
+        if port and model:
+            self.install_requested.emit(port, model)
 
     def set_busy(self, busy: bool) -> None:
         self._busy = busy
@@ -187,6 +211,7 @@ class FirmwareDialog(QDialog):
         self._install_button.setEnabled(not busy and self._port_combo.count() > 0)
         self._refresh_button.setEnabled(not busy)
         self._port_combo.setEnabled(not busy)
+        self._model_combo.setEnabled(not busy)
         self._close_button.setEnabled(not busy)
         self._progress.setVisible(busy)
         if busy:
@@ -221,6 +246,7 @@ class FirmwareDialog(QDialog):
             self._install_button.setEnabled(False)
             self._refresh_button.setEnabled(False)
             self._port_combo.setEnabled(False)
+            self._model_combo.setEnabled(False)
 
     def reject(self) -> None:
         if not self._busy:

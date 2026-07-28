@@ -31,7 +31,15 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-hackman_control_deck = ["assets/*.svg", "assets/*.png", "assets/*.ico", "assets/*.icns"]
+hackman_control_deck = [
+    "assets/*.svg",
+    "assets/*.png",
+    "assets/*.ico",
+    "assets/*.icns",
+    "assets/firmware/*.hex",
+    "assets/tools/macos/*",
+    "assets/tools/windows/*",
+]
 
 [tool.ruff]
 line-length = 100

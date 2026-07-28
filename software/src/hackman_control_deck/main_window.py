@@ -53,9 +53,8 @@ from .device_preview import DevicePreview
 from .diagnostics_dialog import DiagnosticsDialog
 from .firmware_dialog import FirmwareDialog
 from .firmware_updater import (
-    BUNDLED_FIRMWARE_VERSION,
-    BUNDLED_MODEL_IDENTIFIER,
     FirmwareUpdater,
+    firmware_target,
     firmware_update_available,
 )
 from .models import ACTION_TYPES, Action, Profile
@@ -635,7 +634,9 @@ class MainWindow(QMainWindow):
         self._firmware_button.setText(self._text("firmware_button"))
         self._updates_button.setText(self._text("check_updates"))
         self._diagnostics_button.setText(self._text("diagnostics_button"))
-        self._reset_keys_button.setText(self._text("reset_all_keys"))
+        self._reset_keys_button.setText(
+            self._text("reset_visible_controls", count=len(self._control_buttons))
+        )
         self._feedback_hold_label.setText(self._text("minimum_led_duration"))
         self._statistics_checkbox.setText(self._text("enable_statistics"))
         self._statistics_button.setText(self._text("view_statistics"))
@@ -669,7 +670,11 @@ class MainWindow(QMainWindow):
         if not self._has_activity:
             self._activity_label.setText(self._text("no_activity"))
         if self._selection:
-            self._selection_label.setText(self._text("key", number=self._selection))
+            self._selection_label.setText(
+                f"Potentiometer {self._selection[1:]} click"
+                if self._selection.startswith("P")
+                else self._text("key", number=self._selection)
+            )
         else:
             self._selection_label.setText(self._text("select_key"))
         self._connection_changed(self._connected, self._connected_port)
@@ -950,11 +955,19 @@ class MainWindow(QMainWindow):
         self._show_action(identifier)
 
     def _action_for(self, identifier: str) -> Action:
+        self._profile.ensure_controls(
+            self._device_info_data.key_count if self._device_info_data else 9,
+            self._device_info_data.potentiometer_count if self._device_info_data else 0,
+        )
         return self._profile.keys[identifier]
 
     def _show_action(self, identifier: str) -> None:
         action = self._action_for(identifier)
-        self._selection_label.setText(self._text("key", number=identifier))
+        self._selection_label.setText(
+            f"Potentiometer {identifier[1:]} click"
+            if identifier.startswith("P")
+            else self._text("key", number=identifier)
+        )
         self._label_edit.setEnabled(True)
         self._action_type.setEnabled(True)
         self._value_edit.setEnabled(True)
@@ -995,24 +1008,37 @@ class MainWindow(QMainWindow):
         self._update_long_value_hint()
 
     def _reset_all_keys(self) -> None:
+        control_count = len(self._control_buttons)
         message = QMessageBox(self)
         message.setWindowTitle(self._text("reset_all_keys_title"))
         message.setIcon(QMessageBox.Warning)
-        message.setText(self._text("reset_all_keys_confirm", name=self._profile.name))
-        reset_button = message.addButton(self._text("reset_all_keys"), QMessageBox.DestructiveRole)
+        message.setText(
+            self._text(
+                "reset_visible_controls_confirm",
+                name=self._profile.name,
+                count=control_count,
+            )
+        )
+        reset_button = message.addButton(
+            self._text("reset_visible_controls", count=control_count),
+            QMessageBox.DestructiveRole,
+        )
         message.addButton(self._text("cancel"), QMessageBox.RejectRole)
         message.exec()
         if message.clickedButton() is not reset_button:
             return
 
-        self._profile.reset_keys()
+        self._profile.reset_controls(tuple(self._control_buttons))
         self._store.save(self._profile)
         self._refresh_control_labels()
         if self._selection:
             self._show_action(self._selection)
         self._has_activity = False
         self._activity_label.setText(self._text("no_activity"))
-        self.statusBar().showMessage(self._text("all_keys_reset"), 2500)
+        self.statusBar().showMessage(
+            self._text("visible_controls_reset", count=control_count),
+            2500,
+        )
 
     def _save_action(self) -> None:
         if not self._selection:
@@ -1520,6 +1546,19 @@ class MainWindow(QMainWindow):
         self._device_info_data = info
         self._device_product = info.product
         self._device_model_identifier = info.model_identifier
+        self._profile.ensure_controls(info.key_count, info.potentiometer_count)
+        self._store.save(self._profile)
+        self._device_preview.set_model(
+            info.model_identifier,
+            info.key_count,
+            info.potentiometer_count,
+        )
+        self._device_title.setText(info.product)
+        self._selection = None
+        self._refresh_control_labels()
+        self._reset_keys_button.setText(
+            self._text("reset_visible_controls", count=len(self._control_buttons))
+        )
         self._connection_label.setText(info.product)
         self._connection_label.setToolTip(f"{info.model_identifier} · {self._connected_port}")
         self._firmware_label.setText(f"Firmware {info.firmware_version}")
@@ -1527,19 +1566,24 @@ class MainWindow(QMainWindow):
             f"{info.product} · {info.model_identifier} · {self._connected_port}"
         )
         self._update_diagnostics()
+        if self._diagnostics_dialog is not None:
+            self._diagnostics_dialog.set_controls(
+                info.key_count,
+                info.potentiometer_count,
+            )
         QTimer.singleShot(250, self._offer_firmware_update)
 
     def _offer_firmware_update(self) -> None:
         info = self._device_info_data
         if info is None or not self._connected_port or self._firmware_updater.is_busy:
             return
-        compatible = info.model_identifier in {BUNDLED_MODEL_IDENTIFIER, "HCD-LEGACY"}
-        if not compatible or not info.product.startswith(COMPATIBLE_PRODUCT_NAMES):
+        target = firmware_target(info.model_identifier)
+        if target is None or not info.product.startswith(COMPATIBLE_PRODUCT_NAMES):
             return
         prompt_key = (self._connected_port, info.firmware_version)
         if self._firmware_update_prompted_for == prompt_key:
             return
-        if not firmware_update_available(info.firmware_version):
+        if not firmware_update_available(info.firmware_version, info.model_identifier):
             return
         self._firmware_update_prompted_for = prompt_key
 
@@ -1550,7 +1594,7 @@ class MainWindow(QMainWindow):
             self._text(
                 "firmware_update_available",
                 installed=info.firmware_version,
-                included=BUNDLED_FIRMWARE_VERSION,
+                included=target.version,
             )
         )
         update_button = message.addButton(self._text("update_now"), QMessageBox.AcceptRole)
@@ -1568,6 +1612,11 @@ class MainWindow(QMainWindow):
         dialog.finished.connect(lambda result: self._diagnostics_closed(result))
         self._diagnostics_dialog = dialog
         self._update_diagnostics()
+        if self._device_info_data is not None:
+            dialog.set_controls(
+                self._device_info_data.key_count,
+                self._device_info_data.potentiometer_count,
+            )
         for identifier in self._pressed_keys:
             dialog.set_key_state(identifier, True)
         dialog.open()
@@ -1597,10 +1646,14 @@ class MainWindow(QMainWindow):
             self,
         )
         dialog.update_requested.connect(
-            lambda port: self._confirm_firmware_install(port, new_device=False)
+            lambda port, model: self._confirm_firmware_install(
+                port, model, new_device=False
+            )
         )
         dialog.install_requested.connect(
-            lambda port: self._confirm_firmware_install(port, new_device=True)
+            lambda port, model: self._confirm_firmware_install(
+                port, model, new_device=True
+            )
         )
         dialog.finished.connect(lambda result: self._firmware_dialog_closed(result))
         self._firmware_dialog = dialog
@@ -1611,12 +1664,21 @@ class MainWindow(QMainWindow):
         if not self._firmware_updater.is_busy:
             self._firmware_dialog = None
 
-    def _confirm_firmware_install(self, port: str, new_device: bool) -> None:
+    def _confirm_firmware_install(
+        self,
+        port: str,
+        model_identifier: str,
+        new_device: bool,
+    ) -> None:
         message = QMessageBox(self)
         message.setWindowTitle(self._text("firmware_manager"))
         message.setIcon(QMessageBox.Warning)
         message.setText(
-            self._text("new_arduino_warning", port=port)
+            self._text(
+                "new_model_firmware_warning",
+                port=port,
+                model=model_identifier,
+            )
             if new_device
             else self._text("firmware_update_warning")
         )
@@ -1624,15 +1686,24 @@ class MainWindow(QMainWindow):
         message.addButton(self._text("cancel"), QMessageBox.RejectRole)
         message.exec()
         if message.clickedButton() is install_button:
-            self._begin_firmware_install(port, new_device)
+            self._begin_firmware_install(port, model_identifier, new_device)
 
-    def _begin_firmware_install(self, port: str, new_device: bool) -> None:
+    def _begin_firmware_install(
+        self,
+        port: str,
+        model_identifier: str,
+        new_device: bool,
+    ) -> None:
         if self._firmware_dialog is not None:
             self._firmware_dialog.set_busy(True)
         self._device.stop()
         QTimer.singleShot(
             180,
-            lambda: self._firmware_updater.start(port, allow_existing_bootloader=new_device),
+            lambda: self._firmware_updater.start(
+                port,
+                model_identifier,
+                allow_existing_bootloader=new_device,
+            ),
         )
 
     def _firmware_status_changed(self, message: str) -> None:
@@ -1654,9 +1725,24 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(1800, self._device.start)
 
     def _device_event(self, event: DeviceEvent) -> None:
-        if event.kind != EventKind.KEY:
+        if event.kind == EventKind.POTENTIOMETER:
+            self._has_activity = True
+            self._activity_label.setText(
+                f"Potentiometer {event.control_id}: {event.state}"
+            )
+            if self._diagnostics_dialog is not None:
+                self._diagnostics_dialog.set_potentiometer_value(
+                    event.control_id,
+                    int(event.state),
+                )
             return
-        identifier = str(event.control_id)
+        if event.kind not in {EventKind.KEY, EventKind.POTENTIOMETER_BUTTON}:
+            return
+        identifier = (
+            str(event.control_id)
+            if event.kind == EventKind.KEY
+            else f"P{event.control_id}"
+        )
         should_run = event.state == "DOWN"
 
         if identifier not in self._control_buttons:

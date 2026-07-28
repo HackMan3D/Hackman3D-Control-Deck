@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Signal, Slot
@@ -9,8 +10,33 @@ from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 
 from .constants import ASSET_DIR
 
-BUNDLED_FIRMWARE_VERSION = "1.7.0"
+@dataclass(frozen=True, slots=True)
+class FirmwareTarget:
+    model_identifier: str
+    display_name: str
+    version: str
+    key_count: int
+    potentiometer_count: int
+
+    @property
+    def filename(self) -> str:
+        return (
+            f"HackMan3DControlDeck-{self.model_identifier}-{self.version}.hex"
+        )
+
+
+FIRMWARE_TARGETS = {
+    "HCD-BASE": FirmwareTarget("HCD-BASE", "HCD-BASE", "1.7.0", 9, 0),
+    "HCD-PLUS": FirmwareTarget("HCD-PLUS", "HCD Plus", "1.0.0", 12, 2),
+}
 BUNDLED_MODEL_IDENTIFIER = "HCD-BASE"
+BUNDLED_FIRMWARE_VERSION = FIRMWARE_TARGETS[BUNDLED_MODEL_IDENTIFIER].version
+
+
+def firmware_target(model_identifier: str) -> FirmwareTarget | None:
+    if model_identifier == "HCD-LEGACY":
+        return FIRMWARE_TARGETS[BUNDLED_MODEL_IDENTIFIER]
+    return FIRMWARE_TARGETS.get(model_identifier)
 
 
 def firmware_version_tuple(version: str) -> tuple[int, ...]:
@@ -20,9 +46,15 @@ def firmware_version_tuple(version: str) -> tuple[int, ...]:
         return (0,)
 
 
-def firmware_update_available(installed_version: str) -> bool:
-    return firmware_version_tuple(installed_version) < firmware_version_tuple(
-        BUNDLED_FIRMWARE_VERSION
+def firmware_update_available(
+    installed_version: str,
+    model_identifier: str = BUNDLED_MODEL_IDENTIFIER,
+) -> bool:
+    target = firmware_target(model_identifier)
+    return bool(
+        target
+        and firmware_version_tuple(installed_version)
+        < firmware_version_tuple(target.version)
     )
 
 
@@ -57,12 +89,18 @@ class FirmwareUpdater(QObject):
         self._attempt_count = 0
         self._bootloader_port = ""
         self._allow_existing_bootloader = False
+        self._target = FIRMWARE_TARGETS[BUNDLED_MODEL_IDENTIFIER]
 
     @property
     def is_busy(self) -> bool:
         return self._busy
 
-    def start(self, port_name: str, allow_existing_bootloader: bool = False) -> None:
+    def start(
+        self,
+        port_name: str,
+        model_identifier: str = BUNDLED_MODEL_IDENTIFIER,
+        allow_existing_bootloader: bool = False,
+    ) -> None:
         if self._busy:
             return
         if sys.platform not in {"darwin", "win32"}:
@@ -71,8 +109,13 @@ class FirmwareUpdater(QObject):
         if not port_name:
             self.finished.emit(False, "No serial port was selected.")
             return
+        target = firmware_target(model_identifier)
+        if target is None:
+            self.finished.emit(False, f"Unsupported hardware model: {model_identifier}")
+            return
+        self._target = target
 
-        executable, configuration, firmware = self.resource_paths()
+        executable, configuration, firmware = self.resource_paths(model_identifier)
         missing = [
             path.name for path in (executable, configuration, firmware) if not path.is_file()
         ]
@@ -101,16 +144,19 @@ class FirmwareUpdater(QObject):
         self._poll_timer.start()
 
     @staticmethod
-    def resource_paths() -> tuple[Path, Path, Path]:
+    def resource_paths(
+        model_identifier: str = BUNDLED_MODEL_IDENTIFIER,
+    ) -> tuple[Path, Path, Path]:
+        target = firmware_target(model_identifier)
+        if target is None:
+            raise ValueError(f"Unsupported hardware model: {model_identifier}")
         platform_directory = "windows" if sys.platform == "win32" else "macos"
         executable_name = "avrdude.exe" if sys.platform == "win32" else "avrdude"
         tool_directory = ASSET_DIR / "tools" / platform_directory
         return (
             tool_directory / executable_name,
             tool_directory / "avrdude.conf",
-            ASSET_DIR
-            / "firmware"
-            / f"HackMan3DControlDeck-{BUNDLED_MODEL_IDENTIFIER}-{BUNDLED_FIRMWARE_VERSION}.hex",
+            ASSET_DIR / "firmware" / target.filename,
         )
 
     @staticmethod
@@ -243,12 +289,16 @@ class FirmwareUpdater(QObject):
     def _start_avrdude(self, port: str) -> None:
         if not self._busy:
             return
-        executable, configuration, firmware = self.resource_paths()
+        executable, configuration, firmware = self.resource_paths(
+            self._target.model_identifier
+        )
         self._attempt_count += 1
         self._attempt_output = ""
         self.progress_changed.emit(30)
         retry = " (retry)" if self._attempt_count > 1 else ""
-        self.status_changed.emit(f"Uploading and verifying the HCD firmware…{retry}")
+        self.status_changed.emit(
+            f"Uploading and verifying the {self._target.display_name} firmware…{retry}"
+        )
         self._process.setProgram(str(executable))
         self._process.setArguments(self.avrdude_arguments(port, configuration, firmware))
         self._process.start()
@@ -276,7 +326,9 @@ class FirmwareUpdater(QObject):
             self.progress_changed.emit(100)
             self.status_changed.emit("Firmware installed. Waiting for the Control Deck…")
             self.finished.emit(
-                True, f"Firmware {BUNDLED_FIRMWARE_VERSION} was installed successfully."
+                True,
+                f"{self._target.display_name} firmware "
+                f"{self._target.version} was installed successfully.",
             )
             return
         if self._attempt_count < 2 and self._is_retryable_failure(self._attempt_output):

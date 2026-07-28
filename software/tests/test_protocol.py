@@ -17,6 +17,28 @@ def test_parse_info_with_model_identifier() -> None:
     )
 
 
+def test_parse_hcd_plus_info_and_potentiometer_events() -> None:
+    assert parse_line(
+        "HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.0.0|12|2"
+    ) == DeviceInfo(
+        "HackMan3D Control Deck Plus",
+        "1.0.0",
+        12,
+        "HCD-PLUS",
+        2,
+    )
+    assert parse_line("HCD_POT|2|768") == DeviceEvent(
+        EventKind.POTENTIOMETER,
+        2,
+        "768",
+    )
+    assert parse_line("HCD_POT_BUTTON|1|DOWN") == DeviceEvent(
+        EventKind.POTENTIOMETER_BUTTON,
+        1,
+        "DOWN",
+    )
+
+
 def test_invalid_message_is_ignored() -> None:
     assert parse_line("HCD_KEY|wrong|DOWN") is None
     assert parse_line("") is None

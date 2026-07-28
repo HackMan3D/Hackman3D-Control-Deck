@@ -7,6 +7,7 @@ from PySide6.QtGui import (
     QColor,
     QPaintEvent,
     QPainter,
+    QPen,
     QPixmap,
     QRadialGradient,
     QResizeEvent,
@@ -67,10 +68,46 @@ class DevicePreview(QWidget):
         self._image_rect = QRect()
         self._connection_active = False
         self._feedback_active = False
+        self._model_identifier = "HCD-BASE"
+        self._key_count = 9
+        self._potentiometer_count = 0
 
         self.buttons: dict[str, QToolButton] = {}
-        for index in range(1, 10):
-            identifier = str(index)
+        self._configure_controls()
+
+    def set_model(
+        self,
+        model_identifier: str,
+        key_count: int,
+        potentiometer_count: int = 0,
+    ) -> None:
+        normalized_model = (
+            model_identifier
+            if model_identifier in {"HCD-BASE", "HCD-PLUS"}
+            else "HCD-BASE"
+        )
+        if (
+            normalized_model == self._model_identifier
+            and key_count == self._key_count
+            and potentiometer_count == self._potentiometer_count
+        ):
+            return
+        self._model_identifier = normalized_model
+        self._key_count = max(1, key_count)
+        self._potentiometer_count = max(0, potentiometer_count)
+        self._configure_controls()
+        self._layout_controls()
+        self.update()
+
+    def _configure_controls(self) -> None:
+        for button in self.buttons.values():
+            button.deleteLater()
+        self.buttons.clear()
+        identifiers = [str(index) for index in range(1, self._key_count + 1)]
+        identifiers.extend(
+            f"P{index}" for index in range(1, self._potentiometer_count + 1)
+        )
+        for identifier in identifiers:
             button = DropKeyButton(self)
             button.setObjectName("deviceKey")
             button.setText(identifier)
@@ -85,6 +122,7 @@ class DevicePreview(QWidget):
                 lambda path, item=identifier: self.application_dropped.emit(item, path)
             )
             self.buttons[identifier] = button
+            button.show()
 
     def set_connection_active(self, active: bool) -> None:
         if self._connection_active == active:
@@ -100,19 +138,52 @@ class DevicePreview(QWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
-        if self._scaled.isNull():
-            return
-
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
-        painter.drawPixmap(self._image_rect, self._scaled)
+        if self._model_identifier == "HCD-PLUS":
+            self._paint_plus_device(painter)
+        elif not self._scaled.isNull():
+            painter.drawPixmap(self._image_rect, self._scaled)
 
-        scale = self._image_rect.width() / self._SOURCE_WIDTH
+        scale = (
+            self._image_rect.width() / self._SOURCE_WIDTH
+            if self._model_identifier == "HCD-BASE"
+            else max(0.45, min(self.width() / 900, self.height() / 600))
+        )
         if self._connection_active:
             self._paint_connection_led(painter, scale)
         if self._feedback_active:
             self._paint_feedback_led(painter, scale)
+
+    def _paint_plus_device(self, painter: QPainter) -> None:
+        panel = self.rect().adjusted(
+            max(20, self.width() // 18),
+            max(24, self.height() // 16),
+            -max(20, self.width() // 18),
+            -max(24, self.height() // 16),
+        )
+        painter.save()
+        painter.setPen(QPen(QColor("#555555"), 2))
+        painter.setBrush(QColor("#111111"))
+        painter.drawRoundedRect(panel, 30, 30)
+        painter.setPen(QColor("#f1f1f1"))
+        painter.drawText(
+            panel.adjusted(24, 14, -24, -14),
+            Qt.AlignTop | Qt.AlignLeft,
+            "HCD PLUS",
+        )
+        pot_area_x = panel.left() + round(panel.width() * 0.82)
+        for row in range(self._potentiometer_count):
+            center = QPointF(
+                pot_area_x,
+                panel.top() + round(panel.height() * (0.36 + row * 0.35)),
+            )
+            radius = max(28, round(min(panel.width(), panel.height()) * 0.075))
+            painter.setPen(QPen(QColor("#7a7a7a"), 3))
+            painter.setBrush(QColor("#252525"))
+            painter.drawEllipse(center, radius, radius)
+        painter.restore()
 
     def _map_point(self, point: QPointF, scale: float) -> QPointF:
         return QPointF(
@@ -121,7 +192,11 @@ class DevicePreview(QWidget):
         )
 
     def _paint_connection_led(self, painter: QPainter, scale: float) -> None:
-        center = self._map_point(self._CONNECTION_LED_CENTER, scale)
+        if self._model_identifier == "HCD-PLUS":
+            panel = self._plus_panel()
+            center = QPointF(panel.right() - 32, panel.top() + 32)
+        else:
+            center = self._map_point(self._CONNECTION_LED_CENTER, scale)
         painter.save()
         painter.setCompositionMode(QPainter.CompositionMode_Screen)
         painter.setPen(Qt.NoPen)
@@ -154,8 +229,13 @@ class DevicePreview(QWidget):
         painter.restore()
 
     def _paint_feedback_led(self, painter: QPainter, scale: float) -> None:
-        start = self._map_point(self._FEEDBACK_LED_START, scale)
-        end = self._map_point(self._FEEDBACK_LED_END, scale)
+        if self._model_identifier == "HCD-PLUS":
+            panel = self._plus_panel()
+            start = QPointF(panel.left() + panel.width() * 0.28, panel.bottom() - 18)
+            end = QPointF(panel.left() + panel.width() * 0.68, panel.bottom() - 18)
+        else:
+            start = self._map_point(self._FEEDBACK_LED_START, scale)
+            end = self._map_point(self._FEEDBACK_LED_END, scale)
         painter.save()
         painter.setCompositionMode(QPainter.CompositionMode_Screen)
         painter.setPen(Qt.NoPen)
@@ -192,14 +272,22 @@ class DevicePreview(QWidget):
         offset_y = (self.height() - scaled.height()) // 2
         self._scaled = scaled
         self._image_rect = QRect(offset_x, offset_y, scaled.width(), scaled.height())
+        self._layout_controls()
+        self.update()
 
-        scale = scaled.width() / self._SOURCE_WIDTH
+    def _layout_controls(self) -> None:
+        if not self.buttons:
+            return
+        if self._model_identifier == "HCD-PLUS":
+            self._layout_plus_controls()
+            return
+        scale = self._scaled.width() / self._SOURCE_WIDTH
         button_width = max(48, round(148 * scale))
         button_height = max(42, round(118 * scale))
         icon_size = max(20, round(62 * scale))
         for index, center in enumerate(self._KEY_CENTERS, start=1):
-            center_x = offset_x + round(center[0] * scale)
-            center_y = offset_y + round(center[1] * scale)
+            center_x = self._image_rect.left() + round(center[0] * scale)
+            center_y = self._image_rect.top() + round(center[1] * scale)
             button = self.buttons[str(index)]
             button.setIconSize(QSize(icon_size, icon_size))
             button.setGeometry(
@@ -211,4 +299,48 @@ class DevicePreview(QWidget):
                 )
             )
             button.raise_()
-        self.update()
+
+    def _layout_plus_controls(self) -> None:
+        panel = self._plus_panel()
+        keys_width = round(panel.width() * 0.72)
+        columns = 4
+        rows = max(1, (self._key_count + columns - 1) // columns)
+        cell_width = keys_width / columns
+        usable_height = panel.height() * 0.78
+        cell_height = usable_height / rows
+        button_width = max(54, round(cell_width * 0.72))
+        button_height = max(48, round(cell_height * 0.68))
+        icon_size = max(20, round(min(button_width, button_height) * 0.42))
+        for index in range(1, self._key_count + 1):
+            row = (index - 1) // columns
+            column = (index - 1) % columns
+            center_x = panel.left() + round((column + 0.5) * cell_width)
+            center_y = panel.top() + round(
+                panel.height() * 0.16 + (row + 0.5) * cell_height
+            )
+            button = self.buttons[str(index)]
+            button.setIconSize(QSize(icon_size, icon_size))
+            button.setGeometry(
+                center_x - button_width // 2,
+                center_y - button_height // 2,
+                button_width,
+                button_height,
+            )
+            button.raise_()
+
+        pot_x = panel.left() + round(panel.width() * 0.82)
+        for index in range(1, self._potentiometer_count + 1):
+            center_y = panel.top() + round(
+                panel.height() * (0.36 + (index - 1) * 0.35)
+            )
+            button = self.buttons[f"P{index}"]
+            button.setGeometry(pot_x - 44, center_y - 36, 88, 72)
+            button.raise_()
+
+    def _plus_panel(self) -> QRect:
+        return self.rect().adjusted(
+            max(20, self.width() // 18),
+            max(24, self.height() // 16),
+            -max(20, self.width() // 18),
+            -max(24, self.height() // 16),
+        )

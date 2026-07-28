@@ -57,6 +57,23 @@ def default_key_actions() -> dict[str, Action]:
     return {str(index): Action(label=f"Key {index}") for index in range(1, 10)}
 
 
+def control_identifiers(key_count: int, potentiometer_count: int = 0) -> tuple[str, ...]:
+    keys = tuple(str(index) for index in range(1, max(0, key_count) + 1))
+    potentiometers = tuple(
+        f"P{index}" for index in range(1, max(0, potentiometer_count) + 1)
+    )
+    return keys + potentiometers
+
+
+def default_control_action(identifier: str) -> Action:
+    label = (
+        f"Potentiometer {identifier[1:]} click"
+        if identifier.startswith("P")
+        else f"Key {identifier}"
+    )
+    return Action(label=label)
+
+
 @dataclass(slots=True)
 class Profile:
     name: str = "Default"
@@ -68,13 +85,28 @@ class Profile:
     def reset_keys(self) -> None:
         self.keys = default_key_actions()
 
+    def ensure_controls(self, key_count: int, potentiometer_count: int = 0) -> None:
+        for identifier in control_identifiers(key_count, potentiometer_count):
+            self.keys.setdefault(identifier, default_control_action(identifier))
+
+    def reset_controls(self, identifiers: tuple[str, ...]) -> None:
+        for identifier in identifiers:
+            self.keys[identifier] = default_control_action(identifier)
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Profile:
         profile = cls(name=str(data.get("name", "Default")))
         raw_keys = data.get("keys", {})
         if isinstance(raw_keys, dict):
             for key_id, value in raw_keys.items():
-                if key_id in profile.keys and isinstance(value, dict):
-                    profile.keys[key_id] = Action.from_dict(value)
+                identifier = str(key_id)
+                valid_key = identifier.isdigit() and 1 <= int(identifier) <= 64
+                valid_pot = (
+                    identifier.startswith("P")
+                    and identifier[1:].isdigit()
+                    and 1 <= int(identifier[1:]) <= 16
+                )
+                if (valid_key or valid_pot) and isinstance(value, dict):
+                    profile.keys[identifier] = Action.from_dict(value)
 
         return profile

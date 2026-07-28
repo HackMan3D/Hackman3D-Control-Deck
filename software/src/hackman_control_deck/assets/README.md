@@ -12,6 +12,7 @@ Run `scripts/build_app_icon.py` after changing the source logo.
 `hcd_tray.svg` is the compact HCD monogram used in the Windows notification
 area and the macOS menu bar.
 
-`firmware/` contains the branded HCD-BASE Intel HEX bundled with the desktop
-application. `tools/macos/` and `tools/windows/` contain the official Arduino
-AVRDUDE 8.0 binaries, configuration and licence used by the firmware manager.
+`firmware/` contains the branded HCD-BASE and HCD Plus Intel HEX images bundled
+with the desktop application. `tools/macos/` and `tools/windows/` contain the
+official Arduino AVRDUDE 8.0 binaries, configuration and licence used by the
+firmware manager.
