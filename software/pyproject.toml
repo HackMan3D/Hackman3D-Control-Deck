@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hackman3d-control-deck"
-version = "1.0.0"
+version = "1.1.0"
 description = "HackMan3D Control Deck desktop configuration app"
 requires-python = ">=3.11"
 dependencies = [
