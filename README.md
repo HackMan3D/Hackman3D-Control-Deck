@@ -46,7 +46,7 @@ actions from the editor.
 ## Hardware target
 
 - 9 MX switches in a 3 × 3 layout
-- 1 white PC-connection LED
+- 1 red PC-connection LED
 - 1 white key-feedback LED
 - Arduino Pro Micro (ATmega32U4, 5 V / 16 MHz)
 
@@ -56,6 +56,15 @@ more of the nine MX keys is held, but only while the desktop app is connected.
 
 The V1 deliberately has no rotary encoders. Pins D14 through D20 remain free for
 a possible V2.
+
+## Wiring
+
+![HackMan3D Control Deck V1 wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg)
+
+The nine switches use the Pro Micro's internal pull-ups and share a common
+ground. The connection LED and key-feedback light are switched by separate
+IRLB8721 MOSFETs. See the [complete wiring notes](docs/WIRING.md) before
+powering the controller.
 
 ## Support matters
 
@@ -245,9 +254,13 @@ and provides clean Start menu, optional desktop and uninstall entries.
 
 ## Firmware
 
-Open `firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` in Arduino IDE, select
-Arduino Leonardo (or the matching Pro Micro board definition), then upload.
-The firmware uses only the standard Arduino core.
+The desktop application contains the validated HCD-BASE firmware and flashes it
+directly from the **Firmware** manager. Arduino IDE is not required for normal
+installation or updates.
+
+The source sketch remains available in
+`firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` for firmware
+development. It uses only the standard Arduino core.
 
 `software/build_firmware.sh` produces the branded firmware bundled with the
 app. It sets the USB product to **HackMan3D Control Deck** and the manufacturer to

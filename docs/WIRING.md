@@ -1,11 +1,26 @@
 # Pro Micro wiring
 
+![HackMan3D Control Deck V1 wiring diagram](images/HCD_Wiring_Diagram_V1.svg)
+
+The diagram above is validated against `HCD_Config.h` from firmware 1.7.0.
+The original draft used sequential key numbers; the firmware deliberately
+reverses each physical row so the front-panel numbering matches the 3 × 3
+software preview.
+
 All switch inputs use the ATmega32U4 internal pull-ups. Connect each switch
 between its assigned pin and GND.
 
-| Function | Pro Micro pin |
+| Front-panel control | Pro Micro pin |
 | --- | --- |
-| Keys 1–9 | 2, 3, 4, 5, 6, 7, 8, 9, 10 |
+| Key 1 | D4 |
+| Key 2 | D3 |
+| Key 3 | D2 |
+| Key 4 | D7 |
+| Key 5 | D6 |
+| Key 6 | D5 |
+| Key 7 | D10 |
+| Key 8 | D9 |
+| Key 9 | D8 |
 | Connection MOSFET gate | 21 (A3) |
 | Key-feedback MOSFET gate | 1 (TX) |
 
@@ -15,14 +30,12 @@ expansion.
 Both lights are switched on the low side by separate logic-level N-channel
 MOSFETs. For each channel:
 
-1. Connect the Pro Micro output to the MOSFET gate through a 100–220 Ω resistor.
-2. Add a 10 kΩ resistor between gate and GND so the light remains off while the
-   Pro Micro starts.
-3. Connect the MOSFET source to GND.
-4. Connect the MOSFET drain to the LED cathode (negative side).
-5. Connect the LED anode to +5 V through its current-limiting resistor.
+1. Connect the Pro Micro output to the MOSFET gate through a 100 Ω resistor.
+2. Connect the MOSFET source to GND.
+3. Connect the MOSFET drain to the LED cathode (negative side).
+4. Connect the LED anode to +5 V through its current-limiting resistor.
 
-Each individual white LED still needs a suitable current-limiting resistor,
+Each individual bare LED still needs a suitable current-limiting resistor,
 typically 150–330 Ω at 5 V depending on its forward voltage and desired current.
 For a ready-made 5 V LED module or strip that already includes resistors, do not
 add a second series resistor. The LED supply and Pro Micro must share GND.
