@@ -146,8 +146,15 @@ docs/                                protocol and wiring notes
 
 ## Desktop app
 
-Python 3.11 or newer is recommended. The application supports Windows and
-macOS.
+The same PySide6 application runs on Windows and macOS. It detects the connected
+Control Deck, keeps its heartbeat active and provides one place to manage
+profiles, actions, diagnostics and firmware.
+
+### Run from source
+
+Python 3.11 or newer is recommended.
+
+**Windows**
 
 ```powershell
 cd software
@@ -157,87 +164,77 @@ python -m pip install -e .
 hackman3d-control-deck
 ```
 
-The app scans serial ports automatically. Profiles are stored in the user's
-application-data folder and can be edited from the right-hand action panel.
-Arduino and USB serial ports are prioritised during discovery, and unsuitable
-ports are skipped quickly. The red software indicator mirrors the physical
-connection light on the Control Deck.
-The monochrome links beside the HackMan logo open the official Creality Cloud,
-MakerWorld, TikTok, Instagram and YouTube pages, the contact email composer and
-the PayPal support page.
-A translated support banner explains that the project is shared free of charge
-and provides direct actions for sending feedback or supporting continued work.
-The app can check a release manifest in the background and offer the correct
-macOS or Windows download when a newer desktop version is available.
-The same manifest supplies the HCD Plus and HCD Pro roadmap percentages. Only
-the percentages are transmitted and displayed; no donation amount or financial
-target is stored by the application.
-The serial port is identified through the HCD protocol. The interface displays
-the product name reported by the firmware instead of the operating-system port
-such as `cu.usbmodem101`; `HCD-BASE` identifies the current hardware model and
-leaves room for future V2 or Pro variants.
-The firmware manager embeds HCD-BASE firmware 1.7.0 and the official AVRDUDE
-tool for macOS and Windows. It can safely update an identified Control Deck or,
-after an explicit warning, install HCD on a new 5 V / 16 MHz ATmega32U4
-Leonardo/Pro Micro. The application remains open throughout bootloader
-detection, upload and verification, then reconnects automatically.
-For keyboard actions, the editor offers common shortcuts while still accepting
-custom combinations. The shortcut list adapts to macOS or Windows and shows the
-purpose beside every key combination. System commands provide volume up/down,
-mute, play/pause, previous/next track and screen brightness controls. For launch
-actions on macOS, it lists the applications
-installed in the Applications folders and keeps the manual file picker available.
-Selecting an application fills its name automatically and displays its native
-icon directly over the matching key on the central 3D Control Deck preview.
-Clicking a key in the preview opens its editor. Profiles can be created,
-renamed and deleted from the sidebar; deletion always requires confirmation.
-Profiles can also be duplicated, exported as portable `.hcdprofile` files,
-imported on another computer, or included in a complete `.hcdbackup` archive.
-Applications can be dragged directly from Finder or Explorer onto a preview
-key to create a launch action and retrieve the native application icon.
-Each key has separate **Short press** and **Long press** editor tabs. Both tabs
-support their own single action and test button; the long-press tab also
-provides a configurable hold duration. Older sequence-based profiles are
-migrated by preserving the first short-press and long-press action.
-The preview's red connection LED follows the live heartbeat, and its white front
-bar remains illuminated while at least one physical key is held down.
-On macOS, volume up, volume down and mute use the native audio command and do
-not require Accessibility permission. Keyboard injection, brightness and media
-key events still require macOS Accessibility authorization.
-A live diagnostics window reports the HCD model, firmware, serial port,
-heartbeat, every available physical control, both LED states and the two live
-potentiometer values on HCD Plus.
-When an older compatible HCD firmware is detected, the application offers to
-open the integrated firmware manager and install the included update.
-Changing the action type clears the previous editor values to avoid mixing two
-configurations. A centered button below the 3D preview resets all nine key
-assignments in the current profile after confirmation.
-The editor reports duplicate short-press or long-press assignments in the
-current profile. Optional local-only statistics count short and long key uses
-without storing action values, typed text, URLs or application names.
-The macOS permissions assistant reports Accessibility status and opens the
-correct System Settings page.
-The minimum white feedback LED duration is adjustable from 0 to 2000 ms. The
-setting is sent automatically to HCD-BASE firmware 1.7.0 at every connection.
-The language selector in the profile sidebar updates the interface immediately
-and supports English, French, Italian, Spanish, Portuguese, Chinese, German,
-Hindi, Arabic, Bengali, Indonesian, Russian, Japanese, Korean, Turkish,
-Vietnamese and Thai. Arabic automatically switches the interface to a
-right-to-left layout.
-On Windows, the **Run in background** button hides the window while keeping the
-serial heartbeat and configured actions active. Use the notification-area icon
-to reopen or fully quit the app.
+**macOS**
 
-On macOS, the yellow minimize button sends HCD directly to the menu bar. The
-Dock icon disappears while HCD runs in the background; the menu-bar icon reopens
-the window and restores its Dock icon. HCD intercepts the native yellow button
-before AppKit starts miniaturizing, so no blank or separate window thumbnail is
-created in the Dock.
-If the user pins HCD with **Keep in Dock**, clicking that launcher restores the
-existing interface instead of creating a blank window.
-**Start with Mac** installs a per-user
-login agent. **Start minimized in menu bar** separately controls whether HCD
-opens its window or starts directly in the macOS menu bar.
+```bash
+cd software
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+hackman3d-control-deck
+```
+
+### Profiles and actions
+
+- Create, rename, duplicate and delete profiles.
+- Import or export a portable `.hcdprofile`, or create a complete
+  `.hcdbackup` archive.
+- Configure separate **Short press** and **Long press** actions for every key.
+- Assign keyboard shortcuts, text, websites, applications and system commands
+  such as volume, media playback and screen brightness.
+- Test an action before saving it and detect conflicting assignments.
+- Drag an application from Finder or Explorer directly onto a key. Its name and
+  native icon are added automatically.
+- Reset all key assignments in the current profile with one confirmation.
+
+The shortcut catalogue adapts to Windows or macOS and shows the purpose of each
+combination. Custom key combinations remain available when a preset is not
+listed.
+
+### Device, firmware and diagnostics
+
+- Automatic serial discovery prioritises compatible Arduino and USB devices.
+- The app displays the model reported by the firmware, such as `HCD-BASE`,
+  instead of a system port name such as `cu.usbmodem101`.
+- The integrated firmware manager installs or updates HCD-BASE and HCD Plus
+  without Arduino IDE.
+- Compatible firmware updates are detected automatically and offered through a
+  pop-up.
+- The diagnostics page displays the model, firmware version, serial port,
+  heartbeat, physical controls, LED states and HCD Plus potentiometer values.
+- The 3D preview mirrors the red connection LED and the white key-feedback
+  light in real time.
+
+The firmware manager includes the required AVRDUDE tools for Windows and macOS.
+It can update an identified deck or, after a warning, program a compatible
+5 V / 16 MHz ATmega32U4 Leonardo or Pro Micro.
+
+### Interface and personalisation
+
+- The minimum white feedback-light duration is adjustable from 0 to 2000 ms.
+- Optional local statistics count short and long presses without recording
+  shortcuts, text, URLs or application names.
+- Social, feedback and PayPal buttons are available beside the HackMan3D logo.
+- The update feed supplies desktop update notifications and the HCD Plus/Pro
+  roadmap percentages. It never stores or displays donation amounts.
+- The interface supports English, French, Italian, Spanish, Portuguese,
+  Chinese, German, Hindi, Arabic, Bengali, Indonesian, Russian, Japanese,
+  Korean, Turkish, Vietnamese and Thai. Arabic uses a right-to-left layout.
+
+### Background operation
+
+**Windows:** **Run in background** hides the window while keeping the heartbeat
+and configured actions active. The notification-area icon reopens or quits the
+application.
+
+**macOS:** the yellow minimize button sends HCD to the menu bar without creating
+a blank Dock window. The menu-bar icon restores the existing interface.
+**Keep in Dock**, **Start with Mac** and **Start minimized in menu bar** can be
+configured independently.
+
+Native macOS volume controls do not require Accessibility permission. Keyboard
+injection, brightness and media-key actions do; the built-in permissions
+assistant checks their status and opens the correct System Settings page.
 
 ### Release feed
 
