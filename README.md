@@ -12,13 +12,39 @@ HackMan3D Control Deck (HCD) is a programmable desktop controller built around a
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
-## Download version 1.1.0
+## Download the app — version 1.1.0
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
 - [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-macOS-1.1.0.dmg)
 - [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe)
+
+## Quick start — recommended
+
+You do not need Python, Arduino IDE or a manual AVRDUDE installation to build a
+working HackMan3D Control Deck.
+
+1. Assemble the controller using the
+   [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
+   [wiring notes](docs/WIRING.md).
+2. Download and install the HCD application for
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-macOS-1.1.0.dmg)
+   or
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe).
+3. Connect the compatible Arduino Pro Micro to the computer by USB.
+4. Open **Firmware** in the application, select the model you built and click
+   **Install firmware**.
+5. Wait for the upload and automatic reconnection, then assign actions to the
+   keys from the 3D editor.
+
+The application contains the official HCD firmware and flashing tools. Once the
+installation is complete, keep the app running in the background so it can
+maintain the heartbeat and execute the configured actions.
+
+> **For developers:** compiling the desktop app or firmware from source is
+> optional. The build instructions later in this README are only needed to
+> modify or contribute to the project.
 
 ## Interface
 
