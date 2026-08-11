@@ -335,10 +335,26 @@ class MainWindow(QMainWindow):
             self.resize(1460, 880)
             return
         available = screen.availableGeometry()
-        width = min(1500, max(1080, available.width() - 40))
+        # Use the available desktop width instead of capping the window at
+        # 1500 px.  The previous cap needlessly compressed the editor on common
+        # 1080p and high-DPI Windows desktops, making its right edge look cut.
+        width = max(1080, available.width() - 40)
         height = min(920, max(700, available.height() - 40))
         self.setMinimumSize(min(1120, width), min(720, height))
         self.resize(width, height)
+        QTimer.singleShot(0, self._set_initial_body_sizes)
+
+    def _set_initial_body_sizes(self) -> None:
+        if not hasattr(self, "_body_splitter"):
+            return
+        saved = self._settings.value("ui/bodySplitter", QByteArray())
+        if isinstance(saved, QByteArray) and not saved.isEmpty():
+            return
+        available = max(0, self._body_splitter.width())
+        sidebar_width = min(240, max(210, round(available * 0.16)))
+        editor_width = min(410, max(340, round(available * 0.23)))
+        device_width = max(360, available - sidebar_width - editor_width)
+        self._body_splitter.setSizes([sidebar_width, device_width, editor_width])
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -362,8 +378,6 @@ class MainWindow(QMainWindow):
         saved_splitter = self._settings.value("ui/bodySplitter", QByteArray())
         if isinstance(saved_splitter, QByteArray) and not saved_splitter.isEmpty():
             self._body_splitter.restoreState(saved_splitter)
-        else:
-            self._body_splitter.setSizes([240, 850, 340])
         self._body_splitter.splitterMoved.connect(
             lambda position, index: self._settings.setValue(
                 "ui/bodySplitter", self._body_splitter.saveState()
@@ -526,7 +540,7 @@ class MainWindow(QMainWindow):
 
     def _build_sidebar(self) -> QWidget:
         frame = QFrame(objectName="sidebar")
-        frame.setMinimumWidth(190)
+        frame.setMinimumWidth(205)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_scroll = QScrollArea()
@@ -657,7 +671,7 @@ class MainWindow(QMainWindow):
 
     def _build_editor(self) -> QWidget:
         frame = QFrame(objectName="editor")
-        frame.setMinimumWidth(275)
+        frame.setMinimumWidth(300)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
