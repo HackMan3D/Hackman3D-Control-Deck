@@ -11,7 +11,8 @@ separated with `|`.
 | `HCD_PING` | Heartbeat, sent once per second |
 | `HCD_GET_INFO` | Request product and firmware information |
 | `HCD_PRO_LABEL|1|V29ya3NwYWNl` | Set a Pro touch-key label; the last field is Base64 UTF-8 |
-| `HCD_PRO_DISPLAY|1|1|1` | Set Pro icon size (0–3), label visibility (0/1), and key style (0–2) |
+| `HCD_PRO_DISPLAY|1|0|0|0|1` | Set Pro icon size (0–3), reserved label/style fields, second-fader state, and slider mode |
+| `HCD_PRO_COLORS|080808|171717|404040|FFFFFF|F02020` | Set the Pro screen, key, outline, header, and connection-LED RGB colors |
 
 ## Device to app
 

@@ -1,6 +1,18 @@
 # HackMan3D Control Deck 1.4.11
 
-This maintenance update fixes community roadmap refreshes.
+This update improves the Windows editor and HCD Pro display workflow while
+also fixing community roadmap refreshes.
+
+- The profiles, preview and action columns can be resized with two draggable
+  separators. Their positions are saved for the next launch.
+- Actions save automatically after selection or editing; the separate Save
+  button is no longer required.
+- HCD Pro icon conversion is now performed natively, unchanged layouts are not
+  recalculated, and overlapping display uploads are discarded. Full 28-icon
+  transfers are also substantially faster.
+- HCD Pro firmware 1.2.37 adds customizable screen, key, outline, header and
+  connection LED colors. The app provides presets and a complete color picker.
+- The desktop preview mirrors the selected Pro colors.
 
 - The public roadmap percentage is fetched at every application launch instead
   of reusing a six-hour-old value from local settings.

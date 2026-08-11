@@ -6,6 +6,14 @@ QWidget {
     font-size: 10pt;
 }
 QMainWindow { background: #050505; }
+QSplitter#bodySplitter { background: transparent; }
+QSplitter#bodySplitter::handle {
+    background: #242424;
+    border-radius: 3px;
+    margin: 12px 2px;
+}
+QSplitter#bodySplitter::handle:hover,
+QSplitter#bodySplitter::handle:pressed { background: #f4f4f4; }
 QLabel, QCheckBox { background: transparent; }
 QFrame#topBar, QFrame#sidebar, QFrame#editor, QFrame#devicePanel, QFrame#supportBanner, QFrame#roadmapBanner {
     background: #101010;

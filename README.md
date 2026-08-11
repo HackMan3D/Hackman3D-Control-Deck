@@ -213,7 +213,8 @@ hackman3d-control-deck
 - Configure separate **Short press** and **Long press** actions for every key.
 - Assign keyboard shortcuts, text, websites, applications and system commands
   such as volume, media playback and screen brightness.
-- Test an action before saving it and detect conflicting assignments.
+- Actions are saved automatically as they are selected or edited.
+- Test an action directly in the editor and detect conflicting assignments.
 - Drag an application from Finder or Explorer directly onto a key. Its name and
   native icon are added automatically.
 - Reset all key assignments in the current profile with one confirmation.
@@ -244,6 +245,12 @@ It can update an identified deck or, after a warning, program a compatible
 
 ### Interface and personalisation
 
+- Drag the two vertical separators to resize the profiles, preview and action
+  columns. Their positions are restored at the next launch.
+- HCD Pro colors can be selected from ready-made palettes or a full color
+  picker for the screen, keys, outlines, header and connection LED.
+- HCD Pro icon conversion and synchronization are cached, coalesced and paced
+  to keep the Windows editor responsive and avoid overlapping display updates.
 - The minimum white feedback-light duration is adjustable from 0 to 2000 ms.
 - Optional local statistics count short and long presses without recording
   shortcuts, text, URLs or application names.

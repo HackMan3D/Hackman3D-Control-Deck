@@ -6,7 +6,7 @@
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "The community roadmap gauge now refreshes at every application launch and automatically while the application remains open.",
+  "release_notes": "Resizable editor columns, automatic action saving, faster HCD Pro synchronization, customizable display colors, and a roadmap gauge that refreshes at every launch.",
   "roadmap": {
     "progress": 4.0
   }

@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QApplication,
     QCheckBox,
+    QColorDialog,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -55,6 +56,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QSpinBox,
     QSizePolicy,
     QSpacerItem,
@@ -104,6 +106,31 @@ from .release_feed import ReleaseFeedClient, ReleaseFeedData
 from .statistics import StatisticsStore
 from .statistics_dialog import StatisticsDialog
 from .translations import LANGUAGES, translate
+
+
+PRO_COLOR_PRESETS = {
+    "classic": {
+        "screen": "#080808",
+        "key": "#171717",
+        "border": "#404040",
+        "header": "#FFFFFF",
+        "led": "#F02020",
+    },
+    "graphite": {
+        "screen": "#161616",
+        "key": "#282828",
+        "border": "#8A8A8A",
+        "header": "#F4F4F4",
+        "led": "#FF453A",
+    },
+    "electric_blue": {
+        "screen": "#06101D",
+        "key": "#10263D",
+        "border": "#3A9DFF",
+        "header": "#DCEEFF",
+        "led": "#2F9BFF",
+    },
+}
 
 ACTION_TRANSLATION_KEYS = {
     "none": "no_action",
@@ -222,7 +249,15 @@ class MainWindow(QMainWindow):
         # HCD Pro uses icons only. Text labels caused unnecessary full-screen
         # redraws on the RGB panel and made the 7x4 layout less readable.
         self._settings.remove("pro/showLabels")
-        self._pro_theme = max(0, min(2, self._settings.value("pro/theme", 1, type=int)))
+        self._pro_theme = 0
+        self._settings.remove("pro/theme")
+        self._pro_colors = {
+            name: self._normalized_color(
+                self._settings.value(f"pro/color/{name}", default, type=str),
+                default,
+            )
+            for name, default in PRO_COLOR_PRESETS["classic"].items()
+        }
         self._pro_slider_mode = self._settings.value("pro/sliderMode", "volume", type=str)
         if self._pro_slider_mode not in {"off", "volume", "brightness"}:
             self._pro_slider_mode = "volume"
@@ -255,6 +290,15 @@ class MainWindow(QMainWindow):
         self._key_pressed_at: dict[str, float] = {}
         self._has_activity = False
         self._loading_action = False
+        self._last_pro_layout_fingerprint = ""
+        self._action_save_timer = QTimer(self)
+        self._action_save_timer.setSingleShot(True)
+        self._action_save_timer.setInterval(450)
+        self._action_save_timer.timeout.connect(lambda: self._save_action(False))
+        self._pro_sync_timer = QTimer(self)
+        self._pro_sync_timer.setSingleShot(True)
+        self._pro_sync_timer.setInterval(700)
+        self._pro_sync_timer.timeout.connect(self._sync_pro_labels)
         self._custom_icon_data = ""
         self._icon_source = ""
         self._favicon_pool = QThreadPool(self)
@@ -274,6 +318,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._device_preview.set_pro_second_fader(self._pro_second_fader)
+        self._device_preview.set_pro_colors(self._pro_colors)
         self._resize_for_screen()
         self._build_tray()
         self._connect_signals()
@@ -304,12 +349,27 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_support_banner())
         root_layout.addWidget(self._build_roadmap())
 
-        body = QHBoxLayout()
-        body.setSpacing(10)
-        body.addWidget(self._build_sidebar(), 0)
-        body.addWidget(self._build_device_panel(), 1)
-        body.addWidget(self._build_editor(), 0)
-        root_layout.addLayout(body, 1)
+        self._body_splitter = QSplitter(Qt.Horizontal)
+        self._body_splitter.setObjectName("bodySplitter")
+        self._body_splitter.setChildrenCollapsible(False)
+        self._body_splitter.setHandleWidth(8)
+        self._body_splitter.addWidget(self._build_sidebar())
+        self._body_splitter.addWidget(self._build_device_panel())
+        self._body_splitter.addWidget(self._build_editor())
+        self._body_splitter.setStretchFactor(0, 0)
+        self._body_splitter.setStretchFactor(1, 1)
+        self._body_splitter.setStretchFactor(2, 0)
+        saved_splitter = self._settings.value("ui/bodySplitter", QByteArray())
+        if isinstance(saved_splitter, QByteArray) and not saved_splitter.isEmpty():
+            self._body_splitter.restoreState(saved_splitter)
+        else:
+            self._body_splitter.setSizes([240, 850, 340])
+        self._body_splitter.splitterMoved.connect(
+            lambda position, index: self._settings.setValue(
+                "ui/bodySplitter", self._body_splitter.saveState()
+            )
+        )
+        root_layout.addWidget(self._body_splitter, 1)
         self._credit_label = QLabel(
             "Created, designed and developed by HackMan3D", objectName="subtitle"
         )
@@ -466,8 +526,7 @@ class MainWindow(QMainWindow):
 
     def _build_sidebar(self) -> QWidget:
         frame = QFrame(objectName="sidebar")
-        frame.setMinimumWidth(225)
-        frame.setMaximumWidth(250)
+        frame.setMinimumWidth(190)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_scroll = QScrollArea()
@@ -598,8 +657,7 @@ class MainWindow(QMainWindow):
 
     def _build_editor(self) -> QWidget:
         frame = QFrame(objectName="editor")
-        frame.setMinimumWidth(325)
-        frame.setMaximumWidth(350)
+        frame.setMinimumWidth(275)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
@@ -623,6 +681,7 @@ class MainWindow(QMainWindow):
         short_layout.addWidget(self._display_name_label)
         self._label_edit = QLineEdit()
         self._label_edit.setEnabled(False)
+        self._label_edit.textChanged.connect(self._schedule_action_save)
         short_layout.addWidget(self._label_edit)
         self._action_type_label = QLabel("Action type")
         short_layout.addWidget(self._action_type_label)
@@ -636,6 +695,7 @@ class MainWindow(QMainWindow):
         short_layout.addWidget(self._value_caption)
         self._value_edit = QLineEdit()
         self._value_edit.setEnabled(False)
+        self._value_edit.textChanged.connect(self._schedule_action_save)
         short_layout.addWidget(self._value_edit)
         self._preset_combo = QComboBox()
         self._preset_combo.setIconSize(QSize(30, 30))
@@ -664,6 +724,7 @@ class MainWindow(QMainWindow):
         long_layout.addWidget(self._long_display_name_label)
         self._long_label_edit = QLineEdit()
         self._long_label_edit.setEnabled(False)
+        self._long_label_edit.textChanged.connect(self._schedule_action_save)
         long_layout.addWidget(self._long_label_edit)
         self._long_action_type_label = QLabel("Action type")
         long_layout.addWidget(self._long_action_type_label)
@@ -677,6 +738,7 @@ class MainWindow(QMainWindow):
         long_layout.addWidget(self._long_value_caption)
         self._long_value_edit = QLineEdit()
         self._long_value_edit.setEnabled(False)
+        self._long_value_edit.textChanged.connect(self._schedule_action_save)
         long_layout.addWidget(self._long_value_edit)
         self._long_preset_combo = QComboBox()
         self._long_preset_combo.setIconSize(QSize(30, 30))
@@ -696,6 +758,7 @@ class MainWindow(QMainWindow):
         self._long_press_delay.setSuffix(" ms")
         self._long_press_delay.setValue(650)
         self._long_press_delay.setEnabled(False)
+        self._long_press_delay.valueChanged.connect(self._schedule_action_save)
         self._long_press_delay_label = QLabel("Long press duration")
         long_layout.addWidget(self._long_press_delay_label)
         long_layout.addWidget(self._long_press_delay)
@@ -705,8 +768,8 @@ class MainWindow(QMainWindow):
         self._press_tabs.addTab(long_tab, "Long press")
         layout.addWidget(self._press_tabs, 1)
         self._save_action_button = QPushButton("Save actions", objectName="accent")
-        self._save_action_button.clicked.connect(self._save_action)
-        layout.addWidget(self._save_action_button)
+        self._save_action_button.clicked.connect(lambda: self._save_action(True))
+        self._save_action_button.setVisible(False)
         layout.addSpacerItem(QSpacerItem(1, 1, QSizePolicy.Minimum, QSizePolicy.Expanding))
         self._shortcut_hint = QLabel(
             "Shortcuts use + separators, for example CTRL+SHIFT+S. "
@@ -740,6 +803,11 @@ class MainWindow(QMainWindow):
 
     def _text(self, key: str, **values: object) -> str:
         return translate(self._language, key, **values)
+
+    @staticmethod
+    def _normalized_color(value: str, fallback: str = "#000000") -> str:
+        color = QColor(str(value))
+        return color.name(QColor.NameFormat.HexRgb).upper() if color.isValid() else fallback
 
     def _change_language(self, index: int = -1) -> None:
         del index
@@ -961,6 +1029,7 @@ class MainWindow(QMainWindow):
         self._profile = self._store.load(name)
         self._profile_name.setText(self._profile.name)
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
         if self._selection:
             self._show_action(self._selection)
         self._refresh_website_icons()
@@ -1163,6 +1232,7 @@ class MainWindow(QMainWindow):
             self._custom_icon_data = ""
             self._icon_source = ""
         self._update_value_hint()
+        self._schedule_action_save()
 
     def _long_action_type_changed(self, index: int = -1) -> None:
         del index
@@ -1171,6 +1241,13 @@ class MainWindow(QMainWindow):
             self._long_value_edit.clear()
             self._long_preset_value = ""
         self._update_long_value_hint()
+        self._schedule_action_save()
+
+    def _schedule_action_save(self, *unused: object) -> None:
+        del unused
+        if self._loading_action or not self._selection:
+            return
+        self._action_save_timer.start()
 
     def _reset_all_keys(self) -> None:
         control_count = len(self._control_buttons)
@@ -1196,6 +1273,7 @@ class MainWindow(QMainWindow):
         self._profile.reset_controls(tuple(self._control_buttons))
         self._store.save(self._profile)
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
         if self._selection:
             self._show_action(self._selection)
         self._has_activity = False
@@ -1205,7 +1283,7 @@ class MainWindow(QMainWindow):
             2500,
         )
 
-    def _save_action(self) -> None:
+    def _save_action(self, show_status: bool = True) -> None:
         if not self._selection:
             return
         primary = self._editor_action()
@@ -1229,7 +1307,10 @@ class MainWindow(QMainWindow):
         self._profile.keys[self._selection] = action
         self._store.save(self._profile)
         self._refresh_control_labels()
-        self.statusBar().showMessage(self._text("saved", name=action.label), 2500)
+        if hasattr(self, "_schedule_pro_sync"):
+            self._schedule_pro_sync()
+        if show_status:
+            self.statusBar().showMessage(self._text("saved", name=action.label), 2500)
 
     def _editor_action(self) -> Action:
         if not self._selection:
@@ -1318,12 +1399,41 @@ class MainWindow(QMainWindow):
                 f"{full_label}\n{action.value}" if action.type == "launch" else full_label
             )
         self._refresh_conflicts()
-        self._sync_pro_labels()
+
+    def _schedule_pro_sync(self, force: bool = False) -> None:
+        if force:
+            self._last_pro_layout_fingerprint = ""
+        self._pro_sync_timer.start()
 
     def _sync_pro_labels(self) -> None:
         info = self._device_info_data
         if info is None or info.model_identifier != "HCD-PRO":
             return
+        fingerprint = repr(
+            (
+                self._profile.name,
+                self._pro_icon_size,
+                self._pro_icon_shape,
+                tuple(sorted(self._pro_colors.items())),
+                self._pro_second_fader,
+                self._pro_slider_mode,
+                tuple(
+                    (
+                        index,
+                        action.type,
+                        action.value,
+                        action.label,
+                        action.icon_data,
+                        action.icon_source,
+                    )
+                    for index in range(1, info.key_count + 1)
+                    for action in (self._action_for(str(index)),)
+                ),
+            )
+        )
+        if fingerprint == self._last_pro_layout_fingerprint:
+            return
+        self._last_pro_layout_fingerprint = fingerprint
         labels = {
             str(index): self._action_for(str(index)).label or f"Key {index}"
             for index in range(1, info.key_count + 1)
@@ -1343,12 +1453,12 @@ class MainWindow(QMainWindow):
             self._pro_theme,
             self._pro_second_fader,
             self._pro_slider_mode,
+            self._pro_colors,
         )
 
     def _pro_icon_data(self, icon: QIcon) -> bytes:
         image = QImage(64, 64, QImage.Format.Format_RGB32)
-        key_backgrounds = ("#171717", "#202020", "#050505")
-        image.fill(QColor(key_backgrounds[self._pro_theme]))
+        image.fill(QColor(self._pro_colors["key"]))
         source = icon.pixmap(QSize(128, 128)).toImage()
         source.setDevicePixelRatio(1.0)
         source = source.scaled(
@@ -1360,19 +1470,11 @@ class MainWindow(QMainWindow):
         painter.drawImage((64 - source.width()) // 2, (64 - source.height()) // 2, source)
         painter.end()
 
-        data = bytearray(64 * 64 * 2)
-        position = 0
-        for y in range(64):
-            for x in range(64):
-                pixel = image.pixel(x, y)
-                red = (pixel >> 16) & 0xFF
-                green = (pixel >> 8) & 0xFF
-                blue = pixel & 0xFF
-                rgb565 = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3)
-                data[position] = rgb565 & 0xFF
-                data[position + 1] = rgb565 >> 8
-                position += 2
-        return bytes(data)
+        # Qt performs the RGB565 conversion in native code. The previous
+        # per-pixel Python loop was especially expensive on packaged Windows
+        # builds and briefly froze the whole editor for a complete Pro layout.
+        rgb565 = image.convertToFormat(QImage.Format.Format_RGB16)
+        return bytes(rgb565.constBits()[: rgb565.sizeInBytes()])
 
     def _refresh_conflicts(self) -> None:
         conflicts = find_action_conflicts(self._profile)
@@ -1617,6 +1719,7 @@ class MainWindow(QMainWindow):
         self._store.save(self._profile)
         self._select(identifier)
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
         self.statusBar().showMessage(
             self._text("application_assigned", name=application.stem, key=identifier), 2500
         )
@@ -1802,10 +1905,12 @@ class MainWindow(QMainWindow):
             return
         self._custom_icon_data = self._encode_icon(icon)
         self._icon_source = "custom"
+        self._schedule_action_save()
 
     def _clear_custom_icon(self) -> None:
         self._custom_icon_data = ""
         self._icon_source = ""
+        self._schedule_action_save()
 
     @staticmethod
     def _encode_icon(icon: QIcon) -> str:
@@ -1865,6 +1970,7 @@ class MainWindow(QMainWindow):
         action.icon_source = "auto"
         self._store.save(self._profile)
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
         if self._selection == identifier:
             self._custom_icon_data = refreshed
             self._icon_source = "auto"
@@ -2146,12 +2252,66 @@ $result | ConvertTo-Json -Compress
         icon_shape.setCurrentIndex(max(0, icon_shape.findData(self._pro_icon_shape)))
         form_layout.addWidget(icon_shape)
 
-        form_layout.addWidget(QLabel(self._text("key_style")))
-        theme = QComboBox()
-        for key in ("minimal", "mechanical_keyboard", "high_contrast"):
-            theme.addItem(self._text(key))
-        theme.setCurrentIndex(self._pro_theme)
-        form_layout.addWidget(theme)
+        form_layout.addWidget(QLabel(self._text("color_preset")))
+        color_preset = QComboBox()
+        color_preset.addItem(self._text("color_classic"), "classic")
+        color_preset.addItem(self._text("color_graphite"), "graphite")
+        color_preset.addItem(self._text("color_electric_blue"), "electric_blue")
+        color_preset.addItem(self._text("color_custom"), "custom")
+        selected_colors = dict(self._pro_colors)
+        selected_preset = next(
+            (
+                name
+                for name, colors in PRO_COLOR_PRESETS.items()
+                if colors == selected_colors
+            ),
+            "custom",
+        )
+        color_preset.setCurrentIndex(color_preset.findData(selected_preset))
+        form_layout.addWidget(color_preset)
+
+        color_buttons: dict[str, QPushButton] = {}
+
+        def refresh_color_buttons() -> None:
+            for name, button in color_buttons.items():
+                color = selected_colors[name]
+                foreground = "#080808" if QColor(color).lightness() > 145 else "#FFFFFF"
+                button.setText(color)
+                button.setStyleSheet(
+                    f"background:{color};color:{foreground};border:1px solid #777777;"
+                )
+
+        def choose_color(name: str) -> None:
+            chosen = QColorDialog.getColor(
+                QColor(selected_colors[name]),
+                dialog,
+                self._text(f"color_{name}"),
+                QColorDialog.ColorDialogOption.ShowAlphaChannel,
+            )
+            if not chosen.isValid():
+                return
+            selected_colors[name] = chosen.name(QColor.NameFormat.HexRgb).upper()
+            color_preset.setCurrentIndex(color_preset.findData("custom"))
+            refresh_color_buttons()
+
+        for name in ("screen", "key", "border", "header", "led"):
+            row = QHBoxLayout()
+            row.addWidget(QLabel(self._text(f"color_{name}")), 1)
+            button = QPushButton()
+            button.setMinimumWidth(120)
+            button.clicked.connect(lambda checked=False, item=name: choose_color(item))
+            color_buttons[name] = button
+            row.addWidget(button)
+            form_layout.addLayout(row)
+
+        def apply_color_preset(index: int) -> None:
+            preset = str(color_preset.itemData(index))
+            if preset in PRO_COLOR_PRESETS:
+                selected_colors.update(PRO_COLOR_PRESETS[preset])
+                refresh_color_buttons()
+
+        color_preset.currentIndexChanged.connect(apply_color_preset)
+        refresh_color_buttons()
 
         form_layout.addWidget(QLabel(self._text("vertical_fader")))
         slider_mode = QComboBox()
@@ -2186,7 +2346,7 @@ $result | ConvertTo-Json -Compress
             return
         self._set_pro_icon_size(icon_size.currentIndex())
         self._set_pro_icon_shape(str(icon_shape.currentData() or "original"))
-        self._set_pro_theme(theme.currentIndex())
+        self._set_pro_colors(selected_colors)
         self._set_pro_slider_mode_value(str(slider_mode.currentData() or "off"))
         self._set_pro_second_fader(second_fader.isChecked())
         self._set_feedback_hold_ms(feedback_hold.value())
@@ -2194,7 +2354,7 @@ $result | ConvertTo-Json -Compress
     def _set_pro_icon_size(self, index: int) -> None:
         self._pro_icon_size = max(0, min(3, index))
         self._settings.setValue("pro/iconSize", self._pro_icon_size)
-        self._sync_pro_labels()
+        self._schedule_pro_sync(force=True)
 
     def _set_pro_icon_shape(self, shape: str) -> None:
         self._pro_icon_shape = (
@@ -2202,23 +2362,30 @@ $result | ConvertTo-Json -Compress
         )
         self._settings.setValue("pro/iconShape", self._pro_icon_shape)
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
 
-    def _set_pro_theme(self, index: int) -> None:
-        self._pro_theme = max(0, min(2, index))
-        self._settings.setValue("pro/theme", self._pro_theme)
-        self._sync_pro_labels()
+    def _set_pro_colors(self, colors: dict[str, str]) -> None:
+        defaults = PRO_COLOR_PRESETS["classic"]
+        self._pro_colors = {
+            name: self._normalized_color(colors.get(name, default), default)
+            for name, default in defaults.items()
+        }
+        for name, color in self._pro_colors.items():
+            self._settings.setValue(f"pro/color/{name}", color)
+        self._device_preview.set_pro_colors(self._pro_colors)
+        self._schedule_pro_sync(force=True)
 
     def _set_pro_slider_mode_value(self, mode: str) -> None:
         self._pro_slider_mode = mode if mode in {"off", "volume", "brightness"} else "off"
         self._settings.setValue("pro/sliderMode", self._pro_slider_mode)
-        self._sync_pro_labels()
+        self._schedule_pro_sync(force=True)
         QTimer.singleShot(0, self._sync_pro_slider_from_system)
 
     def _set_pro_second_fader(self, enabled: bool) -> None:
         self._pro_second_fader = bool(enabled)
         self._settings.setValue("pro/secondFader", self._pro_second_fader)
         self._device_preview.set_pro_second_fader(self._pro_second_fader)
-        self._sync_pro_labels()
+        self._schedule_pro_sync(force=True)
         QTimer.singleShot(0, self._sync_pro_slider_from_system)
 
     def _apply_pro_slider_value(self) -> None:
@@ -2319,6 +2486,7 @@ $result | ConvertTo-Json -Compress
         self._device_title.setText(info.product)
         self._selection = None
         self._refresh_control_labels()
+        self._schedule_pro_sync(force=True)
         self._reset_keys_button.setText(
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )

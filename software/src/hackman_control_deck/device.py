@@ -84,10 +84,12 @@ class HcdDeviceManager(QObject):
         self._pro_icon_signatures: dict[str, int | None] = {}
         self._pro_label_values: dict[str, str] = {}
         self._pro_display_state: tuple[int, bool, int, bool, int] | None = None
+        self._pro_color_state: tuple[str, str, str, str, str] | None = None
         self._pro_upload_queue: deque[str] = deque()
         self._pro_upload_timer = QTimer(self)
-        # Keep icon transfers below the RGB display's memory-bandwidth peaks.
-        self._pro_upload_timer.setInterval(30)
+        # TCP flow control protects the receiver; a short paced interval keeps
+        # the desktop responsive while cutting a full 28-icon sync to seconds.
+        self._pro_upload_timer.setInterval(12)
         self._pro_upload_timer.timeout.connect(self._send_next_pro_upload)
 
     @property
@@ -137,8 +139,14 @@ class HcdDeviceManager(QObject):
         theme: int = 1,
         second_fader: bool = False,
         slider_mode: str = "volume",
+        colors: dict[str, str] | None = None,
     ) -> None:
         if not self._connected or self._transport != "wifi":
+            return
+        # A cache commit restarts the ESP32. Do not append or interleave a
+        # second snapshot behind one already being transferred: the newest
+        # state is sent after reconnect and the fresh HCD_INFO response.
+        if self._pro_upload_timer.isActive() or self._pro_upload_queue:
             return
         slider_mode_id = {"off": 0, "volume": 1, "brightness": 2}.get(slider_mode, 0)
         display_state = (
@@ -154,6 +162,21 @@ class HcdDeviceManager(QObject):
                 f"{display_state[2]}|{int(display_state[3])}|{display_state[4]}"
             )
             self._pro_display_state = display_state
+        if colors:
+            values = [
+                str(colors.get(name, fallback)).lstrip("#").upper()
+                for name, fallback in (
+                    ("screen", "080808"),
+                    ("key", "171717"),
+                    ("border", "404040"),
+                    ("header", "FFFFFF"),
+                    ("led", "F02020"),
+                )
+            ]
+            color_state = tuple(values)
+            if getattr(self, "_pro_color_state", None) != color_state:
+                self._write_line("HCD_PRO_COLORS|" + "|".join(values))
+                self._pro_color_state = color_state
         icons_changed = False
         for identifier in labels:
             if not identifier.isdigit():
@@ -171,8 +194,8 @@ class HcdDeviceManager(QObject):
                 self._pro_upload_queue.append(
                     f"HCD_PRO_ICON_BEGIN|{identifier}|{len(icon)}|{signature:08x}"
                 )
-                for offset in range(0, len(icon), 240):
-                    chunk = base64.b64encode(icon[offset : offset + 240]).decode("ascii")
+                for offset in range(0, len(icon), 336):
+                    chunk = base64.b64encode(icon[offset : offset + 336]).decode("ascii")
                     self._pro_upload_queue.append(f"HCD_PRO_ICON_CHUNK|{chunk}")
                 self._pro_upload_queue.append(f"HCD_PRO_ICON_END|{identifier}")
             self._pro_icon_signatures[identifier] = signature
@@ -448,5 +471,6 @@ class HcdDeviceManager(QObject):
         self._pro_icon_signatures.clear()
         self._pro_label_values.clear()
         self._pro_display_state = None
+        self._pro_color_state = None
         if was_connected:
             self.connection_changed.emit(False, "")
