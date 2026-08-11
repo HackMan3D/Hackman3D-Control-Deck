@@ -4,6 +4,8 @@ import os
 import sys
 import time
 import base64
+import json
+import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -178,6 +180,7 @@ class MainWindow(QMainWindow):
         self._social_buttons: dict[str, QToolButton] = {}
         self._background_button: QPushButton | None = None
         self._file_icon_provider = QFileIconProvider()
+        self._application_icon_sources: dict[str, str] = {}
         self._runner = ActionRunner(self)
         self._device = HcdDeviceManager(self)
         self._firmware_updater = FirmwareUpdater(self)
@@ -263,6 +266,8 @@ class MainWindow(QMainWindow):
         self._favicon_refresh_timer.start()
         self._application_choices: list[tuple[str, str]] | None = None
         self._application_icon_cache: dict[str, QIcon] = {}
+        self._primary_preset_value = ""
+        self._long_preset_value = ""
 
         self._build_ui()
         self._device_preview.set_pro_second_fader(self._pro_second_fader)
@@ -1114,6 +1119,8 @@ class MainWindow(QMainWindow):
 
     def _show_action(self, identifier: str) -> None:
         action = self._action_for(identifier)
+        self._primary_preset_value = action.value
+        self._long_preset_value = action.long_value
         self._selection_label.setText(
             f"Potentiometer {identifier[1:]} click"
             if identifier.startswith("P")
@@ -1151,6 +1158,7 @@ class MainWindow(QMainWindow):
         if not self._loading_action:
             self._label_edit.clear()
             self._value_edit.clear()
+            self._primary_preset_value = ""
             self._custom_icon_data = ""
             self._icon_source = ""
         self._update_value_hint()
@@ -1160,6 +1168,7 @@ class MainWindow(QMainWindow):
         if not self._loading_action:
             self._long_label_edit.clear()
             self._long_value_edit.clear()
+            self._long_preset_value = ""
         self._update_long_value_hint()
 
     def _reset_all_keys(self) -> None:
@@ -1227,7 +1236,12 @@ class MainWindow(QMainWindow):
         action_type = str(self._action_type.currentData())
         return Action(
             type=action_type,
-            value=self._editor_value(action_type, self._value_edit, self._preset_combo),
+            value=self._editor_value(
+                action_type,
+                self._value_edit,
+                self._preset_combo,
+                self._primary_preset_value,
+            ),
             label=self._editor_label(
                 self._label_edit,
                 self._preset_combo,
@@ -1246,6 +1260,7 @@ class MainWindow(QMainWindow):
                 action_type,
                 self._long_value_edit,
                 self._long_preset_combo,
+                self._long_preset_value,
             ),
             label=self._editor_label(
                 self._long_label_edit,
@@ -1255,8 +1270,15 @@ class MainWindow(QMainWindow):
         )
 
     @staticmethod
-    def _editor_value(action_type: str, edit: QLineEdit, presets: QComboBox) -> str:
+    def _editor_value(
+        action_type: str,
+        edit: QLineEdit,
+        presets: QComboBox,
+        remembered: str = "",
+    ) -> str:
         if action_type in {"system", "launch"}:
+            if remembered:
+                return remembered.strip()
             selected = presets.currentData()
             if selected:
                 return str(selected).strip()
@@ -1463,6 +1485,7 @@ class MainWindow(QMainWindow):
 
         matching_index = self._preset_combo.findData(selected_value)
         self._preset_combo.setCurrentIndex(max(0, matching_index))
+        self._primary_preset_value = selected_value if matching_index > 0 else ""
         self._preset_combo.setVisible(action_type in {"shortcut", "system", "launch"})
         self._preset_combo.blockSignals(False)
 
@@ -1488,6 +1511,7 @@ class MainWindow(QMainWindow):
                 )
         matching_index = self._long_preset_combo.findData(selected_value)
         self._long_preset_combo.setCurrentIndex(max(0, matching_index))
+        self._long_preset_value = selected_value if matching_index > 0 else ""
         self._long_preset_combo.setVisible(action_type in {"shortcut", "system", "launch"})
         self._long_preset_combo.blockSignals(False)
 
@@ -1528,9 +1552,13 @@ class MainWindow(QMainWindow):
 
     def _apply_preset(self, index: int) -> None:
         if index <= 0:
+            self._primary_preset_value = ""
+            if not self._loading_action:
+                self._value_edit.clear()
             return
         value = str(self._preset_combo.itemData(index))
         if value:
+            self._primary_preset_value = value
             if self._action_type.currentData() == "launch":
                 self._set_application_value(value)
             else:
@@ -1541,10 +1569,14 @@ class MainWindow(QMainWindow):
 
     def _apply_long_preset(self, index: int) -> None:
         if index <= 0:
+            self._long_preset_value = ""
+            if not self._loading_action:
+                self._long_value_edit.clear()
             return
         value = str(self._long_preset_combo.itemData(index))
         if not value:
             return
+        self._long_preset_value = value
         if self._long_action_type.currentData() == "launch":
             self._set_long_application_value(value)
         else:
@@ -1595,7 +1627,18 @@ class MainWindow(QMainWindow):
         path = Path(value)
         if not value or not path.exists():
             return QIcon()
-        icon = self._file_icon_provider.icon(QFileInfo(str(path)))
+        icon_path = path
+        if sys.platform == "win32" and path.suffix.casefold() == ".lnk":
+            source = self._application_icon_sources.get(str(path))
+            if source is None:
+                resolved = self._windows_shortcut_icon_sources([path])
+                self._application_icon_sources.update(resolved)
+                source = resolved.get(str(path))
+            if source and Path(source).is_file():
+                icon_path = Path(source)
+        icon = self._file_icon_provider.icon(QFileInfo(str(icon_path)))
+        if icon.isNull() and icon_path != path:
+            icon = self._file_icon_provider.icon(QFileInfo(str(path)))
         if sys.platform == "win32":
             icon = self._trimmed_icon(icon)
         self._application_icon_cache[value] = icon
@@ -1866,6 +1909,14 @@ class MainWindow(QMainWindow):
                         / "Programs"
                     )
             applications.update(self._windows_start_menu_applications(roots))
+            shortcuts = [
+                Path(path)
+                for path in applications.values()
+                if Path(path).suffix.casefold() == ".lnk"
+            ]
+            self._application_icon_sources.update(
+                self._windows_shortcut_icon_sources(shortcuts)
+            )
         self._application_choices = sorted(
             ((Path(path).stem, path) for path in applications.values()),
             key=lambda item: item[0].casefold(),
@@ -1885,6 +1936,61 @@ class MainWindow(QMainWindow):
                     ):
                         applications.setdefault(path.stem.casefold(), str(path))
         return applications
+
+    @staticmethod
+    def _windows_shortcut_icon_sources(shortcuts: list[Path]) -> dict[str, str]:
+        if not shortcuts:
+            return {}
+        script = r"""
+$shell = New-Object -ComObject WScript.Shell
+$paths = ConvertFrom-Json $env:HCD_SHORTCUT_PATHS
+$result = @()
+foreach ($path in @($paths)) {
+    try {
+        $shortcut = $shell.CreateShortcut([string]$path)
+        $icon = [Environment]::ExpandEnvironmentVariables([string]$shortcut.IconLocation)
+        $icon = $icon -replace ',-?\d+$', ''
+        $target = [Environment]::ExpandEnvironmentVariables([string]$shortcut.TargetPath)
+        $source = if ($icon -and (Test-Path -LiteralPath $icon -PathType Leaf)) {
+            $icon
+        } elseif ($target -and (Test-Path -LiteralPath $target -PathType Leaf)) {
+            $target
+        } else {
+            ''
+        }
+        if ($source) {
+            $result += [PSCustomObject]@{ shortcut = [string]$path; source = $source }
+        }
+    } catch {}
+}
+$result | ConvertTo-Json -Compress
+"""
+        environment = os.environ.copy()
+        environment["HCD_SHORTCUT_PATHS"] = json.dumps(
+            [str(path) for path in shortcuts], ensure_ascii=False
+        )
+        try:
+            result = subprocess.run(  # noqa: S603
+                ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                check=False,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+                timeout=12,
+                env=environment,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if result.returncode or not result.stdout.strip():
+                return {}
+            payload = json.loads(result.stdout)
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+            return {}
+        entries = payload if isinstance(payload, list) else [payload]
+        return {
+            str(entry["shortcut"]): str(entry["source"])
+            for entry in entries
+            if isinstance(entry, dict) and entry.get("shortcut") and entry.get("source")
+        }
 
     def _browse_application(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
