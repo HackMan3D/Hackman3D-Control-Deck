@@ -18,7 +18,7 @@
   <rect x="38" y="35" width="1724" height="1128" rx="24" class="panel"/>
   <rect x="38" y="35" width="1724" height="12" rx="6" fill="#ff5b35"/>
   <text x="82" y="105" class="title">HackMan3D Control Deck Plus — Wiring diagram</text>
-  <text x="82" y="143" class="subtitle">Arduino Pro Micro USB-C · 5 V / 16 MHz · MCP23017 address 0x20 · firmware HCD Plus 1.0.0</text>
+  <text x="82" y="143" class="subtitle">Arduino Pro Micro USB-C · 5 V / 16 MHz · MCP23017 address 0x20 · firmware HCD Plus 1.0.1</text>
 
   <!-- Arduino -->
   <rect x="70" y="185" width="390" height="650" rx="22" class="panel"/>
@@ -69,16 +69,16 @@
 
   <!-- key maps -->
   <g class="label">
-    <text x="535" y="317">KEY 1</text><text x="535" y="352">KEY 2</text><text x="535" y="387">KEY 3</text><text x="535" y="422">KEY 4</text>
-    <text x="535" y="457">KEY 5</text><text x="535" y="492">KEY 6</text><text x="535" y="527">KEY 7</text><text x="535" y="562">KEY 8</text>
-    <text x="1020" y="317">KEY 9</text><text x="1020" y="352">KEY 10</text><text x="1020" y="387">KEY 11</text><text x="1020" y="422">KEY 12</text>
-    <text x="1020" y="457">POT 1 click</text><text x="1020" y="492">POT 2 click</text>
+    <text x="535" y="317">KEY 9</text><text x="535" y="352">KEY 10</text><text x="535" y="387">KEY 11</text><text x="535" y="422">KEY 12</text>
+    <text x="535" y="457">POT 1 click</text><text x="535" y="492">POT 2 click</text><text x="535" y="527">FREE</text><text x="535" y="562">FREE</text>
+    <text x="1020" y="317">KEY 1</text><text x="1020" y="352">KEY 2</text><text x="1020" y="387">KEY 3</text><text x="1020" y="422">KEY 4</text>
+    <text x="1020" y="457">KEY 5</text><text x="1020" y="492">KEY 6</text><text x="1020" y="527">KEY 7</text><text x="1020" y="562">KEY 8</text>
   </g>
   <g class="signal bus">
     <path d="M610 313H660"/><path d="M610 348H660"/><path d="M610 383H660"/><path d="M610 418H660"/>
     <path d="M610 453H660"/><path d="M610 488H660"/><path d="M610 523H660"/><path d="M610 558H660"/>
     <path d="M990 313H1010"/><path d="M990 348H1010"/><path d="M990 383H1010"/><path d="M990 418H1010"/>
-    <path d="M990 453H1010"/><path d="M990 488H1010"/>
+    <path d="M990 453H1010"/><path d="M990 488H1010"/><path d="M990 523H1010"/><path d="M990 558H1010"/>
   </g>
   <rect x="535" y="610" width="545" height="78" rx="12" class="ok"/>
   <text x="555" y="642" class="label">Each switch: assigned GPA/GPB input ↔ switch ↔ GND</text>

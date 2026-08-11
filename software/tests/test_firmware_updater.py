@@ -64,7 +64,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
     _, _, firmware = FirmwareUpdater.resource_paths("HCD-PLUS")
 
     content = firmware.read_text(encoding="ascii")
-    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.0.0"
+    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.0.1"
     assert content.startswith(":")
     assert ":00000001FF" in content
 
@@ -134,7 +134,7 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert not firmware_update_available(BUNDLED_FIRMWARE_VERSION)
     assert not firmware_update_available("1.10.0")
     assert firmware_update_available("0.9.0", "HCD-PLUS")
-    assert not firmware_update_available("1.0.0", "HCD-PLUS")
+    assert not firmware_update_available("1.0.1", "HCD-PLUS")
     assert firmware_update_available("1.0.0", "HCD-PRO")
     assert firmware_update_available("1.0.1", "HCD-PRO")
     assert firmware_update_available("1.2.0", "HCD-PRO")
