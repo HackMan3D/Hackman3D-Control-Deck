@@ -19,15 +19,38 @@ def test_pro_layout_is_paced_and_not_duplicated_during_upload() -> None:
     }
     manager.set_pro_layout({"1": "One"}, {"1": bytes(8192)}, colors=colors)
 
-    assert written[0].startswith("HCD_PRO_DISPLAY|")
-    assert written[1] == "HCD_PRO_COLORS|080808|171717|404040|FFFFFF|F02020"
-    assert manager._pro_upload_queue[0].startswith("HCD_PRO_ICON_BEGIN|1|8192|")
+    assert written == []
+    assert manager._pro_upload_queue[0] == "HCD_PRO_SYNC_BEGIN"
+    assert manager._pro_upload_queue[1].startswith("HCD_PRO_DISPLAY|")
+    assert manager._pro_upload_queue[2] == (
+        "HCD_PRO_COLORS|080808|171717|404040|FFFFFF|F02020"
+    )
+    assert manager._pro_upload_queue[3].startswith("HCD_PRO_ICON_BEGIN|1|8192|")
     assert sum(
         command.startswith("HCD_PRO_ICON_CHUNK|")
         for command in manager._pro_upload_queue
     ) == 25
+    assert manager._pro_upload_queue[-1] == "HCD_PRO_SYNC_END"
+    assert "HCD_PRO_CACHE_COMMIT" not in manager._pro_upload_queue
     initial_queue = tuple(manager._pro_upload_queue)
 
     manager.set_pro_layout({"1": "Changed"}, {"1": bytes([1]) * 8192}, colors=colors)
     assert tuple(manager._pro_upload_queue) == initial_queue
+    manager._pro_upload_timer.stop()
+
+
+def test_pro_style_only_sync_is_wrapped_and_refreshed_once() -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    manager._transport = "wifi"
+    manager._pro_icon_signatures = {"1": None}
+
+    assert manager.set_pro_layout(
+        {"1": "One"},
+        {},
+        colors={"screen": "#111111", "key": "#222222"},
+    )
+    assert manager._pro_upload_queue[0] == "HCD_PRO_SYNC_BEGIN"
+    assert manager._pro_upload_queue[-1] == "HCD_PRO_SYNC_END"
+    assert "HCD_PRO_CACHE_COMMIT" not in manager._pro_upload_queue
     manager._pro_upload_timer.stop()

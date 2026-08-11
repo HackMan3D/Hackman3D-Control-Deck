@@ -39,7 +39,7 @@ FIRMWARE_TARGETS = {
     "HCD-PRO": FirmwareTarget(
         "HCD-PRO",
         "HCD Pro",
-        "1.2.37",
+        "1.2.38",
         28,
         0,
         "esp32s3",

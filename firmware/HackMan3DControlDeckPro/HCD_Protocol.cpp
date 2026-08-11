@@ -257,8 +257,6 @@ void finishIconUpload(const String& line) {
   }
   if (iconUpload && iconUploadReceived == iconUploadExpected) {
     HcdDisplay::setKeyIcon(keyId, iconUpload.get(), iconUploadExpected);
-    HcdFlashCache::stageIcon(
-        keyId, iconUpload.get(), iconUploadExpected, iconUploadSignature);
   }
   iconUpload.reset();
   iconUploadKey = 0;
@@ -274,7 +272,6 @@ void clearIcon(const String& line) {
     return;
   }
   HcdDisplay::setKeyIcon(keyId, nullptr, 0);
-  HcdFlashCache::stageIconRemoval(keyId);
 }
 
 void sendStorageInfo(Print& reply) {
@@ -324,7 +321,11 @@ void handleCommand(const String& line, Print& reply) {
     sendStorageInfo(reply);
     return;
   }
-  if (line.startsWith("HCD_PRO_ICON_BEGIN|")) {
+  if (line == "HCD_PRO_SYNC_BEGIN") {
+    HcdDisplay::showDisplaySync();
+  } else if (line == "HCD_PRO_SYNC_END") {
+    HcdDisplay::finishDisplaySync();
+  } else if (line.startsWith("HCD_PRO_ICON_BEGIN|")) {
     beginIconUpload(line);
   } else if (line.startsWith("HCD_PRO_ICON_CHUNK|")) {
     appendIconChunk(line);
