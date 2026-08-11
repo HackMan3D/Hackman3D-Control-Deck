@@ -3,6 +3,7 @@
 #include <esp_display_panel.hpp>
 #include <esp_heap_caps.h>
 #include <lvgl.h>
+#include <misc/cache/instance/lv_image_cache.h>
 
 #include "HCD_Config.h"
 #include "HCD_LvglAdapter.h"
@@ -202,27 +203,27 @@ void buildInterface() {
   titleLabel = lv_label_create(screen);
   lv_label_set_text(titleLabel, "HackMan3D  CONTROL DECK PRO");
   lv_obj_set_style_text_color(titleLabel, lv_color_hex(headerColor), 0);
-  lv_obj_align(titleLabel, LV_ALIGN_TOP_LEFT, 18, 14);
+  lv_obj_align(titleLabel, LV_ALIGN_TOP_LEFT, 32, 16);
 
   connectionDot = lv_obj_create(screen);
   lv_obj_set_size(connectionDot, 18, 18);
   lv_obj_set_style_radius(connectionDot, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_border_width(connectionDot, 0, 0);
   lv_obj_set_style_bg_color(connectionDot, lv_color_hex(0x3A3A3A), 0);
-  lv_obj_align(connectionDot, LV_ALIGN_TOP_RIGHT, -18, 13);
+  lv_obj_align(connectionDot, LV_ALIGN_TOP_RIGHT, -30, 15);
 
   networkLabel = lv_label_create(screen);
   lv_label_set_text(networkLabel, "Wi-Fi starting…");
   lv_obj_set_style_text_color(networkLabel, lv_color_hex(0xA0A0A0), 0);
-  lv_obj_align(networkLabel, LV_ALIGN_TOP_RIGHT, -48, 16);
+  lv_obj_align(networkLabel, LV_ALIGN_TOP_RIGHT, -62, 18);
 
   constexpr int columns = 7;
   constexpr int rows = 4;
-  constexpr int marginX = 12;
-  constexpr int top = 54;
-  // Match the visible inset at the top of the keybed. The former 12 px value
-  // placed the last row directly over the keybed's lower border.
-  constexpr int bottom = 20;
+  // The enclosure overlaps the display with a 10 mm radius at all four
+  // corners. Keep interactive content inside the resulting safe area.
+  constexpr int marginX = 28;
+  constexpr int top = 66;
+  constexpr int bottom = 30;
   constexpr int gap = 6;
   constexpr int faderWidth = 58;
   constexpr int faderGap = 10;
@@ -235,9 +236,10 @@ void buildInterface() {
       (HcdConfig::DISPLAY_HEIGHT - top - bottom - gap * (rows - 1)) / rows;
 
   keybed = lv_obj_create(screen);
-  lv_obj_set_pos(keybed, 7, top - 8);
-  lv_obj_set_size(keybed, HcdConfig::DISPLAY_WIDTH - 14, HcdConfig::DISPLAY_HEIGHT - top - 2);
-  lv_obj_set_style_radius(keybed, 20, 0);
+  lv_obj_set_pos(keybed, 14, 46);
+  lv_obj_set_size(keybed, HcdConfig::DISPLAY_WIDTH - 28, HcdConfig::DISPLAY_HEIGHT - 60);
+  lv_obj_set_style_radius(keybed, 48, 0);
+  lv_obj_set_style_clip_corner(keybed, true, 0);
   lv_obj_set_style_border_width(keybed, 2, 0);
   lv_obj_clear_flag(keybed, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -281,6 +283,10 @@ void buildInterface() {
 
     lv_obj_t* image = lv_image_create(button);
     keyImages[index] = image;
+    // Scaling with interpolation multiplies PSRAM reads while the RGB engine
+    // is scanning another framebuffer.  Nearest-neighbour scaling remains
+    // crisp for app icons and leaves substantially more bandwidth available.
+    lv_image_set_antialias(image, false);
     lv_obj_add_flag(image, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(image, LV_ALIGN_TOP_MID, 0, 10);
   }
@@ -420,6 +426,10 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
   if (lcd == nullptr) {
     return false;
   }
+  // Use one scan-out framebuffer and a small internal-RAM render buffer.
+  // Continuous full-frame swaps make this ESP32-S3 panel sensitive to PSRAM
+  // contention while Wi-Fi and icon decoding are active. Partial copies are
+  // bounded and leave the RGB engine with a single stable scan-out buffer.
   lcd->configFrameBufferNumber(1);
   if (lcd->getBus()->getBasicAttributes().type == ESP_PANEL_BUS_TYPE_RGB) {
     BusRGB* rgb = static_cast<BusRGB*>(lcd->getBus());
@@ -522,11 +532,18 @@ void setKeyIcon(uint8_t keyId, const uint8_t* data, size_t size) {
   }
 
   uint8_t* previous = keyImageData[index];
+  lv_image_dsc_t& descriptor = keyImageDescriptors[index];
+  if (previous != nullptr) {
+    // The descriptor address is stable for the lifetime of the key.  Drop any
+    // decoded/cache entry before changing its data pointer and freeing the old
+    // allocation so LVGL can never draw from released icon memory.
+    lv_image_cache_drop(&descriptor);
+    lv_image_set_src(keyImages[index], nullptr);
+  }
   keyImageData[index] = replacement;
   if (replacement == nullptr) {
     lv_obj_add_flag(keyImages[index], LV_OBJ_FLAG_HIDDEN);
   } else {
-    lv_image_dsc_t& descriptor = keyImageDescriptors[index];
     memset(&descriptor, 0, sizeof(descriptor));
     descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
     descriptor.header.cf = LV_COLOR_FORMAT_RGB565;

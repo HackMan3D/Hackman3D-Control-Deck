@@ -6,7 +6,7 @@ namespace HcdConfig {
 
 constexpr char PRODUCT_NAME[] = "HackMan3D Control Deck Pro";
 constexpr char MODEL_IDENTIFIER[] = "HCD-PRO";
-constexpr char FIRMWARE_VERSION[] = "1.2.38";
+constexpr char FIRMWARE_VERSION[] = "1.2.44";
 
 constexpr uint16_t DISPLAY_WIDTH = 800;
 constexpr uint16_t DISPLAY_HEIGHT = 480;

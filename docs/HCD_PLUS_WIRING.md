@@ -12,16 +12,28 @@ library directly; no third-party MCP23017 library is required.
 | --- | --- |
 | MCP23017 SDA | D2 / SDA |
 | MCP23017 SCL | D3 / SCL |
-| Potentiometer 1 wiper | A0 |
-| Potentiometer 2 wiper | A1 |
+| Encoder 1 A / CLK | A0 |
+| Encoder 1 B / DT | A1 |
+| Encoder 2 A / CLK | A2 |
+| Encoder 2 B / DT | D4 |
 | Connection-light MOSFET gate | A3 / D21 |
 | Key-feedback MOSFET gate | TX / D1 |
-| MCP23017 and potentiometer supply | VCC (5 V) |
+| MCP23017 supply | VCC (5 V) |
 | Common ground | GND |
 
-Connect each potentiometer's two outer terminals to VCC and GND, and its
-centre wiper to the assigned analog input. Reverse the two outer terminals if
-the direction is opposite to the intended behaviour.
+The two rotary controls are powered EC11/KY-040-style modules with five pins:
+`GND`, `+`, `SW`, `DT` and `CLK`. Connect `+` to the Pro Micro's 5 V `VCC` and
+`GND` to the common ground. The signal wiring is:
+
+| Module pin | Encoder 1 | Encoder 2 |
+| --- | --- | --- |
+| `+` | VCC 5 V | VCC 5 V |
+| `GND` | Common GND | Common GND |
+| `SW` | MCP23017 GPA4 | MCP23017 GPA5 |
+| `DT` | Pro Micro A1 | Pro Micro D4 |
+| `CLK` | Pro Micro A0 | Pro Micro A2 |
+
+If rotation is backwards, exchange `DT` and `CLK` for that encoder.
 
 ## MCP23017 connections
 
@@ -47,8 +59,8 @@ the other side of every switch to the common GND.
 | Key 10 | GPA1 |
 | Key 11 | GPA2 |
 | Key 12 | GPA3 |
-| Potentiometer 1 click | GPA4 |
-| Potentiometer 2 click | GPA5 |
+| Encoder 1 click | GPA4 |
+| Encoder 2 click | GPA5 |
 
 `GPA6` and `GPA7` remain available for a later hardware revision.
 

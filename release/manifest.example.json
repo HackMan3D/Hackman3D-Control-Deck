@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.13",
+  "latest_version": "1.4.14",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "HCD Plus firmware 1.0.1 now matches the validated PB0–PB7 then PA0–PA3 switch wiring while retaining both potentiometer clicks.",
+  "release_notes": "HCD Pro firmware 1.2.44 stabilizes display updates with 11 or more icons, while HCD Plus firmware 1.1.1 improves encoder handling.",
   "roadmap": {
     "progress": 0
   }

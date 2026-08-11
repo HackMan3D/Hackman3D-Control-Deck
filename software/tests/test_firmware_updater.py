@@ -64,7 +64,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
     _, _, firmware = FirmwareUpdater.resource_paths("HCD-PLUS")
 
     content = firmware.read_text(encoding="ascii")
-    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.0.1"
+    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.1.1"
     assert content.startswith(":")
     assert ":00000001FF" in content
 
@@ -72,7 +72,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
 def test_bundled_hcd_pro_firmware_is_a_complete_8mb_esp32_image() -> None:
     executable, firmware = FirmwareUpdater.esp32_resource_paths("HCD-PRO")
 
-    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.2.38"
+    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.2.44"
     assert executable.is_file()
     assert firmware.read_bytes()[:1] == b"\xE9"
     assert firmware.stat().st_size == 8 * 1024 * 1024
@@ -134,7 +134,7 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert not firmware_update_available(BUNDLED_FIRMWARE_VERSION)
     assert not firmware_update_available("1.10.0")
     assert firmware_update_available("0.9.0", "HCD-PLUS")
-    assert not firmware_update_available("1.0.1", "HCD-PLUS")
+    assert not firmware_update_available("1.1.1", "HCD-PLUS")
     assert firmware_update_available("1.0.0", "HCD-PRO")
     assert firmware_update_available("1.0.1", "HCD-PRO")
     assert firmware_update_available("1.2.0", "HCD-PRO")
@@ -147,13 +147,13 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert firmware_update_available("1.2.33", "HCD-PRO")
     assert firmware_update_available("1.2.34", "HCD-PRO")
     assert firmware_update_available("1.2.35", "HCD-PRO")
-    assert not firmware_update_available("1.2.38", "HCD-PRO")
+    assert not firmware_update_available("1.2.44", "HCD-PRO")
 
 
 def test_hcd_pro_ota_uses_application_image_and_wifi_address() -> None:
     firmware = FirmwareUpdater.esp32_ota_resource_path("HCD-PRO")
 
-    assert firmware.name.endswith("-1.2.38-ota.bin")
+    assert firmware.name.endswith("-1.2.44-ota.bin")
     assert firmware.read_bytes()[:1] == b"\xE9"
     assert firmware.stat().st_size < 0x330000
     assert FirmwareUpdater._wifi_address("Wi-Fi · 192.168.1.42") == "192.168.1.42"

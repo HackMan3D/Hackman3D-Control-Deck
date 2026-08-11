@@ -1,142 +1,106 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100">
   <title>HackMan3D Control Deck Plus wiring diagram</title>
-  <desc>Validated wiring for an Arduino Pro Micro, MCP23017, twelve MX keys, two clickable potentiometers and two IRLB8721-controlled lights.</desc>
+  <desc>Arduino Pro Micro, MCP23017, twelve MX switches, two powered five-pin rotary encoder modules and two MOSFET-controlled lights.</desc>
   <defs>
     <style>
-      .bg{fill:#f5f5f3}.panel{fill:#fff;stroke:#c8c8c3;stroke-width:2}.dark{fill:#161616}.chip{fill:#222;stroke:#555;stroke-width:2}
-      .title{font:700 42px Arial,sans-serif;fill:#121212}.subtitle{font:18px Arial,sans-serif;fill:#555}.section{font:700 25px Arial,sans-serif;fill:#151515}
-      .label{font:700 17px Arial,sans-serif;fill:#222}.small{font:15px Arial,sans-serif;fill:#555}.tiny{font:13px Arial,sans-serif;fill:#666}
-      .white{fill:#fff}.pin{font:700 14px Arial,sans-serif;fill:#fff}.key{fill:#242424;stroke:#555;stroke-width:2}.pot{fill:#ececec;stroke:#777;stroke-width:2}
-      .vcc{stroke:#e63946;stroke-width:5;fill:none}.gnd{stroke:#222;stroke-width:5;fill:none}.i2c1{stroke:#1976d2;stroke-width:5;fill:none}.i2c2{stroke:#00a6a6;stroke-width:5;fill:none}
-      .signal{stroke:#f29f05;stroke-width:4;fill:none}.analog{stroke:#8e44ad;stroke-width:5;fill:none}.gate{stroke:#e0528d;stroke-width:5;fill:none}
-      .bus{stroke-linecap:round;stroke-linejoin:round}.note{fill:#fff2e9;stroke:#ff9b6a;stroke-width:2}.ok{fill:#eaf7ef;stroke:#58a96b;stroke-width:2}
+      text{font-family:Arial,sans-serif;fill:#171717}.title{font-size:42px;font-weight:700}.sub{font-size:18px;fill:#555}.section{font-size:25px;font-weight:700}.label{font-size:17px;font-weight:700}.small{font-size:15px;fill:#555}.tiny{font-size:13px;fill:#666}text.white{fill:#fff}text.pintext{font-size:14px;font-weight:700;fill:#fff}.panel{fill:#fff;stroke:#c7c7c3;stroke-width:2}.chip{fill:#202020;stroke:#555;stroke-width:3}.pin{fill:#171717}.wire{fill:none;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}.vcc{stroke:#e63946}.gnd{stroke:#252525}.sda{stroke:#2677d3}.scl{stroke:#00a1a1}.sig{stroke:#8e44ad}.sw{stroke:#f29f05}.gate{stroke:#e0528d}.note{fill:#fff2e9;stroke:#ff9b6a;stroke-width:2}.module{fill:#f3f3f1;stroke:#777;stroke-width:2}.terminal{stroke:#555;stroke-width:2}
     </style>
-    <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#e63946"/></marker>
   </defs>
 
-  <rect class="bg" width="1800" height="1200"/>
-  <rect x="38" y="35" width="1724" height="1128" rx="24" class="panel"/>
-  <rect x="38" y="35" width="1724" height="12" rx="6" fill="#ff5b35"/>
-  <text x="82" y="105" class="title">HackMan3D Control Deck Plus — Wiring diagram</text>
-  <text x="82" y="143" class="subtitle">Arduino Pro Micro USB-C · 5 V / 16 MHz · MCP23017 address 0x20 · firmware HCD Plus 1.0.1</text>
+  <rect width="1800" height="1100" fill="#f5f5f3"/>
+  <rect x="38" y="34" width="1724" height="1032" rx="24" class="panel"/>
+  <rect x="38" y="34" width="1724" height="12" rx="6" fill="#ff5b35"/>
+  <text x="78" y="102" class="title">HackMan3D Control Deck Plus — Wiring diagram</text>
+  <text x="78" y="140" class="sub">Pro Micro 5 V / 16 MHz · MCP23017 · 12 keys · 2 powered rotary encoder modules · firmware 1.1.1</text>
 
-  <!-- Arduino -->
-  <rect x="70" y="185" width="390" height="650" rx="22" class="panel"/>
-  <text x="98" y="230" class="section">1. Arduino Pro Micro</text>
-  <rect x="160" y="270" width="210" height="500" rx="28" fill="#147fb6" stroke="#075a84" stroke-width="5"/>
-  <text x="265" y="490" text-anchor="middle" class="white" style="font:700 22px Arial">ATmega32U4</text>
-  <text x="265" y="520" text-anchor="middle" class="white" style="font:15px Arial">5 V / 16 MHz</text>
-  <rect x="210" y="705" width="110" height="65" rx="12" fill="#bbb" stroke="#777" stroke-width="3"/>
-  <text x="265" y="744" text-anchor="middle" class="small">USB</text>
+  <!-- shared power rails -->
+  <path d="M85 165H1715" class="wire vcc"/>
+  <text x="820" y="157" class="label" fill="#e63946">+5 V / VCC BUS</text>
+  <path d="M85 875H1715" class="wire gnd"/>
+  <text x="85" y="905" class="label">COMMON GND BUS</text>
 
-  <!-- Arduino pins -->
-  <g class="pin">
-    <rect x="135" y="315" width="70" height="34" rx="5" class="dark"/><text x="170" y="338" text-anchor="middle">VCC</text>
-    <rect x="135" y="365" width="70" height="34" rx="5" class="dark"/><text x="170" y="388" text-anchor="middle">GND</text>
-    <rect x="325" y="315" width="92" height="34" rx="5" class="dark"/><text x="371" y="338" text-anchor="middle">D2 / SDA</text>
-    <rect x="325" y="365" width="92" height="34" rx="5" class="dark"/><text x="371" y="388" text-anchor="middle">D3 / SCL</text>
-    <rect x="325" y="455" width="92" height="34" rx="5" class="dark"/><text x="371" y="478" text-anchor="middle">A0</text>
-    <rect x="325" y="505" width="92" height="34" rx="5" class="dark"/><text x="371" y="528" text-anchor="middle">A1</text>
-    <rect x="325" y="595" width="92" height="34" rx="5" class="dark"/><text x="371" y="618" text-anchor="middle">A3 / D21</text>
-    <rect x="325" y="645" width="92" height="34" rx="5" class="dark"/><text x="371" y="668" text-anchor="middle">TX / D1</text>
-  </g>
-  <text x="98" y="800" class="small">Native USB leaves TX/D1 available.</text>
+  <!-- Pro Micro -->
+  <rect x="65" y="195" width="410" height="640" rx="22" class="panel"/>
+  <text x="92" y="238" class="section">1. Arduino Pro Micro</text>
+  <rect x="130" y="275" width="225" height="485" rx="28" fill="#147fb6" stroke="#075a84" stroke-width="5"/>
+  <text x="242" y="500" text-anchor="middle" class="white" style="font-size:23px;font-weight:700">ATmega32U4</text>
+  <text x="242" y="530" text-anchor="middle" class="white" style="font-size:15px">5 V / 16 MHz</text>
+  <rect x="183" y="703" width="118" height="57" rx="12" fill="#bbb" stroke="#777" stroke-width="3"/>
+  <text x="242" y="738" text-anchor="middle" class="small">USB</text>
 
-  <!-- MCP -->
-  <rect x="500" y="185" width="650" height="650" rx="22" class="panel"/>
-  <text x="528" y="230" class="section">2. MCP23017 + 12 switches</text>
-  <rect x="700" y="270" width="250" height="480" rx="18" class="chip"/>
-  <text x="825" y="490" text-anchor="middle" class="white" style="font:700 27px Arial">MCP23017</text>
-  <text x="825" y="522" text-anchor="middle" class="white" style="font:16px Arial">DIP-28 · address 0x20</text>
-
-  <!-- left MCP pins -->
-  <g class="pin">
-    <rect x="660" y="300" width="84" height="27" rx="4" class="dark"/><text x="702" y="319" text-anchor="middle">GPA0</text>
-    <rect x="660" y="335" width="84" height="27" rx="4" class="dark"/><text x="702" y="354" text-anchor="middle">GPA1</text>
-    <rect x="660" y="370" width="84" height="27" rx="4" class="dark"/><text x="702" y="389" text-anchor="middle">GPA2</text>
-    <rect x="660" y="405" width="84" height="27" rx="4" class="dark"/><text x="702" y="424" text-anchor="middle">GPA3</text>
-    <rect x="660" y="440" width="84" height="27" rx="4" class="dark"/><text x="702" y="459" text-anchor="middle">GPA4</text>
-    <rect x="660" y="475" width="84" height="27" rx="4" class="dark"/><text x="702" y="494" text-anchor="middle">GPA5</text>
-    <rect x="660" y="510" width="84" height="27" rx="4" class="dark"/><text x="702" y="529" text-anchor="middle">GPA6</text>
-    <rect x="660" y="545" width="84" height="27" rx="4" class="dark"/><text x="702" y="564" text-anchor="middle">GPA7</text>
-    <rect x="906" y="300" width="84" height="27" rx="4" class="dark"/><text x="948" y="319" text-anchor="middle">GPB0</text>
-    <rect x="906" y="335" width="84" height="27" rx="4" class="dark"/><text x="948" y="354" text-anchor="middle">GPB1</text>
-    <rect x="906" y="370" width="84" height="27" rx="4" class="dark"/><text x="948" y="389" text-anchor="middle">GPB2</text>
-    <rect x="906" y="405" width="84" height="27" rx="4" class="dark"/><text x="948" y="424" text-anchor="middle">GPB3</text>
-    <rect x="906" y="440" width="84" height="27" rx="4" class="dark"/><text x="948" y="459" text-anchor="middle">GPB4</text>
-    <rect x="906" y="475" width="84" height="27" rx="4" class="dark"/><text x="948" y="494" text-anchor="middle">GPB5</text>
-  </g>
-
-  <!-- key maps -->
-  <g class="label">
-    <text x="535" y="317">KEY 9</text><text x="535" y="352">KEY 10</text><text x="535" y="387">KEY 11</text><text x="535" y="422">KEY 12</text>
-    <text x="535" y="457">POT 1 click</text><text x="535" y="492">POT 2 click</text><text x="535" y="527">FREE</text><text x="535" y="562">FREE</text>
-    <text x="1020" y="317">KEY 1</text><text x="1020" y="352">KEY 2</text><text x="1020" y="387">KEY 3</text><text x="1020" y="422">KEY 4</text>
-    <text x="1020" y="457">KEY 5</text><text x="1020" y="492">KEY 6</text><text x="1020" y="527">KEY 7</text><text x="1020" y="562">KEY 8</text>
-  </g>
-  <g class="signal bus">
-    <path d="M610 313H660"/><path d="M610 348H660"/><path d="M610 383H660"/><path d="M610 418H660"/>
-    <path d="M610 453H660"/><path d="M610 488H660"/><path d="M610 523H660"/><path d="M610 558H660"/>
-    <path d="M990 313H1010"/><path d="M990 348H1010"/><path d="M990 383H1010"/><path d="M990 418H1010"/>
-    <path d="M990 453H1010"/><path d="M990 488H1010"/><path d="M990 523H1010"/><path d="M990 558H1010"/>
-  </g>
-  <rect x="535" y="610" width="545" height="78" rx="12" class="ok"/>
-  <text x="555" y="642" class="label">Each switch: assigned GPA/GPB input ↔ switch ↔ GND</text>
-  <text x="555" y="670" class="small">Internal MCP23017 pull-ups are enabled by the firmware.</text>
-
-  <!-- I2C and power wiring -->
-  <path d="M417 332H485V255H700" class="i2c1 bus"/><text x="505" y="248" class="label" fill="#1976d2">SDA → MCP pin 13</text>
-  <path d="M417 382H475V790H720" class="i2c2 bus"/><text x="505" y="814" class="label" fill="#008b8b">SCL → MCP pin 12</text>
-  <path d="M135 332H95V170H1560" class="vcc bus"/><text x="485" y="164" class="label" fill="#e63946">+5 V BUS</text>
-  <path d="M135 382H82V875H1690" class="gnd bus"/><text x="82" y="905" class="label">COMMON GND BUS</text>
-  <path d="M825 270V170" class="vcc"/><text x="838" y="258" class="small">VDD pin 9 + RESET pin 18</text>
-  <path d="M825 750V875" class="gnd"/><text x="838" y="778" class="small">VSS pin 10</text>
-  <path d="M760 750V875" class="gnd"/><text x="780" y="810" class="small">Address A0, A1, A2 (pins 15–17) → GND</text>
-  <circle cx="905" cy="215" r="8" fill="#e63946"/><circle cx="905" cy="245" r="8" fill="#222"/>
-  <rect x="925" y="208" width="62" height="44" rx="5" fill="#f7e3b9" stroke="#9b7336" stroke-width="2"/>
-  <text x="956" y="235" text-anchor="middle" class="small">100 nF</text>
-  <path d="M905 215H925M905 245H925" stroke="#555" stroke-width="3"/>
-  <text x="995" y="235" class="tiny">VDD ↔ VSS, close to chip</text>
-
-  <!-- Pots -->
-  <rect x="1190" y="185" width="540" height="310" rx="22" class="panel"/>
-  <text x="1218" y="230" class="section">3. Two clickable potentiometers</text>
   <g>
-    <rect x="1240" y="285" width="185" height="145" rx="18" class="pot"/>
-    <circle cx="1332" cy="330" r="32" fill="#777"/><text x="1332" y="387" text-anchor="middle" class="label">POT 1</text>
-    <rect x="1480" y="285" width="185" height="145" rx="18" class="pot"/>
-    <circle cx="1572" cy="330" r="32" fill="#777"/><text x="1572" y="387" text-anchor="middle" class="label">POT 2</text>
+    <rect x="105" y="300" width="82" height="32" rx="5" class="pin"/><text x="146" y="322" text-anchor="middle" class="pintext">VCC</text>
+    <rect x="105" y="345" width="82" height="32" rx="5" class="pin"/><text x="146" y="367" text-anchor="middle" class="pintext">GND</text>
+    <rect x="315" y="300" width="118" height="32" rx="5" class="pin"/><text x="374" y="322" text-anchor="middle" class="pintext">D2 / SDA</text>
+    <rect x="315" y="345" width="118" height="32" rx="5" class="pin"/><text x="374" y="367" text-anchor="middle" class="pintext">D3 / SCL</text>
+    <rect x="315" y="430" width="118" height="32" rx="5" class="pin"/><text x="374" y="452" text-anchor="middle" class="pintext">A0 · ENC1 CLK</text>
+    <rect x="315" y="475" width="118" height="32" rx="5" class="pin"/><text x="374" y="497" text-anchor="middle" class="pintext">A1 · ENC1 DT</text>
+    <rect x="315" y="520" width="118" height="32" rx="5" class="pin"/><text x="374" y="542" text-anchor="middle" class="pintext">A2 · ENC2 CLK</text>
+    <rect x="315" y="565" width="118" height="32" rx="5" class="pin"/><text x="374" y="587" text-anchor="middle" class="pintext">D4 · ENC2 DT</text>
+    <rect x="315" y="630" width="118" height="32" rx="5" class="pin"/><text x="374" y="652" text-anchor="middle" class="pintext">A3 / D21</text>
+    <rect x="315" y="675" width="118" height="32" rx="5" class="pin"/><text x="374" y="697" text-anchor="middle" class="pintext">TX / D1</text>
   </g>
-  <path d="M1332 285V170M1572 285V170" class="vcc"/>
-  <path d="M1280 430V875M1520 430V875" class="gnd"/>
-  <path d="M417 472H470V840H1160V330H1300" class="analog bus"/><text x="1120" y="320" class="label" fill="#8e44ad">A0 → wiper</text>
-  <path d="M417 522H485V855H1175V410H1540" class="analog bus"/><text x="1430" y="458" class="label" fill="#8e44ad">A1 → wiper</text>
-  <text x="1218" y="470" class="small">Outer terminals: +5 V and GND. Reverse them if rotation is backwards.</text>
+  <path d="M105 316H85V165" class="wire vcc"/><path d="M105 361H85V875" class="wire gnd"/>
 
-  <!-- LEDs -->
-  <rect x="1190" y="525" width="540" height="310" rx="22" class="panel"/>
-  <text x="1218" y="570" class="section">4. Status lights via IRLB8721</text>
-  <text x="1218" y="605" class="label" fill="#d22">RED CONNECTION LIGHT</text>
-  <path d="M417 612H478V910H1165V612H1230" class="gate bus"/><rect x="1240" y="593" width="70" height="38" rx="6" fill="#f7e3b9" stroke="#9b7336" stroke-width="2"/><text x="1275" y="617" text-anchor="middle" class="small">100 Ω</text>
-  <rect x="1330" y="583" width="110" height="82" rx="10" class="chip"/><text x="1385" y="610" text-anchor="middle" class="pin">IRLB8721</text><text x="1385" y="640" text-anchor="middle" class="pin">G  D  S</text>
-  <path d="M1310 612H1330M1415 665V875" class="gnd"/><path d="M1385 665V700H1505" class="gate"/>
-  <circle cx="1535" cy="700" r="22" fill="#ef4050" stroke="#a81927" stroke-width="4"/><path d="M1535 678V625" class="vcc" marker-end="url(#arrowRed)"/>
-  <rect x="1500" y="585" width="72" height="38" rx="6" fill="#f7e3b9" stroke="#9b7336" stroke-width="2"/><text x="1536" y="609" text-anchor="middle" class="small">2×100 Ω</text>
-  <text x="1580" y="706" class="small">5 mm red LED</text>
+  <!-- MCP23017 -->
+  <rect x="515" y="195" width="610" height="640" rx="22" class="panel"/>
+  <text x="542" y="238" class="section">2. MCP23017 + 12 MX keys</text>
+  <rect x="700" y="285" width="245" height="405" rx="18" class="chip"/>
+  <text x="822" y="455" text-anchor="middle" class="white" style="font-size:27px;font-weight:700">MCP23017</text>
+  <text x="822" y="485" text-anchor="middle" class="white" style="font-size:16px">address 0x20–0x27</text>
 
-  <text x="1218" y="754" class="label" fill="#337ab7">WHITE KEY-FEEDBACK LIGHT</text>
-  <path d="M417 662H492V925H1178V765H1230" class="gate bus"/><rect x="1240" y="746" width="70" height="38" rx="6" fill="#f7e3b9" stroke="#9b7336" stroke-width="2"/><text x="1275" y="770" text-anchor="middle" class="small">100 Ω</text>
-  <rect x="1330" y="736" width="110" height="82" rx="10" class="chip"/><text x="1385" y="763" text-anchor="middle" class="pin">IRLB8721</text><text x="1385" y="793" text-anchor="middle" class="pin">G  D  S</text>
-  <path d="M1310 765H1330M1415 818V875" class="gnd"/><path d="M1385 818V835H1510" class="gate"/>
-  <rect x="1510" y="796" width="160" height="55" rx="20" fill="#f9fbff" stroke="#76a5d6" stroke-width="4"/><text x="1590" y="829" text-anchor="middle" class="small">5 V LED bar/module</text>
-  <path d="M1590 796V760H1660V170" class="vcc"/>
-  <text x="1218" y="820" class="tiny">IRLB8721 front face: pin 1 Gate · pin 2 Drain · pin 3 Source</text>
+  <g class="label">
+    <text x="550" y="315">GPA0 → KEY 9</text><text x="550" y="350">GPA1 → KEY 10</text>
+    <text x="550" y="385">GPA2 → KEY 11</text><text x="550" y="420">GPA3 → KEY 12</text>
+    <text x="550" y="455">GPA4 → ENC1 SW</text><text x="550" y="490">GPA5 → ENC2 SW</text>
+    <text x="970" y="315">GPB0 → KEY 1</text><text x="970" y="350">GPB1 → KEY 2</text>
+    <text x="970" y="385">GPB2 → KEY 3</text><text x="970" y="420">GPB3 → KEY 4</text>
+    <text x="970" y="455">GPB4 → KEY 5</text><text x="970" y="490">GPB5 → KEY 6</text>
+    <text x="970" y="525">GPB6 → KEY 7</text><text x="970" y="560">GPB7 → KEY 8</text>
+  </g>
+  <rect x="550" y="595" width="540" height="76" rx="12" fill="#eaf7ef" stroke="#58a96b" stroke-width="2"/>
+  <text x="570" y="626" class="label">Every key and SW input closes to GND</text>
+  <text x="570" y="652" class="small">Internal pull-ups are enabled; no external pull-up resistor is needed.</text>
+  <path d="M433 316H492V265H700" class="wire sda"/><text x="530" y="280" class="small" fill="#2677d3">SDA → pin 13</text>
+  <path d="M433 361H500V720H735" class="wire scl"/><text x="530" y="744" class="small" fill="#00a1a1">SCL → pin 12</text>
+  <path d="M822 285V165" class="wire vcc"/><text x="840" y="270" class="tiny">VDD + RESET</text>
+  <path d="M822 690V875" class="wire gnd"/><text x="840" y="716" class="tiny">VSS + A0/A1/A2 address pins</text>
 
-  <!-- Bottom notes -->
-  <rect x="70" y="940" width="1660" height="180" rx="20" class="note"/>
-  <text x="100" y="982" class="section">IMPORTANT</text>
-  <text x="100" y="1018" class="label">• No external pull-up or pull-down resistor is required on the 14 switch inputs.</text>
-  <text x="100" y="1050" class="label">• Join every ground: Pro Micro, MCP23017, potentiometers, MOSFET sources and LED power supply.</text>
-  <text x="100" y="1082" class="label">• The red LED needs current limiting. A ready-made 5 V LED strip/module normally already includes it.</text>
-  <text x="100" y="1114" class="small">Connection light: A3/D21 · feedback light: TX/D1 · MOSFETs are wired as low-side switches.</text>
+  <!-- Encoder modules -->
+  <rect x="1165" y="195" width="570" height="365" rx="22" class="panel"/>
+  <text x="1192" y="238" class="section">3. Powered encoder modules</text>
+  <g>
+    <rect x="1200" y="275" width="235" height="235" rx="18" class="module"/>
+    <circle cx="1317" cy="326" r="35" fill="#777"/><text x="1317" y="385" text-anchor="middle" class="label">ENCODER 1</text>
+    <text x="1220" y="420" class="small">+ → VCC 5 V</text><text x="1220" y="442" class="small">GND → common GND</text>
+    <text x="1220" y="464" class="small">SW → MCP GPA4</text><text x="1220" y="486" class="small">DT → A1 · CLK → A0</text>
+    <rect x="1460" y="275" width="235" height="235" rx="18" class="module"/>
+    <circle cx="1577" cy="326" r="35" fill="#777"/><text x="1577" y="385" text-anchor="middle" class="label">ENCODER 2</text>
+    <text x="1480" y="420" class="small">+ → VCC 5 V</text><text x="1480" y="442" class="small">GND → common GND</text>
+    <text x="1480" y="464" class="small">SW → MCP GPA5</text><text x="1480" y="486" class="small">DT → D4 · CLK → A2</text>
+  </g>
+  <path d="M1260 275V165M1520 275V165" class="wire vcc"/>
+  <path d="M1230 510V875M1490 510V875" class="wire gnd"/>
+  <path d="M433 446H470V775H1190V486H1200" class="wire sig"/>
+  <path d="M433 491H480V790H1180V470H1200" class="wire sig"/>
+  <path d="M433 536H490V805H1450V486H1460" class="wire sig"/>
+  <path d="M433 581H500V820H1440V470H1460" class="wire sig"/>
+  <path d="M700 450H675V760H1170V454H1200" class="wire sw"/>
+  <path d="M700 485H660V745H1425V454H1460" class="wire sw"/>
+
+  <!-- lights -->
+  <rect x="1165" y="590" width="570" height="245" rx="22" class="panel"/>
+  <text x="1192" y="632" class="section">4. Status lights via IRLB8721</text>
+  <text x="1192" y="674" class="label" fill="#d22">A3/D21 → 100 Ω → MOSFET gate → red connection LED</text>
+  <text x="1192" y="711" class="label" fill="#337ab7">TX/D1 → 100 Ω → MOSFET gate → white action light</text>
+  <text x="1192" y="750" class="small">Each source → GND · each drain → light negative · light positive → +5 V</text>
+  <text x="1192" y="780" class="small">IRLB8721, printed face toward you: Gate · Drain · Source</text>
+  <path d="M433 646H1128V665H1165" class="wire gate"/>
+  <path d="M433 691H1115V705H1165" class="wire gate"/>
+
+  <!-- notes -->
+  <rect x="65" y="935" width="1670" height="105" rx="18" class="note"/>
+  <text x="92" y="972" class="section">IMPORTANT</text>
+  <text x="92" y="1003" class="label">Connect module “+” to VCC 5 V. Never connect or disconnect wiring while USB power is present.</text>
+  <text x="92" y="1028" class="small">If an encoder turns backwards, exchange only its DT and CLK wires. All grounds must remain common.</text>
 </svg>

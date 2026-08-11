@@ -55,6 +55,12 @@ class ActionRunner(QObject):
             return None
         return None
 
+    def adjust_continuous_value(self, mode: str, delta: int) -> None:
+        current = self.continuous_value(mode)
+        if current is None:
+            return
+        self.set_continuous_value(mode, current + int(delta))
+
     @staticmethod
     def _set_absolute_volume(level: int) -> None:
         if sys.platform == "darwin":
@@ -255,6 +261,11 @@ class ActionRunner(QObject):
         self._keyboard_controller().type(value)
 
     def _system(self, value: str) -> None:
+        if value in {"microphone_up", "microphone_down"}:
+            current = self._absolute_microphone()
+            step = 5 if value == "microphone_up" else -5
+            self._set_absolute_microphone(max(0, min(100, current + step)))
+            return
         if sys.platform == "darwin":
             if value in {"shutdown", "restart", "lock", "sleep"}:
                 self._macos_power(value)

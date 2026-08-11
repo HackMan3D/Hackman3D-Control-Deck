@@ -17,9 +17,16 @@ struct ButtonState {
 
 ButtonState keys[HcdConfig::KEY_COUNT];
 ButtonState potButtons[HcdConfig::POT_BUTTON_COUNT];
-uint16_t lastPotValues[HcdConfig::POTENTIOMETER_COUNT];
-unsigned long lastPotReportAt = 0;
+uint8_t encoderStates[HcdConfig::ENCODER_COUNT];
+int8_t encoderSteps[HcdConfig::ENCODER_COUNT];
 uint8_t pressedControlCount = 0;
+
+constexpr int8_t ENCODER_TRANSITION_TABLE[16] = {
+    0, -1, 1, 0,
+    1, 0, 0, -1,
+    -1, 0, 0, 1,
+    0, 1, -1, 0,
+};
 
 bool bitPressed(uint16_t inputs, uint8_t bit) {
   return (inputs & (static_cast<uint16_t>(1) << bit)) == 0;
@@ -71,18 +78,23 @@ void updateButton(
   }
 }
 
-void updatePotentiometers(unsigned long now) {
-  if (now - lastPotReportAt < HcdConfig::POTENTIOMETER_REPORT_INTERVAL_MS) {
-    return;
-  }
-  lastPotReportAt = now;
-  for (uint8_t index = 0; index < HcdConfig::POTENTIOMETER_COUNT; ++index) {
-    const uint16_t value = analogRead(HcdConfig::POTENTIOMETER_PINS[index]);
-    const uint16_t previous = lastPotValues[index];
-    const uint16_t difference = value > previous ? value - previous : previous - value;
-    if (difference >= HcdConfig::POTENTIOMETER_CHANGE_THRESHOLD) {
-      lastPotValues[index] = value;
-      HcdProtocol::sendPotentiometerEvent(index + 1, value);
+uint8_t readEncoderState(uint8_t index) {
+  return (digitalRead(HcdConfig::ENCODER_A_PINS[index]) == HIGH ? 2 : 0) |
+         (digitalRead(HcdConfig::ENCODER_B_PINS[index]) == HIGH ? 1 : 0);
+}
+
+void updateEncoders() {
+  for (uint8_t index = 0; index < HcdConfig::ENCODER_COUNT; ++index) {
+    const uint8_t current = readEncoderState(index);
+    const uint8_t transition = (encoderStates[index] << 2) | current;
+    encoderStates[index] = current;
+    encoderSteps[index] += ENCODER_TRANSITION_TABLE[transition];
+    if (encoderSteps[index] >= HcdConfig::ENCODER_TRANSITIONS_PER_DETENT) {
+      encoderSteps[index] = 0;
+      HcdProtocol::sendEncoderEvent(index + 1, true);
+    } else if (encoderSteps[index] <= -HcdConfig::ENCODER_TRANSITIONS_PER_DETENT) {
+      encoderSteps[index] = 0;
+      HcdProtocol::sendEncoderEvent(index + 1, false);
     }
   }
 }
@@ -111,8 +123,11 @@ void begin() {
       ++pressedControlCount;
     }
   }
-  for (uint8_t index = 0; index < HcdConfig::POTENTIOMETER_COUNT; ++index) {
-    lastPotValues[index] = analogRead(HcdConfig::POTENTIOMETER_PINS[index]);
+  for (uint8_t index = 0; index < HcdConfig::ENCODER_COUNT; ++index) {
+    pinMode(HcdConfig::ENCODER_A_PINS[index], INPUT_PULLUP);
+    pinMode(HcdConfig::ENCODER_B_PINS[index], INPUT_PULLUP);
+    encoderStates[index] = readEncoderState(index);
+    encoderSteps[index] = 0;
   }
   updateFeedback();
 }
@@ -138,7 +153,7 @@ void update() {
           index);
     }
   }
-  updatePotentiometers(now);
+  updateEncoders();
 }
 
 }  // namespace HcdControls

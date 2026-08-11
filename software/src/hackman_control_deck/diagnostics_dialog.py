@@ -72,11 +72,11 @@ class DiagnosticsDialog(QDialog):
             self._keys[str(index)] = indicator
         row = (key_count + 3) // 4
         for index in range(1, potentiometer_count + 1):
-            indicator = QLabel(f"P{index} click", objectName="diagnosticKey")
+            indicator = QLabel(f"Encoder {index} click", objectName="diagnosticKey")
             indicator.setAlignment(Qt.AlignCenter)
             indicator.setProperty("active", False)
             indicator.setMinimumSize(90, 55)
-            value = QLabel("0 / 1023", objectName="subtitle")
+            value = QLabel("LEFT · RIGHT", objectName="subtitle")
             value.setAlignment(Qt.AlignCenter)
             column = (index - 1) * 2
             self._key_grid.addWidget(indicator, row, column)

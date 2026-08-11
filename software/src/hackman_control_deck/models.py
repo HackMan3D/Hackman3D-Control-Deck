@@ -67,25 +67,25 @@ def default_key_actions() -> dict[str, Action]:
 
 def control_identifiers(key_count: int, potentiometer_count: int = 0) -> tuple[str, ...]:
     keys = tuple(str(index) for index in range(1, max(0, key_count) + 1))
-    potentiometers = tuple(
+    encoder_clicks = tuple(
         f"P{index}" for index in range(1, max(0, potentiometer_count) + 1)
     )
-    return keys + potentiometers
+    return keys + encoder_clicks
 
 
 def default_control_action(identifier: str) -> Action:
-    label = (
-        f"Potentiometer {identifier[1:]} click"
-        if identifier.startswith("P")
-        else f"Key {identifier}"
-    )
-    return Action(label=label)
+    if identifier.startswith("P"):
+        return Action(label=f"Encoder {identifier[1:]} click")
+    return Action(label=f"Key {identifier}")
 
 
 @dataclass(slots=True)
 class Profile:
     name: str = "Default"
     keys: dict[str, Action] = field(default_factory=default_key_actions)
+    encoder_modes: dict[str, str] = field(
+        default_factory=lambda: {"1": "volume", "2": "microphone"}
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -96,6 +96,11 @@ class Profile:
     def ensure_controls(self, key_count: int, potentiometer_count: int = 0) -> None:
         for identifier in control_identifiers(key_count, potentiometer_count):
             self.keys.setdefault(identifier, default_control_action(identifier))
+        defaults = ("volume", "microphone")
+        for index in range(1, max(0, potentiometer_count) + 1):
+            self.encoder_modes.setdefault(
+                str(index), defaults[index - 1] if index <= len(defaults) else "volume"
+            )
 
     def reset_controls(self, identifiers: tuple[str, ...]) -> None:
         for identifier in identifiers:
@@ -116,5 +121,13 @@ class Profile:
                 )
                 if (valid_key or valid_pot) and isinstance(value, dict):
                     profile.keys[identifier] = Action.from_dict(value)
+
+        raw_modes = data.get("encoder_modes", {})
+        if isinstance(raw_modes, dict):
+            for identifier, mode in raw_modes.items():
+                if str(identifier).isdigit() and mode in {
+                    "volume", "microphone", "brightness"
+                }:
+                    profile.encoder_modes[str(identifier)] = str(mode)
 
         return profile
