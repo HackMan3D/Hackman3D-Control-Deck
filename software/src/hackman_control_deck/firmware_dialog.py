@@ -329,7 +329,7 @@ class FirmwareDialog(QDialog):
     def _request_install(self) -> None:
         port = str(self._port_combo.currentData() or "")
         model = str(self._model_combo.currentData() or "")
-        if port and model:
+        if port and model == "HCD-BASE":
             self.install_requested.emit(
                 port,
                 model,
@@ -339,16 +339,26 @@ class FirmwareDialog(QDialog):
 
     def _model_changed(self, index: int = -1) -> None:
         del index
-        is_pro = self._model_combo.currentData() == "HCD-PRO"
+        model = self._model_combo.currentData()
+        is_pro = model == "HCD-PRO"
+        is_development_model = model in {"HCD-PLUS", "HCD-PRO"}
         self._wifi_frame.setVisible(is_pro)
+        self._status.setText(
+            self._text("firmware_development_only") if is_development_model else ""
+        )
         self._update_install_enabled()
 
     def _update_install_enabled(self, value: str = "") -> None:
         del value
-        is_pro = self._model_combo.currentData() == "HCD-PRO"
+        model = self._model_combo.currentData()
+        is_pro = model == "HCD-PRO"
+        is_publicly_installable = model == "HCD-BASE"
         has_wifi = bool(self._wifi_ssid.currentText().strip()) if is_pro else True
         self._install_button.setEnabled(
-            self._port_combo.count() > 0 and not self._busy and has_wifi
+            self._port_combo.count() > 0
+            and not self._busy
+            and has_wifi
+            and is_publicly_installable
         )
         self._update_button.setEnabled(not self._busy and self._can_update_connected_device())
 
