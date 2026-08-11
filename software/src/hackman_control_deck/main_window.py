@@ -2673,7 +2673,14 @@ $result | ConvertTo-Json -Compress
         self._device_title.setText(info.product)
         self._selection = None
         self._refresh_control_labels()
-        self._schedule_pro_sync(force=True)
+        # Update an outdated Pro before sending its display snapshot. Besides
+        # reducing unnecessary traffic, this leaves a safe recovery path for
+        # a firmware build whose display synchronization is defective.
+        if firmware_update_available(info.firmware_version, info.model_identifier):
+            self._pro_sync_timer.stop()
+            self._last_pro_layout_fingerprint = ""
+        else:
+            self._schedule_pro_sync(force=True)
         self._reset_keys_button.setText(
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )

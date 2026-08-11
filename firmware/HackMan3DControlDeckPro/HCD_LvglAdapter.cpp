@@ -57,14 +57,9 @@ void worker(void*) {
 }
 
 IRAM_ATTR bool refreshFinished(void* userData) {
+  (void)userData;
   ++vsyncCount;
-  BaseType_t shouldYield = pdFALSE;
-  xTaskNotifyFromISR(
-      static_cast<TaskHandle_t>(userData),
-      ULONG_MAX,
-      eNoAction,
-      &shouldYield);
-  return shouldYield == pdTRUE;
+  return false;
 }
 
 void flushDisplay(lv_display_t* lvDisplay, const lv_area_t* area, uint8_t* pixels) {
@@ -85,11 +80,23 @@ void flushDisplay(lv_display_t* lvDisplay, const lv_area_t* area, uint8_t* pixel
     // allowing LVGL to reuse either frame.  This prevents RGB scan-out from
     // observing a frame while it is being modified.
     if (lv_display_flush_is_last(lvDisplay)) {
-      ulTaskNotifyValueClear(nullptr, ULONG_MAX);
+      // Observe the ISR-owned VSYNC counter directly. Task notifications can
+      // be coalesced or lost while Wi-Fi and RGB DMA are busy; the monotonic
+      // counter cannot, and it also avoids an indefinite wait if a task-level
+      // notification never arrives.
+      const uint32_t beforeSwitch = vsyncCount;
       if (!lcd->switchFrameBufferTo(pixels)) {
         ++switchFailureCount;
-      } else if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(150)) == 0) {
-        ++switchFailureCount;
+      } else {
+        const TickType_t startedAt = xTaskGetTickCount();
+        const TickType_t safetyLimit = pdMS_TO_TICKS(1000);
+        while (vsyncCount == beforeSwitch &&
+               xTaskGetTickCount() - startedAt < safetyLimit) {
+          vTaskDelay(pdMS_TO_TICKS(1));
+        }
+        if (vsyncCount == beforeSwitch) {
+          ++switchFailureCount;
+        }
       }
     }
     lv_display_flush_ready(lvDisplay);
@@ -173,10 +180,10 @@ bool begin(LCD* lcd, Touch* touch, uint16_t width, uint16_t height) {
     memset(frameBuffer1, 0, frameBytes);
     memset(frameBuffer2, 0, frameBytes);
   } else {
-    const uint32_t renderBytes = width * 40 * bytesPerPixel;
-    renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    const uint32_t renderBytes = width * 20 * bytesPerPixel;
+    renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (renderBuffer == nullptr) {
-      renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+      renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     }
     if (renderBuffer == nullptr) {
       return false;
@@ -197,7 +204,7 @@ bool begin(LCD* lcd, Touch* touch, uint16_t width, uint16_t height) {
         frameBytes,
         LV_DISPLAY_RENDER_MODE_DIRECT);
   } else {
-    const uint32_t renderBytes = width * 40 * bytesPerPixel;
+    const uint32_t renderBytes = width * 20 * bytesPerPixel;
     lv_display_set_buffers(
         display,
         renderBuffer,
@@ -229,7 +236,7 @@ bool begin(LCD* lcd, Touch* touch, uint16_t width, uint16_t height) {
           ARDUINO_RUNNING_CORE) != pdPASS) {
     return false;
   }
-  panelLcd->attachRefreshFinishCallback(refreshFinished, lvglTask);
+  panelLcd->attachRefreshFinishCallback(refreshFinished, nullptr);
   refreshCallbackReady = true;
   return true;
 }

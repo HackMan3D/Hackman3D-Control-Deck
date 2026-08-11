@@ -13,7 +13,14 @@
 - Bundled HCD Plus firmware 1.1.1 adds quadrature decoding tuned for the
   two transitions produced by each module detent and retains the
   robust MCP23017 address detection introduced in the previous test build.
-- HCD Pro firmware 1.2.40 adds a 10 mm corner-safe interface: the header,
+- HCD Pro firmware 1.2.44 adds a 10 mm corner-safe interface: the header,
   touch grid and faders are inset from the enclosure's rounded bezel.
-- The Pro now draws into two complete display buffers and swaps them between
-  panel scans, preventing a partially redrawn interface from becoming visible.
+- The Pro now keeps one stable scan-out framebuffer and applies bounded partial
+  updates from an internal-memory render buffer, avoiding PSRAM contention and
+  persistent artifacts during icon synchronization.
+- Stale icon cache entries are discarded before replacement and scaled icon
+  rendering uses less PSRAM bandwidth.
+- The desktop app updates outdated Pro firmware before synchronizing its full
+  display layout, preserving a safe recovery path.
+- The display update was validated with 11 icons transferred in one session,
+  without freezing or graphical artifacts.

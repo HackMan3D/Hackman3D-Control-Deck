@@ -3,6 +3,7 @@
 #include <esp_display_panel.hpp>
 #include <esp_heap_caps.h>
 #include <lvgl.h>
+#include <misc/cache/instance/lv_image_cache.h>
 
 #include "HCD_Config.h"
 #include "HCD_LvglAdapter.h"
@@ -282,6 +283,10 @@ void buildInterface() {
 
     lv_obj_t* image = lv_image_create(button);
     keyImages[index] = image;
+    // Scaling with interpolation multiplies PSRAM reads while the RGB engine
+    // is scanning another framebuffer.  Nearest-neighbour scaling remains
+    // crisp for app icons and leaves substantially more bandwidth available.
+    lv_image_set_antialias(image, false);
     lv_obj_add_flag(image, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(image, LV_ALIGN_TOP_MID, 0, 10);
   }
@@ -421,10 +426,11 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
   if (lcd == nullptr) {
     return false;
   }
-  // Keep the frame currently scanned by the RGB panel immutable while LVGL
-  // renders the next one.  The ESP32-S3N8R8 has enough PSRAM for both complete
-  // RGB565 frames and swapping them on VSYNC avoids visible partial updates.
-  lcd->configFrameBufferNumber(2);
+  // Use one scan-out framebuffer and a small internal-RAM render buffer.
+  // Continuous full-frame swaps make this ESP32-S3 panel sensitive to PSRAM
+  // contention while Wi-Fi and icon decoding are active. Partial copies are
+  // bounded and leave the RGB engine with a single stable scan-out buffer.
+  lcd->configFrameBufferNumber(1);
   if (lcd->getBus()->getBasicAttributes().type == ESP_PANEL_BUS_TYPE_RGB) {
     BusRGB* rgb = static_cast<BusRGB*>(lcd->getBus());
     // Keep the timing validated for the Waveshare/Caturda 7-inch RGB panel.
@@ -526,11 +532,18 @@ void setKeyIcon(uint8_t keyId, const uint8_t* data, size_t size) {
   }
 
   uint8_t* previous = keyImageData[index];
+  lv_image_dsc_t& descriptor = keyImageDescriptors[index];
+  if (previous != nullptr) {
+    // The descriptor address is stable for the lifetime of the key.  Drop any
+    // decoded/cache entry before changing its data pointer and freeing the old
+    // allocation so LVGL can never draw from released icon memory.
+    lv_image_cache_drop(&descriptor);
+    lv_image_set_src(keyImages[index], nullptr);
+  }
   keyImageData[index] = replacement;
   if (replacement == nullptr) {
     lv_obj_add_flag(keyImages[index], LV_OBJ_FLAG_HIDDEN);
   } else {
-    lv_image_dsc_t& descriptor = keyImageDescriptors[index];
     memset(&descriptor, 0, sizeof(descriptor));
     descriptor.header.magic = LV_IMAGE_HEADER_MAGIC;
     descriptor.header.cf = LV_COLOR_FORMAT_RGB565;
