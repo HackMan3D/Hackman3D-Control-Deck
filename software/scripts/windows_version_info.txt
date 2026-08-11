@@ -15,11 +15,11 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'HackMan3D'),
          StringStruct('FileDescription', 'HackMan3D Control Deck'),
-         StringStruct('FileVersion', '1.4.10'),
+         StringStruct('FileVersion', '1.4.11'),
          StringStruct('InternalName', 'HackMan3D Control Deck'),
          StringStruct('OriginalFilename', 'HackMan3D Control Deck.exe'),
          StringStruct('ProductName', 'HackMan3D Control Deck'),
-         StringStruct('ProductVersion', '1.4.10')]
+         StringStruct('ProductVersion', '1.4.11')]
       )
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

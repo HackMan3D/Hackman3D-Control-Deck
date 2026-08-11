@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.10",
+  "latest_version": "1.4.11",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Higher-resolution Windows application icons and reliable system-command saving on every HCD Pro touch key.",
+  "release_notes": "The community roadmap gauge now refreshes at every application launch and automatically while the application remains open.",
   "roadmap": {
     "progress": 0
   }

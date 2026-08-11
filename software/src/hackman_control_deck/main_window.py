@@ -268,6 +268,9 @@ class MainWindow(QMainWindow):
         self._application_icon_cache: dict[str, QIcon] = {}
         self._primary_preset_value = ""
         self._long_preset_value = ""
+        self._release_feed_timer = QTimer(self)
+        self._release_feed_timer.setInterval(RELEASE_CHECK_INTERVAL_SECONDS * 1000)
+        self._release_feed_timer.timeout.connect(self._check_release_feed_if_due)
 
         self._build_ui()
         self._device_preview.set_pro_second_fader(self._pro_second_fader)
@@ -278,6 +281,7 @@ class MainWindow(QMainWindow):
         self._device.start()
         self._apply_language()
         QTimer.singleShot(1_500, self._check_release_feed_if_due)
+        self._release_feed_timer.start()
 
     def _resize_for_screen(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -835,9 +839,7 @@ class MainWindow(QMainWindow):
     def _check_release_feed_if_due(self) -> None:
         if not RELEASE_MANIFEST_URL:
             return
-        last_check = self._settings.value("updates/lastCheck", 0, type=int)
-        if int(time.time()) - last_check >= RELEASE_CHECK_INTERVAL_SECONDS:
-            self._start_release_check(manual=False)
+        self._start_release_check(manual=False)
 
     def _check_release_feed_manually(self) -> None:
         if not RELEASE_MANIFEST_URL:
@@ -859,7 +861,6 @@ class MainWindow(QMainWindow):
         manual = self._manual_release_check
         self._manual_release_check = False
         self._updates_button.setEnabled(True)
-        self._settings.setValue("updates/lastCheck", int(time.time()))
 
         self._set_roadmap_progress(data.roadmap_progress)
         self._settings.setValue("roadmap/progress", data.roadmap_progress)
