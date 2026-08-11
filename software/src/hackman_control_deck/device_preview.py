@@ -74,6 +74,13 @@ class DevicePreview(QWidget):
         self._pro_slider_value = 50
         self._pro_microphone_value = 50
         self._pro_second_fader = False
+        self._pro_colors = {
+            "screen": "#080808",
+            "key": "#171717",
+            "border": "#404040",
+            "header": "#FFFFFF",
+            "led": "#F02020",
+        }
 
         self.buttons: dict[str, QToolButton] = {}
         self._configure_controls()
@@ -126,6 +133,37 @@ class DevicePreview(QWidget):
             )
             self.buttons[identifier] = button
             button.show()
+        self._apply_pro_button_colors()
+
+    def set_pro_colors(self, colors: dict[str, str]) -> None:
+        for name in self._pro_colors:
+            color = QColor(colors.get(name, self._pro_colors[name]))
+            if color.isValid():
+                self._pro_colors[name] = color.name(QColor.NameFormat.HexRgb).upper()
+        self._apply_pro_button_colors()
+        self.update()
+
+    def _apply_pro_button_colors(self) -> None:
+        if self._model_identifier != "HCD-PRO":
+            for button in self.buttons.values():
+                button.setStyleSheet("")
+            return
+        key = self._pro_colors["key"]
+        border = self._pro_colors["border"]
+        header = self._pro_colors["header"]
+        style = f"""
+            QToolButton#deviceKey {{
+                background: {key}; color: {header};
+                border: 2px solid {border}; border-radius: 10px; padding: 3px;
+            }}
+            QToolButton#deviceKey:hover,
+            QToolButton#deviceKey[selected=\"true\"] {{ border-color: {header}; }}
+            QToolButton#deviceKey[active=\"true\"] {{
+                background: {border}; color: {header}; border-color: {header};
+            }}
+        """
+        for button in self.buttons.values():
+            button.setStyleSheet(style)
 
     def set_connection_active(self, active: bool) -> None:
         if self._connection_active == active:
@@ -214,13 +252,13 @@ class DevicePreview(QWidget):
         panel = self._pro_panel()
         painter.save()
         painter.setPen(QPen(QColor("#555555"), 2))
-        painter.setBrush(QColor("#080808"))
+        painter.setBrush(QColor(self._pro_colors["screen"]))
         painter.drawRoundedRect(panel, 24, 24)
         screen = panel.adjusted(18, 18, -18, -18)
         painter.setPen(QPen(QColor("#303030"), 2))
-        painter.setBrush(QColor("#101010"))
+        painter.setBrush(QColor(self._pro_colors["screen"]).lighter(112))
         painter.drawRoundedRect(screen, 14, 14)
-        painter.setPen(QColor("#f4f4f4"))
+        painter.setPen(QColor(self._pro_colors["header"]))
         painter.drawText(
             screen.adjusted(18, 8, -18, -8),
             Qt.AlignTop | Qt.AlignLeft,
@@ -277,12 +315,17 @@ class DevicePreview(QWidget):
         # Illuminate the plastic around the physical lens with a broad,
         # continuous falloff.
         glow_radius = max(14.0, 78.0 * scale)
+        led = QColor(
+            self._pro_colors["led"]
+            if self._model_identifier == "HCD-PRO"
+            else "#F02020"
+        )
         glow = QRadialGradient(center, glow_radius)
-        glow.setColorAt(0.0, QColor(255, 20, 12, 200))
-        glow.setColorAt(0.2, QColor(255, 18, 10, 120))
-        glow.setColorAt(0.48, QColor(245, 10, 6, 55))
-        glow.setColorAt(0.75, QColor(225, 5, 3, 16))
-        glow.setColorAt(1.0, QColor(210, 0, 0, 0))
+        glow.setColorAt(0.0, QColor(led.red(), led.green(), led.blue(), 200))
+        glow.setColorAt(0.2, QColor(led.red(), led.green(), led.blue(), 120))
+        glow.setColorAt(0.48, QColor(led.red(), led.green(), led.blue(), 55))
+        glow.setColorAt(0.75, QColor(led.red(), led.green(), led.blue(), 16))
+        glow.setColorAt(1.0, QColor(led.red(), led.green(), led.blue(), 0))
         painter.setBrush(glow)
         painter.drawEllipse(center, glow_radius, glow_radius)
         painter.restore()
@@ -293,10 +336,11 @@ class DevicePreview(QWidget):
         painter.setPen(Qt.NoPen)
         core_radius = max(3.0, 9.0 * scale)
         core = QRadialGradient(center, core_radius)
-        core.setColorAt(0.0, QColor(255, 210, 190, 245))
-        core.setColorAt(0.22, QColor(255, 45, 30, 245))
-        core.setColorAt(0.68, QColor(225, 5, 5, 225))
-        core.setColorAt(1.0, QColor(140, 0, 0, 80))
+        dark = led.darker(140)
+        core.setColorAt(0.0, QColor(255, 255, 255, 245))
+        core.setColorAt(0.22, QColor(led.red(), led.green(), led.blue(), 245))
+        core.setColorAt(0.68, QColor(dark.red(), dark.green(), dark.blue(), 225))
+        core.setColorAt(1.0, QColor(dark.red(), dark.green(), dark.blue(), 80))
         painter.setBrush(core)
         painter.drawEllipse(center, core_radius, core_radius)
         painter.restore()

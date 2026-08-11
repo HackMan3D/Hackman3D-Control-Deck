@@ -20,6 +20,7 @@ lv_image_dsc_t keyImageDescriptors[HcdConfig::KEY_COUNT] = {};
 uint8_t* keyImageData[HcdConfig::KEY_COUNT] = {};
 lv_obj_t* connectionDot = nullptr;
 lv_obj_t* networkLabel = nullptr;
+lv_obj_t* titleLabel = nullptr;
 lv_obj_t* keybed = nullptr;
 lv_obj_t* levelSlider = nullptr;
 lv_obj_t* sliderTouchArea = nullptr;
@@ -43,6 +44,12 @@ unsigned long lastSliderSendAt = 0;
 unsigned long lastMicrophoneSendAt = 0;
 bool secondFaderVisible = false;
 uint8_t currentSliderMode = 1;
+bool appIsConnected = false;
+uint32_t screenColor = 0x080808;
+uint32_t keyColor = 0x171717;
+uint32_t keyBorderColor = 0x404040;
+uint32_t headerColor = 0xFFFFFF;
+uint32_t connectionColor = 0xF02020;
 
 // The largest 64 px icon remains inside a 96 px key with a visible margin.
 constexpr uint16_t iconScales[] = {192, 256, 320, 344};
@@ -73,27 +80,32 @@ void positionKeyContent(uint8_t index) {
 }
 
 void applyTheme() {
-  const uint32_t screenColor = currentTheme == 2 ? 0x000000 : 0x080808;
-  const uint32_t bedColor = currentTheme == 0 ? 0x080808 : 0x111111;
-  const uint32_t buttonColor = currentTheme == 2 ? 0x050505 :
-      (currentTheme == 1 ? 0x202020 : 0x171717);
-  const uint32_t borderColor = currentTheme == 2 ? 0x505050 :
-      (currentTheme == 1 ? 0x404040 : 0x333333);
   lv_obj_t* screen = lv_screen_active();
   lv_obj_set_style_bg_color(screen, lv_color_hex(screenColor), 0);
   if (keybed != nullptr) {
-    lv_obj_set_style_bg_color(keybed, lv_color_hex(bedColor), 0);
-    lv_obj_set_style_border_color(
-        keybed, lv_color_hex(currentTheme == 1 ? 0x303030 : bedColor), 0);
-    lv_obj_set_style_shadow_width(keybed, currentTheme == 1 ? 14 : 0, 0);
+    lv_obj_set_style_bg_color(keybed, lv_color_hex(screenColor), 0);
+    lv_obj_set_style_border_color(keybed, lv_color_hex(keyBorderColor), 0);
+    lv_obj_set_style_shadow_width(keybed, 0, 0);
+  }
+  if (titleLabel != nullptr) {
+    lv_obj_set_style_text_color(titleLabel, lv_color_hex(headerColor), 0);
+  }
+  if (networkLabel != nullptr) {
+    lv_obj_set_style_text_color(networkLabel, lv_color_hex(headerColor), 0);
+  }
+  if (connectionDot != nullptr) {
+    lv_obj_set_style_bg_color(
+        connectionDot,
+        lv_color_hex(appIsConnected ? connectionColor : 0x3A3A3A),
+        0);
   }
   for (uint8_t index = 0; index < HcdConfig::KEY_COUNT; ++index) {
-    lv_obj_set_style_bg_color(keyButtons[index], lv_color_hex(buttonColor), 0);
-    lv_obj_set_style_border_color(keyButtons[index], lv_color_hex(borderColor), 0);
+    lv_obj_set_style_bg_color(keyButtons[index], lv_color_hex(keyColor), 0);
+    lv_obj_set_style_border_color(keyButtons[index], lv_color_hex(keyBorderColor), 0);
     lv_obj_set_style_border_width(keyButtons[index], 1, 0);
-    lv_obj_set_style_shadow_width(keyButtons[index], currentTheme == 1 ? 8 : 0, 0);
+    lv_obj_set_style_shadow_width(keyButtons[index], 0, 0);
     lv_obj_set_style_shadow_color(keyButtons[index], lv_color_hex(0x000000), 0);
-    lv_obj_set_style_shadow_offset_y(keyButtons[index], currentTheme == 1 ? 4 : 0, 0);
+    lv_obj_set_style_shadow_offset_y(keyButtons[index], 0, 0);
   }
 }
 
@@ -185,10 +197,10 @@ void buildInterface() {
   lv_obj_set_style_bg_color(screen, lv_color_hex(0x080808), 0);
   lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
 
-  lv_obj_t* title = lv_label_create(screen);
-  lv_label_set_text(title, "HackMan3D  CONTROL DECK PRO");
-  lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 18, 14);
+  titleLabel = lv_label_create(screen);
+  lv_label_set_text(titleLabel, "HackMan3D  CONTROL DECK PRO");
+  lv_obj_set_style_text_color(titleLabel, lv_color_hex(headerColor), 0);
+  lv_obj_align(titleLabel, LV_ALIGN_TOP_LEFT, 18, 14);
 
   connectionDot = lv_obj_create(screen);
   lv_obj_set_size(connectionDot, 18, 18);
@@ -438,14 +450,32 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
 }
 
 void setAppConnected(bool connected) {
+  appIsConnected = connected;
   if (connectionDot == nullptr || !HcdLvglAdapter::lock(50)) {
     return;
   }
   lv_obj_set_style_bg_color(
       connectionDot,
-      lv_color_hex(connected ? 0xF02020 : 0x3A3A3A),
+      lv_color_hex(connected ? connectionColor : 0x3A3A3A),
       0);
   HcdLvglAdapter::unlock();
+}
+
+void setColors(
+    uint32_t screen,
+    uint32_t key,
+    uint32_t border,
+    uint32_t header,
+    uint32_t led) {
+  screenColor = screen & 0xFFFFFF;
+  keyColor = key & 0xFFFFFF;
+  keyBorderColor = border & 0xFFFFFF;
+  headerColor = header & 0xFFFFFF;
+  connectionColor = led & 0xFFFFFF;
+  if (HcdLvglAdapter::lock(100)) {
+    applyTheme();
+    HcdLvglAdapter::unlock();
+  }
 }
 
 void setWifiStatus(bool connected, bool configured, const IPAddress& address) {

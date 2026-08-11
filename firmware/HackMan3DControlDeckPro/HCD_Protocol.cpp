@@ -1,5 +1,6 @@
 #include "HCD_Protocol.h"
 
+#include <ctype.h>
 #include <Preferences.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -90,6 +91,30 @@ void updateAppearance(const String& line) {
   // every connection. Avoid writing flash here: cache suspension during NVS
   // writes can starve the ESP32-S3 RGB DMA and visibly shift the screen.
   HcdDisplay::setAppearance(iconSize, false, theme, secondFader, sliderMode);
+}
+
+void updateColors(const String& line) {
+  constexpr char prefix[] = "HCD_PRO_COLORS|";
+  uint32_t colors[5] = {};
+  int start = sizeof(prefix) - 1;
+  for (uint8_t index = 0; index < 5; ++index) {
+    const int separator = index == 4 ? line.length() : line.indexOf('|', start);
+    if (separator < 0) {
+      return;
+    }
+    const String value = line.substring(start, separator);
+    if (value.length() != 6) {
+      return;
+    }
+    for (uint8_t character = 0; character < 6; ++character) {
+      if (!isxdigit(static_cast<unsigned char>(value[character]))) {
+        return;
+      }
+    }
+    colors[index] = strtoul(value.c_str(), nullptr, 16);
+    start = separator + 1;
+  }
+  HcdDisplay::setColors(colors[0], colors[1], colors[2], colors[3], colors[4]);
 }
 
 String decodeBase64(const String& value) {
@@ -316,6 +341,8 @@ void handleCommand(const String& line, Print& reply) {
     HcdDisplay::refresh();
   } else if (line.startsWith("HCD_PRO_DISPLAY|")) {
     updateAppearance(line);
+  } else if (line.startsWith("HCD_PRO_COLORS|")) {
+    updateColors(line);
   } else if (line.startsWith("HCD_PRO_SLIDER_STATE|")) {
     const int separator = line.indexOf('|', 21);
     const uint8_t sliderId = separator < 0
