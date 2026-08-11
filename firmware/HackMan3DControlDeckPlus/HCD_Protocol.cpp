@@ -114,11 +114,11 @@ void sendPotButtonEvent(uint8_t potentiometerId, bool pressed) {
   Serial.println(pressed ? F("DOWN") : F("UP"));
 }
 
-void sendPotentiometerEvent(uint8_t potentiometerId, uint16_t value) {
-  Serial.print(F("HCD_POT|"));
-  Serial.print(potentiometerId);
+void sendEncoderEvent(uint8_t encoderId, bool clockwise) {
+  Serial.print(F("HCD_ENCODER|"));
+  Serial.print(encoderId);
   Serial.print('|');
-  Serial.println(value);
+  Serial.println(clockwise ? F("RIGHT") : F("LEFT"));
 }
 
 }  // namespace HcdProtocol

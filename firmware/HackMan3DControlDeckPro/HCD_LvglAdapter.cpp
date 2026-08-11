@@ -22,6 +22,7 @@ lv_display_t* display = nullptr;
 void* frameBuffer1 = nullptr;
 void* frameBuffer2 = nullptr;
 void* renderBuffer = nullptr;
+bool directDoubleBuffer = false;
 volatile bool refreshCallbackReady = false;
 volatile uint32_t flushCount = 0;
 volatile uint32_t vsyncCount = 0;
@@ -78,6 +79,22 @@ void flushDisplay(lv_display_t* lvDisplay, const lv_area_t* area, uint8_t* pixel
   }
   ++flushCount;
   lastFlushedBuffer = pixels;
+  if (directDoubleBuffer) {
+    // LVGL renders into the framebuffer that is not being scanned.  Switch
+    // only after the last dirty area is complete, then wait for VSYNC before
+    // allowing LVGL to reuse either frame.  This prevents RGB scan-out from
+    // observing a frame while it is being modified.
+    if (lv_display_flush_is_last(lvDisplay)) {
+      ulTaskNotifyValueClear(nullptr, ULONG_MAX);
+      if (!lcd->switchFrameBufferTo(pixels)) {
+        ++switchFailureCount;
+      } else if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(150)) == 0) {
+        ++switchFailureCount;
+      }
+    }
+    lv_display_flush_ready(lvDisplay);
+    return;
+  }
   if (!lcd->drawBitmap(
           area->x1,
           area->y1,
@@ -148,14 +165,22 @@ bool begin(LCD* lcd, Touch* touch, uint16_t width, uint16_t height) {
     return false;
   }
 
-  const uint32_t renderBytes =
-      width * 40 * LV_COLOR_FORMAT_GET_SIZE(LV_COLOR_FORMAT_RGB565);
-  renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-  if (renderBuffer == nullptr) {
-    renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  }
-  if (renderBuffer == nullptr) {
-    return false;
+  const uint32_t bytesPerPixel =
+      LV_COLOR_FORMAT_GET_SIZE(LV_COLOR_FORMAT_RGB565);
+  const uint32_t frameBytes = width * height * bytesPerPixel;
+  directDoubleBuffer = frameBuffer2 != nullptr;
+  if (directDoubleBuffer) {
+    memset(frameBuffer1, 0, frameBytes);
+    memset(frameBuffer2, 0, frameBytes);
+  } else {
+    const uint32_t renderBytes = width * 40 * bytesPerPixel;
+    renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (renderBuffer == nullptr) {
+      renderBuffer = heap_caps_malloc(renderBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    if (renderBuffer == nullptr) {
+      return false;
+    }
   }
 
   display = lv_display_create(width, height);
@@ -164,12 +189,22 @@ bool begin(LCD* lcd, Touch* touch, uint16_t width, uint16_t height) {
   }
   lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
   lv_display_set_flush_cb(display, flushDisplay);
-  lv_display_set_buffers(
-      display,
-      renderBuffer,
-      nullptr,
-      renderBytes,
-      LV_DISPLAY_RENDER_MODE_PARTIAL);
+  if (directDoubleBuffer) {
+    lv_display_set_buffers(
+        display,
+        frameBuffer1,
+        frameBuffer2,
+        frameBytes,
+        LV_DISPLAY_RENDER_MODE_DIRECT);
+  } else {
+    const uint32_t renderBytes = width * 40 * bytesPerPixel;
+    lv_display_set_buffers(
+        display,
+        renderBuffer,
+        nullptr,
+        renderBytes,
+        LV_DISPLAY_RENDER_MODE_PARTIAL);
+  }
   lv_display_set_user_data(display, panelLcd);
   lv_display_set_default(display);
 
@@ -240,7 +275,7 @@ String diagnostics() {
   snprintf(
       message,
       sizeof(message),
-      "flush=%lu|vsync=%lu|fail=%lu|fb1=%p:%04X|fb2=%p:%04X|last=%p|ready=%u",
+      "flush=%lu|vsync=%lu|fail=%lu|fb1=%p:%04X|fb2=%p:%04X|last=%p|ready=%u|double=%u",
       static_cast<unsigned long>(flushCount),
       static_cast<unsigned long>(vsyncCount),
       static_cast<unsigned long>(switchFailureCount),
@@ -249,7 +284,8 @@ String diagnostics() {
       frameBuffer2,
       first2,
       lastFlushedBuffer,
-      refreshCallbackReady ? 1 : 0);
+      refreshCallbackReady ? 1 : 0,
+      directDoubleBuffer ? 1 : 0);
   return String(message);
 }
 

@@ -35,11 +35,11 @@ class FirmwareTarget:
 
 FIRMWARE_TARGETS = {
     "HCD-BASE": FirmwareTarget("HCD-BASE", "HCD-BASE", "1.7.0", 9, 0),
-    "HCD-PLUS": FirmwareTarget("HCD-PLUS", "HCD Plus", "1.0.1", 12, 2),
+    "HCD-PLUS": FirmwareTarget("HCD-PLUS", "HCD Plus", "1.1.1", 12, 2),
     "HCD-PRO": FirmwareTarget(
         "HCD-PRO",
         "HCD Pro",
-        "1.2.38",
+        "1.2.40",
         28,
         0,
         "esp32s3",

@@ -70,8 +70,26 @@ def test_profile_supports_hcd_plus_controls() -> None:
 
     assert len(profile.keys) == 14
     assert profile.keys["12"].label == "Key 12"
-    assert profile.keys["P1"].label == "Potentiometer 1 click"
-    assert profile.keys["P2"].label == "Potentiometer 2 click"
+    assert profile.keys["P1"].label == "Encoder 1 click"
+    assert profile.keys["P2"].label == "Encoder 2 click"
+    assert profile.encoder_modes == {"1": "volume", "2": "microphone"}
+
+
+def test_profiles_are_isolated_by_hardware_model(tmp_path) -> None:
+    store = ProfileStore(tmp_path, model_identifier="HCD-BASE")
+    base = store.create("Workshop")
+    base.keys["1"] = Action("shortcut", "CTRL+B", "Base")
+    store.save(base)
+
+    store.set_model("HCD-PLUS")
+    plus = store.create("Workshop")
+    plus.ensure_controls(12, 2)
+    plus.keys["1"] = Action("shortcut", "CTRL+P", "Plus")
+    store.save(plus)
+
+    assert store.load("Workshop").keys["1"].label == "Plus"
+    store.set_model("HCD-BASE")
+    assert store.load("Workshop").keys["1"].label == "Base"
 
 
 def test_short_and_long_press_actions_round_trip(tmp_path) -> None:

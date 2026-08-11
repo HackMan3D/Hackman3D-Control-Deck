@@ -202,27 +202,27 @@ void buildInterface() {
   titleLabel = lv_label_create(screen);
   lv_label_set_text(titleLabel, "HackMan3D  CONTROL DECK PRO");
   lv_obj_set_style_text_color(titleLabel, lv_color_hex(headerColor), 0);
-  lv_obj_align(titleLabel, LV_ALIGN_TOP_LEFT, 18, 14);
+  lv_obj_align(titleLabel, LV_ALIGN_TOP_LEFT, 32, 16);
 
   connectionDot = lv_obj_create(screen);
   lv_obj_set_size(connectionDot, 18, 18);
   lv_obj_set_style_radius(connectionDot, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_border_width(connectionDot, 0, 0);
   lv_obj_set_style_bg_color(connectionDot, lv_color_hex(0x3A3A3A), 0);
-  lv_obj_align(connectionDot, LV_ALIGN_TOP_RIGHT, -18, 13);
+  lv_obj_align(connectionDot, LV_ALIGN_TOP_RIGHT, -30, 15);
 
   networkLabel = lv_label_create(screen);
   lv_label_set_text(networkLabel, "Wi-Fi starting…");
   lv_obj_set_style_text_color(networkLabel, lv_color_hex(0xA0A0A0), 0);
-  lv_obj_align(networkLabel, LV_ALIGN_TOP_RIGHT, -48, 16);
+  lv_obj_align(networkLabel, LV_ALIGN_TOP_RIGHT, -62, 18);
 
   constexpr int columns = 7;
   constexpr int rows = 4;
-  constexpr int marginX = 12;
-  constexpr int top = 54;
-  // Match the visible inset at the top of the keybed. The former 12 px value
-  // placed the last row directly over the keybed's lower border.
-  constexpr int bottom = 20;
+  // The enclosure overlaps the display with a 10 mm radius at all four
+  // corners. Keep interactive content inside the resulting safe area.
+  constexpr int marginX = 28;
+  constexpr int top = 66;
+  constexpr int bottom = 30;
   constexpr int gap = 6;
   constexpr int faderWidth = 58;
   constexpr int faderGap = 10;
@@ -235,9 +235,10 @@ void buildInterface() {
       (HcdConfig::DISPLAY_HEIGHT - top - bottom - gap * (rows - 1)) / rows;
 
   keybed = lv_obj_create(screen);
-  lv_obj_set_pos(keybed, 7, top - 8);
-  lv_obj_set_size(keybed, HcdConfig::DISPLAY_WIDTH - 14, HcdConfig::DISPLAY_HEIGHT - top - 2);
-  lv_obj_set_style_radius(keybed, 20, 0);
+  lv_obj_set_pos(keybed, 14, 46);
+  lv_obj_set_size(keybed, HcdConfig::DISPLAY_WIDTH - 28, HcdConfig::DISPLAY_HEIGHT - 60);
+  lv_obj_set_style_radius(keybed, 48, 0);
+  lv_obj_set_style_clip_corner(keybed, true, 0);
   lv_obj_set_style_border_width(keybed, 2, 0);
   lv_obj_clear_flag(keybed, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -420,7 +421,10 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
   if (lcd == nullptr) {
     return false;
   }
-  lcd->configFrameBufferNumber(1);
+  // Keep the frame currently scanned by the RGB panel immutable while LVGL
+  // renders the next one.  The ESP32-S3N8R8 has enough PSRAM for both complete
+  // RGB565 frames and swapping them on VSYNC avoids visible partial updates.
+  lcd->configFrameBufferNumber(2);
   if (lcd->getBus()->getBasicAttributes().type == ESP_PANEL_BUS_TYPE_RGB) {
     BusRGB* rgb = static_cast<BusRGB*>(lcd->getBus());
     // Keep the timing validated for the Waveshare/Caturda 7-inch RGB panel.

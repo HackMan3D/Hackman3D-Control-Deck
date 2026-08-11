@@ -195,6 +195,8 @@ SYSTEM_ICON_FILES = {
     "volume_down": "system_volume_down.svg",
     "volume_mute": "system_volume_mute.svg",
     "microphone_mute": "system_microphone_mute.svg",
+    "microphone_up": "system_volume_up.svg",
+    "microphone_down": "system_volume_down.svg",
     "media_play_pause": "system_play_pause.svg",
     "media_next": "system_next.svg",
     "media_previous": "system_previous.svg",
@@ -211,6 +213,8 @@ SYSTEM_COMMANDS = (
     ("command_volume_down", "volume_down", {"darwin", "win32"}),
     ("command_volume_mute", "volume_mute", {"darwin", "win32"}),
     ("command_microphone_mute", "microphone_mute", {"darwin", "win32"}),
+    ("command_microphone_up", "microphone_up", {"darwin", "win32"}),
+    ("command_microphone_down", "microphone_down", {"darwin", "win32"}),
     ("command_play_pause", "media_play_pause", {"darwin", "win32"}),
     ("command_next_track", "media_next", {"darwin", "win32"}),
     ("command_previous_track", "media_previous", {"darwin", "win32"}),
@@ -249,7 +253,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
 
-        self._store = ProfileStore()
+        self._store = ProfileStore(model_identifier="HCD-BASE")
         self._profile = Profile()
         self._selection: str | None = None
         self._control_buttons: dict[str, QToolButton] = {}
@@ -325,6 +329,11 @@ class MainWindow(QMainWindow):
         self._microphone_action_timer.setSingleShot(True)
         self._microphone_action_timer.setInterval(80)
         self._microphone_action_timer.timeout.connect(self._apply_pro_microphone_value)
+        self._pending_encoder_steps = {1: 0, 2: 0}
+        self._encoder_action_timer = QTimer(self)
+        self._encoder_action_timer.setSingleShot(True)
+        self._encoder_action_timer.setInterval(90)
+        self._encoder_action_timer.timeout.connect(self._apply_encoder_adjustments)
         self._system_level_timer = QTimer(self)
         self._system_level_timer.setInterval(1_000)
         self._system_level_timer.timeout.connect(self._sync_pro_slider_from_system)
@@ -737,6 +746,28 @@ class MainWindow(QMainWindow):
         layout.addSpacing(10)
 
         self._press_tabs = QTabWidget()
+        self._encoder_editor = QFrame(objectName="encoderEditor")
+        encoder_layout = QVBoxLayout(self._encoder_editor)
+        encoder_layout.setContentsMargins(10, 14, 10, 14)
+        self._encoder_mode_label = QLabel("Encoder function")
+        encoder_layout.addWidget(self._encoder_mode_label)
+        self._encoder_mode_combo = QComboBox()
+        self._encoder_mode_combo.addItem("Output volume", "volume")
+        self._encoder_mode_combo.addItem("Microphone volume", "microphone")
+        self._encoder_mode_combo.addItem("Screen brightness", "brightness")
+        self._encoder_mode_combo.currentIndexChanged.connect(
+            self._encoder_mode_changed
+        )
+        encoder_layout.addWidget(self._encoder_mode_combo)
+        self._encoder_mode_help = QLabel(
+            "Rotation decreases or increases this setting. Clicking toggles mute for sound or microphone.",
+            objectName="subtitle",
+        )
+        self._encoder_mode_help.setWordWrap(True)
+        encoder_layout.addWidget(self._encoder_mode_help)
+        encoder_layout.addStretch()
+        self._encoder_editor.setVisible(False)
+        layout.addWidget(self._encoder_editor, 1)
         short_tab = QWidget()
         short_layout = QVBoxLayout(short_tab)
         short_layout.setContentsMargins(10, 14, 10, 14)
@@ -916,6 +947,11 @@ class MainWindow(QMainWindow):
         self._test_action_button.setText(self._text("test_action"))
         self._test_long_action_button.setText(self._text("test_long_action"))
         self._long_press_delay_label.setText(self._text("long_press_duration"))
+        self._encoder_mode_label.setText(self._text("encoder_function"))
+        self._encoder_mode_combo.setItemText(0, self._text("output_volume"))
+        self._encoder_mode_combo.setItemText(1, self._text("microphone_volume"))
+        self._encoder_mode_combo.setItemText(2, self._text("screen_brightness"))
+        self._encoder_mode_help.setText(self._text("encoder_help"))
         self._press_tabs.setTabText(0, self._text("short_press"))
         self._press_tabs.setTabText(1, self._text("long_press"))
         self._firmware_button.setText(self._text("firmware_button"))
@@ -955,11 +991,14 @@ class MainWindow(QMainWindow):
         if not self._has_activity:
             self._activity_label.setText(self._text("no_activity"))
         if self._selection:
-            self._selection_label.setText(
-                f"Potentiometer {self._selection[1:]} click"
-                if self._selection.startswith("P")
-                else self._text("key", number=self._selection)
-            )
+            if self._selection.startswith("P"):
+                label = f"Encoder {self._selection[1:]} · click"
+            elif self._selection.startswith("E"):
+                direction = "left" if self._selection.endswith("L") else "right"
+                label = f"Encoder {self._selection[1:-1]} · {direction}"
+            else:
+                label = self._text("key", number=self._selection)
+            self._selection_label.setText(label)
         else:
             self._selection_label.setText(self._text("select_key"))
         self._connection_changed(self._connected, self._connected_port)
@@ -1254,11 +1293,30 @@ class MainWindow(QMainWindow):
         action = self._action_for(identifier)
         self._primary_preset_value = action.value
         self._long_preset_value = action.long_value
-        self._selection_label.setText(
-            f"Potentiometer {identifier[1:]} click"
-            if identifier.startswith("P")
-            else self._text("key", number=identifier)
-        )
+        if identifier.startswith("P"):
+            selection_label = f"Encoder {identifier[1:]}"
+        elif identifier.startswith("E"):
+            direction = "left" if identifier.endswith("L") else "right"
+            selection_label = f"Encoder {identifier[1:-1]} · {direction}"
+        else:
+            selection_label = self._text("key", number=identifier)
+        self._selection_label.setText(selection_label)
+        if identifier.startswith("P"):
+            self._press_tabs.setVisible(False)
+            self._shortcut_hint.setVisible(False)
+            self._encoder_editor.setVisible(True)
+            encoder_id = identifier[1:]
+            mode = self._profile.encoder_modes.get(
+                encoder_id, "volume" if encoder_id == "1" else "microphone"
+            )
+            self._encoder_mode_combo.blockSignals(True)
+            index = self._encoder_mode_combo.findData(mode)
+            self._encoder_mode_combo.setCurrentIndex(max(0, index))
+            self._encoder_mode_combo.blockSignals(False)
+            return
+        self._encoder_editor.setVisible(False)
+        self._press_tabs.setVisible(True)
+        self._shortcut_hint.setVisible(True)
         self._label_edit.setEnabled(True)
         self._action_type.setEnabled(True)
         self._value_edit.setEnabled(True)
@@ -1311,6 +1369,20 @@ class MainWindow(QMainWindow):
         if self._loading_action or not self._selection:
             return
         self._action_save_timer.start()
+
+    def _encoder_mode_changed(self, index: int = -1) -> None:
+        del index
+        if not self._selection or not self._selection.startswith("P"):
+            return
+        mode = str(self._encoder_mode_combo.currentData())
+        if mode not in {"volume", "microphone", "brightness"}:
+            return
+        self._profile.encoder_modes[self._selection[1:]] = mode
+        self._store.save(self._profile)
+        self.statusBar().showMessage(
+            f"Encoder {self._selection[1:]}: {self._encoder_mode_combo.currentText()}",
+            2_000,
+        )
 
     def _reset_all_keys(self) -> None:
         control_count = len(self._control_buttons)
@@ -2288,6 +2360,7 @@ $result | ConvertTo-Json -Compress
             self._device.set_feedback_hold_ms(self._feedback_hold_ms)
 
     def _open_deck_settings(self) -> None:
+        is_pro = self._device_model_identifier == "HCD-PRO"
         dialog = QDialog(self)
         dialog.setWindowTitle(self._text("deck_settings_title"))
         dialog.setMinimumWidth(430)
@@ -2413,6 +2486,7 @@ $result | ConvertTo-Json -Compress
         second_fader.setToolTip(self._text("second_microphone_fader_help"))
         form_layout.addWidget(second_fader)
 
+        pro_widgets = form.findChildren(QWidget)
         form_layout.addWidget(QLabel(self._text("minimum_led_duration")))
         feedback_hold = QSpinBox()
         feedback_hold.setRange(0, 2000)
@@ -2420,6 +2494,9 @@ $result | ConvertTo-Json -Compress
         feedback_hold.setSuffix(" ms")
         feedback_hold.setValue(self._feedback_hold_ms)
         form_layout.addWidget(feedback_hold)
+        if not is_pro:
+            for widget in pro_widgets:
+                widget.setVisible(False)
         layout.addWidget(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -2431,11 +2508,12 @@ $result | ConvertTo-Json -Compress
 
         if dialog.exec() != QDialog.Accepted:
             return
-        self._set_pro_icon_size(icon_size.currentIndex())
-        self._set_pro_icon_shape(str(icon_shape.currentData() or "original"))
-        self._set_pro_colors(selected_colors)
-        self._set_pro_slider_mode_value(str(slider_mode.currentData() or "off"))
-        self._set_pro_second_fader(second_fader.isChecked())
+        if is_pro:
+            self._set_pro_icon_size(icon_size.currentIndex())
+            self._set_pro_icon_shape(str(icon_shape.currentData() or "original"))
+            self._set_pro_colors(selected_colors)
+            self._set_pro_slider_mode_value(str(slider_mode.currentData() or "off"))
+            self._set_pro_second_fader(second_fader.isChecked())
         self._set_feedback_hold_ms(feedback_hold.value())
 
     def _set_pro_icon_size(self, index: int) -> None:
@@ -2485,6 +2563,18 @@ $result | ConvertTo-Json -Compress
     def _apply_pro_microphone_value(self) -> None:
         if self._pro_second_fader:
             self._runner.set_continuous_value("microphone", self._pending_microphone_value)
+
+    def _apply_encoder_adjustments(self) -> None:
+        pending = dict(self._pending_encoder_steps)
+        self._pending_encoder_steps = {1: 0, 2: 0}
+        for encoder_id, delta in pending.items():
+            if delta == 0:
+                continue
+            mode = self._profile.encoder_modes.get(
+                str(encoder_id),
+                "volume" if encoder_id == 1 else "microphone",
+            )
+            self._runner.adjust_continuous_value(mode, delta)
 
     def _sync_pro_slider_from_system(self) -> None:
         info = self._device_info_data
@@ -2560,6 +2650,16 @@ $result | ConvertTo-Json -Compress
             self._macos_minimize_handler.install()
 
     def _device_info(self, info: DeviceInfo) -> None:
+        profile_model = (
+            info.model_identifier
+            if info.model_identifier in ProfileStore.MODELS
+            else "HCD-BASE"
+        )
+        previous_model = self._store.model_identifier
+        if previous_model != profile_model:
+            self._store.save(self._profile)
+            self._store.set_model(profile_model)
+            self._reload_profile_list()
         self._device_info_data = info
         self._device_product = info.product
         self._device_model_identifier = info.model_identifier
@@ -2829,6 +2929,33 @@ $result | ConvertTo-Json -Compress
                     int(event.state),
                 )
             return
+        if event.kind == EventKind.ENCODER:
+            identifier = f"P{event.control_id}"
+            if identifier not in self._control_buttons:
+                return
+            mode = self._profile.encoder_modes.get(
+                str(event.control_id),
+                "volume" if event.control_id == 1 else "microphone",
+            )
+            button = self._control_buttons[identifier]
+            button.setProperty("active", True)
+            button.style().unpolish(button)
+            button.style().polish(button)
+            QTimer.singleShot(90, lambda item=button: self._clear_active(item))
+            self._has_activity = True
+            direction = -5 if event.state == "LEFT" else 5
+            self._activity_label.setText(
+                f"Encoder {event.control_id} · {mode} · {event.state.lower()}"
+            )
+            self._pending_encoder_steps[event.control_id] = max(
+                -100,
+                min(
+                    100,
+                    self._pending_encoder_steps.get(event.control_id, 0) + direction,
+                ),
+            )
+            self._encoder_action_timer.start()
+            return
         if event.kind not in {EventKind.KEY, EventKind.POTENTIOMETER_BUTTON}:
             return
         identifier = (
@@ -2851,7 +2978,22 @@ $result | ConvertTo-Json -Compress
             self._pressed_keys.discard(identifier)
             self._clear_active(button)
         self._device_preview.set_feedback_active(self._connected and bool(self._pressed_keys))
-        action = self._action_for(identifier)
+        if event.kind == EventKind.POTENTIOMETER_BUTTON:
+            mode = self._profile.encoder_modes.get(
+                str(event.control_id),
+                "volume" if event.control_id == 1 else "microphone",
+            )
+            mute_command = {
+                "volume": "volume_mute",
+                "microphone": "microphone_mute",
+            }.get(mode, "")
+            action = Action(
+                "system" if mute_command else "none",
+                mute_command,
+                f"Encoder {event.control_id} · {mode}",
+            )
+        else:
+            action = self._action_for(identifier)
         self._has_activity = True
         self._activity_label.setText(action.label)
         if self._diagnostics_dialog is not None:

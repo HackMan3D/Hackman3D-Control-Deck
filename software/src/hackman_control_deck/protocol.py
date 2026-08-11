@@ -6,6 +6,7 @@ class EventKind(str, Enum):
     KEY = "key"
     POTENTIOMETER = "potentiometer"
     POTENTIOMETER_BUTTON = "potentiometer_button"
+    ENCODER = "encoder"
     SLIDER = "slider"
 
 
@@ -84,6 +85,15 @@ def parse_line(line: str) -> str | DeviceEvent | DeviceInfo | None:
         try:
             value = max(0, min(1023, int(parts[2])))
             return DeviceEvent(EventKind.POTENTIOMETER, int(parts[1]), str(value))
+        except ValueError:
+            return None
+
+    if command == "HCD_ENCODER" and len(parts) == 3:
+        try:
+            direction = parts[2].upper()
+            if direction not in {"LEFT", "RIGHT"}:
+                return None
+            return DeviceEvent(EventKind.ENCODER, int(parts[1]), direction)
         except ValueError:
             return None
 

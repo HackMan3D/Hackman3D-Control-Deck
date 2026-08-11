@@ -37,6 +37,11 @@ def test_parse_hcd_plus_info_and_potentiometer_events() -> None:
         1,
         "DOWN",
     )
+    assert parse_line("HCD_ENCODER|2|LEFT") == DeviceEvent(
+        EventKind.ENCODER,
+        2,
+        "LEFT",
+    )
 
 
 def test_parse_hcd_pro_info() -> None:

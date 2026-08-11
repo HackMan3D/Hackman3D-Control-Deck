@@ -1,6 +1,6 @@
 /*
  * HackMan3D Control Deck Plus
- * Firmware for the 12-key controller with two clickable potentiometers.
+ * Firmware for the 12-key controller with two clickable rotary encoders.
  *
  * Hardware: Arduino Pro Micro / ATmega32U4 + MCP23017
  */

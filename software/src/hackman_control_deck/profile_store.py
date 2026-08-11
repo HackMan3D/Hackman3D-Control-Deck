@@ -12,9 +12,43 @@ class ProfileStore:
     BACKUP_FORMAT = "hackman-control-deck-backup"
     FORMAT_VERSION = 1
 
-    def __init__(self, root: Path | None = None) -> None:
-        self._root = root or profile_directory()
+    MODELS = {"HCD-BASE", "HCD-PLUS", "HCD-PRO"}
+
+    def __init__(
+        self,
+        root: Path | None = None,
+        model_identifier: str | None = None,
+    ) -> None:
+        self._base_root = root or profile_directory()
+        self._model_identifier: str | None = None
+        self._root = self._base_root
+        if model_identifier is not None:
+            self.set_model(model_identifier)
         self._root.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def model_identifier(self) -> str | None:
+        return self._model_identifier
+
+    def set_model(self, model_identifier: str) -> bool:
+        normalized = (
+            model_identifier if model_identifier in self.MODELS else "HCD-BASE"
+        )
+        if normalized == self._model_identifier:
+            return False
+        self._model_identifier = normalized
+        self._root = self._base_root / normalized
+        self._root.mkdir(parents=True, exist_ok=True)
+        self._migrate_legacy_base_profiles()
+        return True
+
+    def _migrate_legacy_base_profiles(self) -> None:
+        if self._model_identifier != "HCD-BASE" or any(self._root.glob("*.json")):
+            return
+        for source in self._base_root.glob("*.json"):
+            if source.is_file():
+                destination = self._root / source.name
+                destination.write_bytes(source.read_bytes())
 
     def list_profiles(self) -> list[str]:
         names = [path.stem for path in self._root.glob("*.json") if path.is_file()]
@@ -65,6 +99,7 @@ class ProfileStore:
         payload = {
             "format": self.PROFILE_FORMAT,
             "version": self.FORMAT_VERSION,
+            "model": self._model_identifier,
             "profile": self.load(name).to_dict(),
         }
         self._write_json(destination, payload)
@@ -73,6 +108,11 @@ class ProfileStore:
         data = self._read_json(source)
         if data.get("format") != self.PROFILE_FORMAT or not isinstance(data.get("profile"), dict):
             raise ValueError("Unsupported HackMan3D Control Deck profile file")
+        source_model = data.get("model")
+        if source_model and self._model_identifier and source_model != self._model_identifier:
+            raise ValueError(
+                f"This profile belongs to {source_model}, not {self._model_identifier}"
+            )
         profile = Profile.from_dict(data["profile"])
         profile.name = self.available_name(profile.name)
         self.save(profile)
@@ -82,6 +122,7 @@ class ProfileStore:
         payload = {
             "format": self.BACKUP_FORMAT,
             "version": self.FORMAT_VERSION,
+            "model": self._model_identifier,
             "profiles": [self.load(name).to_dict() for name in self.list_profiles()],
         }
         self._write_json(destination, payload)
@@ -91,6 +132,11 @@ class ProfileStore:
         raw_profiles = data.get("profiles")
         if data.get("format") != self.BACKUP_FORMAT or not isinstance(raw_profiles, list):
             raise ValueError("Unsupported HackMan3D Control Deck backup file")
+        source_model = data.get("model")
+        if source_model and self._model_identifier and source_model != self._model_identifier:
+            raise ValueError(
+                f"This backup belongs to {source_model}, not {self._model_identifier}"
+            )
         imported: list[Profile] = []
         for raw_profile in raw_profiles:
             if not isinstance(raw_profile, dict):

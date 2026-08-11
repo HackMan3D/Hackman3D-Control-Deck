@@ -236,7 +236,7 @@ class DevicePreview(QWidget):
             Qt.AlignTop | Qt.AlignLeft,
             "HCD PLUS",
         )
-        pot_area_x = panel.left() + round(panel.width() * 0.82)
+        pot_area_x = panel.left() + round(panel.width() * 0.14)
         for row in range(self._potentiometer_count):
             center = QPointF(
                 pot_area_x,
@@ -426,8 +426,10 @@ class DevicePreview(QWidget):
 
     def _layout_plus_controls(self) -> None:
         panel = self._plus_panel()
-        keys_width = round(panel.width() * 0.72)
-        columns = 5
+        encoder_width = round(panel.width() * 0.25)
+        keys_left = panel.left() + encoder_width
+        keys_width = panel.width() - encoder_width - round(panel.width() * 0.04)
+        columns = 4
         rows = max(1, (self._key_count + columns - 1) // columns)
         cell_width = keys_width / columns
         usable_height = panel.height() * 0.78
@@ -438,7 +440,7 @@ class DevicePreview(QWidget):
         for index in range(1, self._key_count + 1):
             row = (index - 1) // columns
             column = (index - 1) % columns
-            center_x = panel.left() + round((column + 0.5) * cell_width)
+            center_x = keys_left + round((column + 0.5) * cell_width)
             center_y = panel.top() + round(
                 panel.height() * 0.16 + (row + 0.5) * cell_height
             )
@@ -453,14 +455,15 @@ class DevicePreview(QWidget):
             )
             button.raise_()
 
-        pot_x = panel.left() + round(panel.width() * 0.82)
+        pot_x = panel.left() + round(panel.width() * 0.13)
         for index in range(1, self._potentiometer_count + 1):
             center_y = panel.top() + round(
                 panel.height() * (0.36 + (index - 1) * 0.35)
             )
-            button = self.buttons[f"P{index}"]
-            button.setGeometry(pot_x - 44, center_y - 36, 88, 72)
-            button.raise_()
+            click_button = self.buttons[f"P{index}"]
+            click_button.setText(f"ENCODER {index}")
+            click_button.setGeometry(pot_x - 52, center_y - 42, 104, 84)
+            click_button.raise_()
 
     def _plus_panel(self) -> QRect:
         return self.rect().adjusted(

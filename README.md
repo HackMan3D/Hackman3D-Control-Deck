@@ -142,8 +142,8 @@ and the same two status lights:
 
 - 12 physical buttons;
 - separate short-press and long-press assignments, providing up to 24 functions;
-- 2 configurable potentiometers, for example for volume or another continuous
-  control;
+- 2 clickable rotary encoders, independently configurable for output volume,
+  microphone volume, brightness or other actions;
 - the same connection LED and action-feedback LED as HCD-BASE;
 - configuration and integrated firmware installation from the HCD application.
 
@@ -235,7 +235,7 @@ listed.
 - Compatible firmware updates are detected automatically and offered through a
   pop-up.
 - The diagnostics page displays the model, firmware version, serial port,
-  heartbeat, physical controls, LED states and HCD Plus potentiometer values.
+  heartbeat, physical controls, LED states and HCD Plus encoder activity.
 - The 3D preview mirrors the red connection LED and the white key-feedback
   light in real time.
 

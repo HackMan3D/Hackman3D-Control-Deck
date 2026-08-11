@@ -4,8 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="${0:A:h}"
 APP_PATH="$SCRIPT_DIR/dist/HackMan3D Control Deck.app"
-OUTPUT_PATH="$SCRIPT_DIR/dist/HackMan3D-Control-Deck-macOS-1.4.13.dmg"
-VOLUME_NAME="HackMan3D Control Deck 1.4.13"
+OUTPUT_PATH="$SCRIPT_DIR/dist/HackMan3D-Control-Deck-macOS-1.4.14.dmg"
+VOLUME_NAME="HackMan3D Control Deck 1.4.14"
 
 if [[ ! -d "$APP_PATH" ]]; then
   "$SCRIPT_DIR/build_macos.sh"
