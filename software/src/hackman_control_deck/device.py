@@ -87,14 +87,18 @@ class HcdDeviceManager(QObject):
         self._pro_color_state: tuple[str, str, str, str, str] | None = None
         self._pro_upload_queue: deque[str] = deque()
         self._pro_upload_timer = QTimer(self)
-        # TCP flow control protects the receiver; a short paced interval keeps
-        # the desktop responsive while cutting a full 28-icon sync to seconds.
-        self._pro_upload_timer.setInterval(12)
+        # Keep enough space between packets for the ESP32 display task. Large
+        # theme changes can otherwise starve the RGB panel while it redraws.
+        self._pro_upload_timer.setInterval(20)
         self._pro_upload_timer.timeout.connect(self._send_next_pro_upload)
 
     @property
     def is_connected(self) -> bool:
         return self._connected
+
+    @property
+    def pro_sync_busy(self) -> bool:
+        return self._pro_upload_timer.isActive() or bool(self._pro_upload_queue)
 
     @property
     def port_name(self) -> str:
@@ -140,14 +144,15 @@ class HcdDeviceManager(QObject):
         second_fader: bool = False,
         slider_mode: str = "volume",
         colors: dict[str, str] | None = None,
-    ) -> None:
+    ) -> bool:
         if not self._connected or self._transport != "wifi":
-            return
+            return False
         # A cache commit restarts the ESP32. Do not append or interleave a
         # second snapshot behind one already being transferred: the newest
         # state is sent after reconnect and the fresh HCD_INFO response.
         if self._pro_upload_timer.isActive() or self._pro_upload_queue:
-            return
+            return False
+        commands: deque[str] = deque()
         slider_mode_id = {"off": 0, "volume": 1, "brightness": 2}.get(slider_mode, 0)
         display_state = (
             max(0, min(3, icon_size)),
@@ -157,7 +162,7 @@ class HcdDeviceManager(QObject):
             slider_mode_id,
         )
         if display_state != self._pro_display_state:
-            self._write_line(
+            commands.append(
                 f"HCD_PRO_DISPLAY|{display_state[0]}|{int(display_state[1])}|"
                 f"{display_state[2]}|{int(display_state[3])}|{display_state[4]}"
             )
@@ -175,9 +180,8 @@ class HcdDeviceManager(QObject):
             ]
             color_state = tuple(values)
             if getattr(self, "_pro_color_state", None) != color_state:
-                self._write_line("HCD_PRO_COLORS|" + "|".join(values))
+                commands.append("HCD_PRO_COLORS|" + "|".join(values))
                 self._pro_color_state = color_state
-        icons_changed = False
         for identifier in labels:
             if not identifier.isdigit():
                 continue
@@ -189,26 +193,24 @@ class HcdDeviceManager(QObject):
             ):
                 continue
             if not icon:
-                self._pro_upload_queue.append(f"HCD_PRO_ICON_CLEAR|{identifier}")
+                commands.append(f"HCD_PRO_ICON_CLEAR|{identifier}")
             else:
-                self._pro_upload_queue.append(
+                commands.append(
                     f"HCD_PRO_ICON_BEGIN|{identifier}|{len(icon)}|{signature:08x}"
                 )
                 for offset in range(0, len(icon), 336):
                     chunk = base64.b64encode(icon[offset : offset + 336]).decode("ascii")
-                    self._pro_upload_queue.append(f"HCD_PRO_ICON_CHUNK|{chunk}")
-                self._pro_upload_queue.append(f"HCD_PRO_ICON_END|{identifier}")
+                    commands.append(f"HCD_PRO_ICON_CHUNK|{chunk}")
+                commands.append(f"HCD_PRO_ICON_END|{identifier}")
             self._pro_icon_signatures[identifier] = signature
-            icons_changed = True
-        if icons_changed:
-            self._pro_upload_queue = deque(
-                command
-                for command in self._pro_upload_queue
-                if command not in {"HCD_PRO_REFRESH", "HCD_PRO_CACHE_COMMIT"}
-            )
-            self._pro_upload_queue.append("HCD_PRO_CACHE_COMMIT")
+        if commands:
+            commands.append("HCD_PRO_SYNC_END")
+        if commands:
+            commands.appendleft("HCD_PRO_SYNC_BEGIN")
+            self._pro_upload_queue.extend(commands)
         if self._pro_upload_queue and not self._pro_upload_timer.isActive():
             self._pro_upload_timer.start()
+        return True
 
     @Slot()
     def _send_next_pro_upload(self) -> None:

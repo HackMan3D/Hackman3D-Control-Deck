@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.11",
+  "latest_version": "1.4.12",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Resizable editor columns, automatic action saving, faster HCD Pro synchronization, customizable display colors, and a roadmap gauge that refreshes at every launch.",
+  "release_notes": "Seven new HCD Pro color themes and protected display synchronization to prevent artefacts during large Windows style changes.",
   "roadmap": {
     "progress": 4.0
   }

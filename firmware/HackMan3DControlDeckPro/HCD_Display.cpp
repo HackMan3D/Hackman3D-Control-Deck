@@ -31,6 +31,8 @@ lv_obj_t* microphoneTouchArea = nullptr;
 lv_obj_t* microphoneHighIcon = nullptr;
 lv_obj_t* microphoneMuteIcon = nullptr;
 lv_obj_t* firmwareOverlay = nullptr;
+lv_obj_t* overlayMessage = nullptr;
+lv_obj_t* overlayHelp = nullptr;
 HcdDisplay::KeyEventCallback keyEventCallback = nullptr;
 HcdDisplay::SliderEventCallback sliderEventCallback = nullptr;
 uint8_t currentIconSize = 1;
@@ -387,18 +389,18 @@ void buildInterface() {
   lv_obj_set_style_text_color(updateTitle, lv_color_hex(0xA0A0A0), 0);
   lv_obj_align(updateTitle, LV_ALIGN_TOP_MID, 0, 76);
 
-  lv_obj_t* updateMessage = lv_label_create(firmwareOverlay);
-  lv_label_set_text(updateMessage, "FIRMWARE UPDATE");
-  lv_obj_set_style_text_color(updateMessage, lv_color_hex(0xFFFFFF), 0);
-  lv_obj_align(updateMessage, LV_ALIGN_CENTER, 0, -24);
+  overlayMessage = lv_label_create(firmwareOverlay);
+  lv_label_set_text(overlayMessage, "FIRMWARE UPDATE");
+  lv_obj_set_style_text_color(overlayMessage, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_align(overlayMessage, LV_ALIGN_CENTER, 0, -24);
 
-  lv_obj_t* updateHelp = lv_label_create(firmwareOverlay);
+  overlayHelp = lv_label_create(firmwareOverlay);
   lv_label_set_text(
-      updateHelp,
+      overlayHelp,
       "Installing the update...\nDo not unplug the Control Deck.\nThe screen will restart automatically.");
-  lv_obj_set_style_text_align(updateHelp, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_text_color(updateHelp, lv_color_hex(0xB0B0B0), 0);
-  lv_obj_align(updateHelp, LV_ALIGN_CENTER, 0, 48);
+  lv_obj_set_style_text_align(overlayHelp, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_color(overlayHelp, lv_color_hex(0xB0B0B0), 0);
+  lv_obj_align(overlayHelp, LV_ALIGN_CENTER, 0, 48);
   lv_obj_add_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -641,12 +643,44 @@ void showFirmwareUpdate() {
   if (board == nullptr || firmwareOverlay == nullptr || !HcdLvglAdapter::lock(-1)) {
     return;
   }
+  lv_label_set_text(overlayMessage, "FIRMWARE UPDATE");
+  lv_label_set_text(
+      overlayHelp,
+      "Installing the update...\nDo not unplug the Control Deck.\nThe screen will restart automatically.");
   lv_obj_remove_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(firmwareOverlay);
   lv_obj_invalidate(firmwareOverlay);
   lv_refr_now(lv_display_get_default());
   HcdLvglAdapter::unlock();
   delay(900);
+}
+
+void showDisplaySync() {
+  if (board == nullptr || firmwareOverlay == nullptr || !HcdLvglAdapter::lock(-1)) {
+    return;
+  }
+  lv_label_set_text(overlayMessage, "DISPLAY UPDATE");
+  lv_label_set_text(
+      overlayHelp,
+      "Applying your new layout...\nThe Control Deck remains connected.");
+  lv_obj_remove_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(firmwareOverlay);
+  lv_obj_invalidate(firmwareOverlay);
+  lv_refr_now(lv_display_get_default());
+  HcdLvglAdapter::unlock();
+}
+
+void finishDisplaySync() {
+  if (firmwareOverlay == nullptr || !HcdLvglAdapter::lock(-1)) {
+    return;
+  }
+  lv_obj_add_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_t* activeScreen = lv_screen_active();
+  if (activeScreen != nullptr) {
+    lv_obj_invalidate(activeScreen);
+    lv_refr_now(lv_display_get_default());
+  }
+  HcdLvglAdapter::unlock();
 }
 
 void beginFirmwareWrite() {

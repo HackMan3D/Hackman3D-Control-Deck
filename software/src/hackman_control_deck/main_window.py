@@ -130,6 +130,55 @@ PRO_COLOR_PRESETS = {
         "header": "#DCEEFF",
         "led": "#2F9BFF",
     },
+    "arctic": {
+        "screen": "#DDE7EF",
+        "key": "#F7FAFC",
+        "border": "#7393AA",
+        "header": "#15232E",
+        "led": "#00A7E1",
+    },
+    "ruby": {
+        "screen": "#160507",
+        "key": "#2A0B10",
+        "border": "#E4314B",
+        "header": "#FFE3E7",
+        "led": "#FF173D",
+    },
+    "emerald": {
+        "screen": "#04130E",
+        "key": "#0B261B",
+        "border": "#22C77A",
+        "header": "#D9FFEC",
+        "led": "#20E887",
+    },
+    "violet": {
+        "screen": "#10071B",
+        "key": "#241039",
+        "border": "#A45CFF",
+        "header": "#F0E3FF",
+        "led": "#C13CFF",
+    },
+    "amber": {
+        "screen": "#171006",
+        "key": "#2D1F0B",
+        "border": "#F0A52B",
+        "header": "#FFF0D1",
+        "led": "#FF8A00",
+    },
+    "cyberpunk": {
+        "screen": "#050615",
+        "key": "#10122B",
+        "border": "#00E5FF",
+        "header": "#FF4FD8",
+        "led": "#FFE600",
+    },
+    "snow": {
+        "screen": "#E9E9E9",
+        "key": "#FFFFFF",
+        "border": "#565656",
+        "header": "#111111",
+        "led": "#FF3B30",
+    },
 }
 
 ACTION_TRANSLATION_KEYS = {
@@ -1423,6 +1472,9 @@ class MainWindow(QMainWindow):
         info = self._device_info_data
         if info is None or info.model_identifier != "HCD-PRO":
             return
+        if self._device.pro_sync_busy:
+            self._pro_sync_timer.start()
+            return
         fingerprint = repr(
             (
                 self._profile.name,
@@ -1447,7 +1499,6 @@ class MainWindow(QMainWindow):
         )
         if fingerprint == self._last_pro_layout_fingerprint:
             return
-        self._last_pro_layout_fingerprint = fingerprint
         labels = {
             str(index): self._action_for(str(index)).label or f"Key {index}"
             for index in range(1, info.key_count + 1)
@@ -1459,7 +1510,7 @@ class MainWindow(QMainWindow):
             icon = self._action_icon(action)
             if not icon.isNull():
                 icons[identifier] = self._pro_icon_data(icon)
-        self._device.set_pro_layout(
+        accepted = self._device.set_pro_layout(
             labels,
             icons,
             self._pro_icon_size,
@@ -1469,6 +1520,10 @@ class MainWindow(QMainWindow):
             self._pro_slider_mode,
             self._pro_colors,
         )
+        if accepted:
+            self._last_pro_layout_fingerprint = fingerprint
+        elif self._device.is_connected:
+            self._pro_sync_timer.start()
 
     def _pro_icon_data(self, icon: QIcon) -> bytes:
         image = QImage(64, 64, QImage.Format.Format_RGB32)
@@ -2268,9 +2323,27 @@ $result | ConvertTo-Json -Compress
 
         form_layout.addWidget(QLabel(self._text("color_preset")))
         color_preset = QComboBox()
-        color_preset.addItem(self._text("color_classic"), "classic")
-        color_preset.addItem(self._text("color_graphite"), "graphite")
-        color_preset.addItem(self._text("color_electric_blue"), "electric_blue")
+        color_preset.setIconSize(QSize(80, 22))
+        color_preset.setMaxVisibleItems(len(PRO_COLOR_PRESETS) + 1)
+        for preset_name, preset_colors in PRO_COLOR_PRESETS.items():
+            swatch = QPixmap(80, 22)
+            swatch.fill(QColor(preset_colors["screen"]))
+            swatch_painter = QPainter(swatch)
+            segment_width = swatch.width() // 4
+            for segment, color_name in enumerate(("key", "border", "header", "led")):
+                swatch_painter.fillRect(
+                    segment * segment_width,
+                    0,
+                    segment_width,
+                    swatch.height(),
+                    QColor(preset_colors[color_name]),
+                )
+            swatch_painter.end()
+            color_preset.addItem(
+                QIcon(swatch),
+                self._text(f"color_{preset_name}"),
+                preset_name,
+            )
         color_preset.addItem(self._text("color_custom"), "custom")
         selected_colors = dict(self._pro_colors)
         selected_preset = next(

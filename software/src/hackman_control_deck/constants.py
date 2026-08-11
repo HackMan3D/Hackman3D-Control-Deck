@@ -8,7 +8,7 @@ LEGACY_APP_NAME = "HackMan Control Deck"
 COMPATIBLE_PRODUCT_NAMES = (APP_NAME, LEGACY_APP_NAME)
 APP_SHORT_NAME = "HCD"
 ORGANIZATION_NAME = "HackMan3D"
-APP_VERSION = "1.4.11"
+APP_VERSION = "1.4.12"
 RELEASES_URL = "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest"
 RELEASE_MANIFEST_URL = os.environ.get(
     "HCD_RELEASE_MANIFEST_URL",

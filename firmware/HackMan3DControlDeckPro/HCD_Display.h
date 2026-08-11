@@ -27,6 +27,8 @@ void setAppearance(
     uint8_t sliderMode);
 void setSliderValue(uint8_t sliderId, uint16_t value);
 void showFirmwareUpdate();
+void showDisplaySync();
+void finishDisplaySync();
 void beginFirmwareWrite();
 void prepareForRestart();
 bool selectSdCard(bool selected);
