@@ -55,6 +55,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QSpinBox,
     QSizePolicy,
     QSpacerItem,
@@ -286,10 +287,23 @@ class MainWindow(QMainWindow):
             self.resize(1460, 880)
             return
         available = screen.availableGeometry()
-        width = min(1500, max(1080, available.width() - 40))
+        # Use the available desktop width instead of capping the window at
+        # 1500 px.  The previous cap needlessly compressed the editor on common
+        # 1080p and high-DPI Windows desktops, making its right edge look cut.
+        width = max(1080, available.width() - 40)
         height = min(920, max(700, available.height() - 40))
         self.setMinimumSize(min(1120, width), min(720, height))
         self.resize(width, height)
+        QTimer.singleShot(0, self._set_initial_body_sizes)
+
+    def _set_initial_body_sizes(self) -> None:
+        if not hasattr(self, "_body_splitter"):
+            return
+        available = max(0, self._body_splitter.width())
+        sidebar_width = min(240, max(210, round(available * 0.16)))
+        editor_width = min(410, max(340, round(available * 0.23)))
+        device_width = max(360, available - sidebar_width - editor_width)
+        self._body_splitter.setSizes([sidebar_width, device_width, editor_width])
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -300,12 +314,16 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_support_banner())
         root_layout.addWidget(self._build_roadmap())
 
-        body = QHBoxLayout()
-        body.setSpacing(10)
-        body.addWidget(self._build_sidebar(), 0)
-        body.addWidget(self._build_device_panel(), 1)
-        body.addWidget(self._build_editor(), 0)
-        root_layout.addLayout(body, 1)
+        self._body_splitter = QSplitter(Qt.Horizontal)
+        self._body_splitter.setObjectName("bodySplitter")
+        self._body_splitter.setChildrenCollapsible(False)
+        self._body_splitter.addWidget(self._build_sidebar())
+        self._body_splitter.addWidget(self._build_device_panel())
+        self._body_splitter.addWidget(self._build_editor())
+        self._body_splitter.setStretchFactor(0, 0)
+        self._body_splitter.setStretchFactor(1, 1)
+        self._body_splitter.setStretchFactor(2, 0)
+        root_layout.addWidget(self._body_splitter, 1)
         self._credit_label = QLabel(
             "Created, designed and developed by HackMan3D", objectName="subtitle"
         )
@@ -462,8 +480,8 @@ class MainWindow(QMainWindow):
 
     def _build_sidebar(self) -> QWidget:
         frame = QFrame(objectName="sidebar")
-        frame.setMinimumWidth(225)
-        frame.setMaximumWidth(250)
+        frame.setMinimumWidth(205)
+        frame.setMaximumWidth(300)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_scroll = QScrollArea()
@@ -594,8 +612,8 @@ class MainWindow(QMainWindow):
 
     def _build_editor(self) -> QWidget:
         frame = QFrame(objectName="editor")
-        frame.setMinimumWidth(325)
-        frame.setMaximumWidth(350)
+        frame.setMinimumWidth(300)
+        frame.setMaximumWidth(480)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()

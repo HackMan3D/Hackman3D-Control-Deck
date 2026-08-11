@@ -1,6 +1,8 @@
 import sys
+import tempfile
+from pathlib import Path
 
-from PySide6.QtCore import QCoreApplication, QSettings, QTimer
+from PySide6.QtCore import QCoreApplication, QLockFile, QSettings, Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
@@ -14,6 +16,25 @@ def main() -> int:
     QCoreApplication.setApplicationName(APP_NAME)
     QCoreApplication.setOrganizationName(ORGANIZATION_NAME)
     QCoreApplication.setApplicationVersion(APP_VERSION)
+
+    # Some Windows GPU/driver combinations leave stale QWidget backing-store
+    # fragments behind while complex panels are resized or scrolled.  This app
+    # does not need hardware OpenGL, so prefer Qt's stable software renderer on
+    # Windows.  The attribute must be set before QApplication is constructed.
+    if sys.platform == "win32":
+        QCoreApplication.setAttribute(Qt.AA_UseSoftwareOpenGL)
+
+    # Starting the app again while it is already running in the tray used to
+    # create another full window.  The overlapping windows looked like stale
+    # or cropped UI fragments, especially after resizing.  Keep one desktop
+    # instance per Windows session and let QLockFile clean up after crashes.
+    instance_lock: QLockFile | None = None
+    if sys.platform == "win32":
+        lock_path = Path(tempfile.gettempdir()) / "hackman3d-control-deck.lock"
+        instance_lock = QLockFile(str(lock_path))
+        instance_lock.setStaleLockTime(30_000)
+        if not instance_lock.tryLock(0):
+            return 0
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
