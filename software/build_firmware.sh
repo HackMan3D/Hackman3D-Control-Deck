@@ -74,5 +74,5 @@ build_pro_firmware() {
 }
 
 build_firmware "HackMan3DControlDeck" "HCD-BASE" "1.7.0" "HackMan3D Control Deck"
-build_firmware "HackMan3DControlDeckPlus" "HCD-PLUS" "1.0.0" "HackMan3D Control Deck Plus"
+build_firmware "HackMan3DControlDeckPlus" "HCD-PLUS" "1.0.1" "HackMan3D Control Deck Plus"
 build_pro_firmware

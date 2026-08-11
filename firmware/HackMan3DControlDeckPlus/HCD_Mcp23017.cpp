@@ -29,7 +29,8 @@ bool begin() {
   Wire.begin();
   Wire.setClock(400000);
 
-  // GPA0–GPA7 and GPB0–GPB5 are active-low inputs with internal pull-ups.
+  // GPB0–GPB7 drive keys 1–8. GPA0–GPA3 drive keys 9–12 and
+  // GPA4–GPA5 remain reserved for the two potentiometer push switches.
   available = writeRegister(IODIRA, 0xFF) &&
               writeRegister(IODIRB, 0xFF) &&
               writeRegister(GPPUA, 0xFF) &&

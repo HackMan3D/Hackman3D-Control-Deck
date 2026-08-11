@@ -35,22 +35,22 @@ the other side of every switch to the common GND.
 
 | Control | MCP23017 input |
 | --- | --- |
-| Key 1 | GPA0 |
-| Key 2 | GPA1 |
-| Key 3 | GPA2 |
-| Key 4 | GPA3 |
-| Key 5 | GPA4 |
-| Key 6 | GPA5 |
-| Key 7 | GPA6 |
-| Key 8 | GPA7 |
-| Key 9 | GPB0 |
-| Key 10 | GPB1 |
-| Key 11 | GPB2 |
-| Key 12 | GPB3 |
-| Potentiometer 1 click | GPB4 |
-| Potentiometer 2 click | GPB5 |
+| Key 1 | GPB0 |
+| Key 2 | GPB1 |
+| Key 3 | GPB2 |
+| Key 4 | GPB3 |
+| Key 5 | GPB4 |
+| Key 6 | GPB5 |
+| Key 7 | GPB6 |
+| Key 8 | GPB7 |
+| Key 9 | GPA0 |
+| Key 10 | GPA1 |
+| Key 11 | GPA2 |
+| Key 12 | GPA3 |
+| Potentiometer 1 click | GPA4 |
+| Potentiometer 2 click | GPA5 |
 
-`GPB6` and `GPB7` remain available for a later hardware revision.
+`GPA6` and `GPA7` remain available for a later hardware revision.
 
 ## Status lights
 

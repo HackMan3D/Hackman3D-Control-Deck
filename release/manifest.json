@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.12",
+  "latest_version": "1.4.13",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Seven new HCD Pro color themes and protected display synchronization to prevent artefacts during large Windows style changes.",
+  "release_notes": "HCD Plus firmware 1.0.1 now matches the validated PB0–PB7 then PA0–PA3 switch wiring while retaining both potentiometer clicks.",
   "roadmap": {
     "progress": 4.0
   }
