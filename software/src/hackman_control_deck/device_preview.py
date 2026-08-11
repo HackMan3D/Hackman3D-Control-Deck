@@ -60,7 +60,7 @@ class DevicePreview(QWidget):
 
     def __init__(self, image_path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumSize(430, 310)
+        self.setMinimumSize(320, 250)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self._source = QPixmap(str(image_path))
@@ -71,6 +71,9 @@ class DevicePreview(QWidget):
         self._model_identifier = "HCD-BASE"
         self._key_count = 9
         self._potentiometer_count = 0
+        self._pro_slider_value = 50
+        self._pro_microphone_value = 50
+        self._pro_second_fader = False
 
         self.buttons: dict[str, QToolButton] = {}
         self._configure_controls()
@@ -83,7 +86,7 @@ class DevicePreview(QWidget):
     ) -> None:
         normalized_model = (
             model_identifier
-            if model_identifier in {"HCD-BASE", "HCD-PLUS"}
+            if model_identifier in {"HCD-BASE", "HCD-PLUS", "HCD-PRO"}
             else "HCD-BASE"
         )
         if (
@@ -136,6 +139,26 @@ class DevicePreview(QWidget):
         self._feedback_active = active
         self.update()
 
+    def set_pro_slider_value(self, value: int) -> None:
+        normalized = max(0, min(100, int(value)))
+        if normalized != self._pro_slider_value:
+            self._pro_slider_value = normalized
+            self.update()
+
+    def set_pro_microphone_value(self, value: int) -> None:
+        normalized = max(0, min(100, int(value)))
+        if normalized != self._pro_microphone_value:
+            self._pro_microphone_value = normalized
+            self.update()
+
+    def set_pro_second_fader(self, enabled: bool) -> None:
+        normalized = bool(enabled)
+        if normalized == self._pro_second_fader:
+            return
+        self._pro_second_fader = normalized
+        self._layout_controls()
+        self.update()
+
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
         painter = QPainter(self)
@@ -143,6 +166,8 @@ class DevicePreview(QWidget):
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
         if self._model_identifier == "HCD-PLUS":
             self._paint_plus_device(painter)
+        elif self._model_identifier == "HCD-PRO":
+            self._paint_pro_device(painter)
         elif not self._scaled.isNull():
             painter.drawPixmap(self._image_rect, self._scaled)
 
@@ -185,6 +210,51 @@ class DevicePreview(QWidget):
             painter.drawEllipse(center, radius, radius)
         painter.restore()
 
+    def _paint_pro_device(self, painter: QPainter) -> None:
+        panel = self._pro_panel()
+        painter.save()
+        painter.setPen(QPen(QColor("#555555"), 2))
+        painter.setBrush(QColor("#080808"))
+        painter.drawRoundedRect(panel, 24, 24)
+        screen = panel.adjusted(18, 18, -18, -18)
+        painter.setPen(QPen(QColor("#303030"), 2))
+        painter.setBrush(QColor("#101010"))
+        painter.drawRoundedRect(screen, 14, 14)
+        painter.setPen(QColor("#f4f4f4"))
+        painter.drawText(
+            screen.adjusted(18, 8, -18, -8),
+            Qt.AlignTop | Qt.AlignLeft,
+            "HCD PRO · WI-FI TOUCH DISPLAY",
+        )
+        slider_area = screen.adjusted(round(screen.width() * 0.92), 50, -14, -24)
+        rail_x = slider_area.center().x()
+        painter.setPen(QPen(QColor("#555555"), 3))
+        painter.drawLine(rail_x, slider_area.top(), rail_x, slider_area.bottom())
+        knob_y = round(
+            slider_area.bottom()
+            - slider_area.height() * (self._pro_slider_value / 100.0)
+        )
+        painter.setPen(QPen(QColor("#ffffff"), 2))
+        painter.setBrush(QColor("#e8e8e8"))
+        painter.drawRoundedRect(rail_x - 12, knob_y - 7, 24, 14, 5, 5)
+        if self._pro_second_fader:
+            keys_area = screen.adjusted(20, 50, -round(screen.width() * 0.11), -24)
+            microphone_x = round(keys_area.left() + keys_area.width() * 0.93)
+            painter.setPen(QPen(QColor("#555555"), 3))
+            painter.drawLine(
+                microphone_x, slider_area.top(), microphone_x, slider_area.bottom()
+            )
+            microphone_y = round(
+                slider_area.bottom()
+                - slider_area.height() * (self._pro_microphone_value / 100.0)
+            )
+            painter.setPen(QPen(QColor("#ffffff"), 2))
+            painter.setBrush(QColor("#e8e8e8"))
+            painter.drawRoundedRect(
+                microphone_x - 12, microphone_y - 7, 24, 14, 5, 5
+            )
+        painter.restore()
+
     def _map_point(self, point: QPointF, scale: float) -> QPointF:
         return QPointF(
             self._image_rect.left() + point.x() * scale,
@@ -192,7 +262,10 @@ class DevicePreview(QWidget):
         )
 
     def _paint_connection_led(self, painter: QPainter, scale: float) -> None:
-        if self._model_identifier == "HCD-PLUS":
+        if self._model_identifier == "HCD-PRO":
+            panel = self._pro_panel().adjusted(18, 18, -18, -18)
+            center = QPointF(panel.right() - 26, panel.top() + 22)
+        elif self._model_identifier == "HCD-PLUS":
             panel = self._plus_panel()
             center = QPointF(panel.right() - 32, panel.top() + 32)
         else:
@@ -229,7 +302,11 @@ class DevicePreview(QWidget):
         painter.restore()
 
     def _paint_feedback_led(self, painter: QPainter, scale: float) -> None:
-        if self._model_identifier == "HCD-PLUS":
+        if self._model_identifier == "HCD-PRO":
+            panel = self._pro_panel().adjusted(18, 18, -18, -18)
+            start = QPointF(panel.left() + panel.width() * 0.38, panel.bottom() - 10)
+            end = QPointF(panel.left() + panel.width() * 0.62, panel.bottom() - 10)
+        elif self._model_identifier == "HCD-PLUS":
             panel = self._plus_panel()
             start = QPointF(panel.left() + panel.width() * 0.28, panel.bottom() - 18)
             end = QPointF(panel.left() + panel.width() * 0.68, panel.bottom() - 18)
@@ -281,6 +358,9 @@ class DevicePreview(QWidget):
         if self._model_identifier == "HCD-PLUS":
             self._layout_plus_controls()
             return
+        if self._model_identifier == "HCD-PRO":
+            self._layout_pro_controls()
+            return
         scale = self._scaled.width() / self._SOURCE_WIDTH
         button_width = max(48, round(148 * scale))
         button_height = max(42, round(118 * scale))
@@ -303,7 +383,7 @@ class DevicePreview(QWidget):
     def _layout_plus_controls(self) -> None:
         panel = self._plus_panel()
         keys_width = round(panel.width() * 0.72)
-        columns = 4
+        columns = 5
         rows = max(1, (self._key_count + columns - 1) // columns)
         cell_width = keys_width / columns
         usable_height = panel.height() * 0.78
@@ -319,6 +399,7 @@ class DevicePreview(QWidget):
                 panel.height() * 0.16 + (row + 0.5) * cell_height
             )
             button = self.buttons[str(index)]
+            button.setVisible(not self._pro_second_fader or column != 6)
             button.setIconSize(QSize(icon_size, icon_size))
             button.setGeometry(
                 center_x - button_width // 2,
@@ -344,3 +425,35 @@ class DevicePreview(QWidget):
             -max(20, self.width() // 18),
             -max(24, self.height() // 16),
         )
+
+    def _layout_pro_controls(self) -> None:
+        panel = self._pro_panel()
+        screen = panel.adjusted(26, 58, -round(panel.width() * 0.11), -34)
+        columns = 7
+        rows = max(1, (self._key_count + columns - 1) // columns)
+        gap = max(6, round(min(screen.width(), screen.height()) * 0.018))
+        cell_width = (screen.width() - gap * (columns - 1)) / columns
+        cell_height = (screen.height() - gap * (rows - 1)) / rows
+        for index in range(1, self._key_count + 1):
+            row = (index - 1) // columns
+            column = (index - 1) % columns
+            button = self.buttons[str(index)]
+            button.setVisible(not self._pro_second_fader or column != 6)
+            button.setIconSize(
+                QSize(
+                    max(24, round(cell_height * 0.42)),
+                    max(24, round(cell_height * 0.42)),
+                )
+            )
+            button.setGeometry(
+                round(screen.left() + column * (cell_width + gap)),
+                round(screen.top() + row * (cell_height + gap)),
+                round(cell_width),
+                round(cell_height),
+            )
+            button.raise_()
+
+    def _pro_panel(self) -> QRect:
+        horizontal = max(18, self.width() // 20)
+        vertical = max(24, self.height() // 14)
+        return self.rect().adjusted(horizontal, vertical, -horizontal, -vertical)

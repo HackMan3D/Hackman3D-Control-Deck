@@ -88,7 +88,12 @@ QToolButton#deviceKey {
 }
 QToolButton#deviceKey:hover { border-color: #ffffff; background: rgba(42, 42, 42, 190); }
 QToolButton#deviceKey[selected="true"] { border-color: #ffffff; background: rgba(15, 15, 15, 210); }
-QToolButton#deviceKey[active="true"] { background: #ffffff; color: #070707; border-color: white; }
+QToolButton#deviceKey[active="true"] {
+    background: rgba(40, 40, 40, 225);
+    color: #ffffff;
+    border-color: #ffffff;
+    border-width: 3px;
+}
 QWidget#socialLinks { background: transparent; }
 QToolButton#socialButton {
     background: #181818;

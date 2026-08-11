@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDirectory
-$Version = "1.1.0"
+$Version = "1.4.8"
 
 python -m pip install -e ".[dev]"
 python -m PyInstaller `

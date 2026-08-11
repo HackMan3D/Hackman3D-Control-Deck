@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -18,8 +19,7 @@ _VERSION_PART = re.compile(r"\d+")
 class ReleaseFeedData:
     latest_version: str
     download_url: str
-    plus_progress: int
-    pro_progress: int
+    roadmap_progress: float
     release_notes: str = ""
 
     @property
@@ -51,18 +51,18 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
     if not isinstance(roadmap, dict):
         roadmap = {}
 
-    def percentage(key: str) -> int:
+    def percentage(value: object) -> float:
         try:
-            value = round(float(roadmap.get(key, 0)))
+            normalized = round(float(value), 1)
         except (TypeError, ValueError):
-            value = 0
-        return max(0, min(100, value))
+            normalized = 0.0
+        return max(0.0, min(100.0, normalized))
 
+    progress_value = roadmap.get("progress", roadmap.get("pro", 0))
     return ReleaseFeedData(
         latest_version=latest_version,
         download_url=download_url,
-        plus_progress=percentage("plus"),
-        pro_progress=percentage("pro"),
+        roadmap_progress=percentage(progress_value),
         release_notes=str(document.get("release_notes", "")).strip(),
     )
 
@@ -111,9 +111,14 @@ class _ReleaseFeedWorker(QThread):
         self._url = url
 
     def run(self) -> None:
+        separator = "&" if "?" in self._url else "?"
+        request_url = f"{self._url}{separator}t={int(time.time())}"
         request = urllib.request.Request(
-            self._url,
-            headers={"User-Agent": "HackMan3D-Control-Deck"},
+            request_url,
+            headers={
+                "User-Agent": "HackMan3D-Control-Deck",
+                "Cache-Control": "no-cache",
+            },
         )
         try:
             with urllib.request.urlopen(request, timeout=8) as response:

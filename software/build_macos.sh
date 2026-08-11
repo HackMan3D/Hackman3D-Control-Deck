@@ -45,6 +45,8 @@ rm -rf "$APP_PATH"
 mv "$CLEAN_DIR/HackMan3D Control Deck.app" "$APP_PATH"
 rmdir "$CLEAN_DIR"
 xattr -cr "$APP_PATH" 2>/dev/null || true
+find "$APP_PATH" -exec xattr -d com.apple.FinderInfo {} \; 2>/dev/null || true
+find "$APP_PATH" -exec xattr -d com.apple.ResourceFork {} \; 2>/dev/null || true
 if ! codesign --force --deep --sign - "$APP_PATH"; then
   echo "Warning: macOS restored Finder metadata in dist; the DMG builder will clean and sign its staged copy." >&2
 fi

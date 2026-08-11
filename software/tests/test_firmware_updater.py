@@ -69,13 +69,95 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
     assert ":00000001FF" in content
 
 
+def test_bundled_hcd_pro_firmware_is_a_complete_8mb_esp32_image() -> None:
+    executable, firmware = FirmwareUpdater.esp32_resource_paths("HCD-PRO")
+
+    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.2.36"
+    assert executable.is_file()
+    assert firmware.read_bytes()[:1] == b"\xE9"
+    assert firmware.stat().st_size == 8 * 1024 * 1024
+
+
+def test_esptool_arguments_target_the_esp32s3_full_flash_image() -> None:
+    arguments = FirmwareUpdater.esptool_arguments(
+        "/dev/cu.usbmodem101", Path("firmware.bin")
+    )
+
+    assert arguments[:2] == ["--chip", "esp32s3"]
+    assert "460800" in arguments
+    assert arguments[arguments.index("--before") + 1] == "default-reset"
+    assert arguments[arguments.index("--flash-mode") + 1] == "dio"
+    assert arguments[-2:] == ["0x0", "firmware.bin"]
+
+
+def test_manual_esp32_flash_does_not_reset_the_bootloader() -> None:
+    arguments = FirmwareUpdater.esptool_arguments(
+        "/dev/cu.usbmodem101", Path("firmware.bin"), manual_bootloader=True
+    )
+
+    assert arguments[arguments.index("--before") + 1] == "no-reset"
+
+
+def test_esp32_connection_failures_offer_manual_bootloader_retry() -> None:
+    assert FirmwareUpdater._is_esp32_connection_failure(
+        "A fatal error occurred: Failed to connect to ESP32-S3: No serial data received."
+    )
+    assert FirmwareUpdater._is_esp32_connection_failure(
+        "Invalid head of packet (0x45): Possible serial noise or corruption"
+    )
+    assert not FirmwareUpdater._is_esp32_connection_failure("Hash of data verified.")
+
+
+def test_esp32_usb_port_is_offered_for_firmware() -> None:
+    assert FirmwareUpdater.is_compatible_port(
+        PortInfo("cu.usbmodem1101", "ESP32-S3 USB JTAG", "Espressif", 0x303A)
+    )
+
+
+def test_waveshare_usb_bridge_suggests_hcd_pro() -> None:
+    port = PortInfo(
+        "cu.usbmodem5ABA0551801",
+        "USB Single Serial",
+        vendor_identifier=0x1A86,
+        product_identifier=0x55D3,
+    )
+
+    assert FirmwareDialog._suggested_model_for_port(port) == "HCD-PRO"
+
+
+def test_hcd_pro_ota_requires_transition_firmware() -> None:
+    assert FirmwareDialog._PRO_OTA_MINIMUM_VERSION == (1, 2, 2)
+
+
 def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert firmware_update_available("1.3.9")
     assert not firmware_update_available(BUNDLED_FIRMWARE_VERSION)
     assert not firmware_update_available("1.10.0")
     assert firmware_update_available("0.9.0", "HCD-PLUS")
     assert not firmware_update_available("1.0.0", "HCD-PLUS")
-    assert not firmware_update_available("1.0.0", "HCD-PRO")
+    assert firmware_update_available("1.0.0", "HCD-PRO")
+    assert firmware_update_available("1.0.1", "HCD-PRO")
+    assert firmware_update_available("1.2.0", "HCD-PRO")
+    assert firmware_update_available("1.2.1", "HCD-PRO")
+    assert firmware_update_available("1.2.2", "HCD-PRO")
+    assert firmware_update_available("1.2.3", "HCD-PRO")
+    assert firmware_update_available("1.2.4", "HCD-PRO")
+    assert firmware_update_available("1.2.5", "HCD-PRO")
+    assert firmware_update_available("1.2.19", "HCD-PRO")
+    assert firmware_update_available("1.2.33", "HCD-PRO")
+    assert firmware_update_available("1.2.34", "HCD-PRO")
+    assert firmware_update_available("1.2.35", "HCD-PRO")
+    assert not firmware_update_available("1.2.36", "HCD-PRO")
+
+
+def test_hcd_pro_ota_uses_application_image_and_wifi_address() -> None:
+    firmware = FirmwareUpdater.esp32_ota_resource_path("HCD-PRO")
+
+    assert firmware.name.endswith("-1.2.36-ota.bin")
+    assert firmware.read_bytes()[:1] == b"\xE9"
+    assert firmware.stat().st_size < 0x330000
+    assert FirmwareUpdater._wifi_address("Wi-Fi · 192.168.1.42") == "192.168.1.42"
+    assert FirmwareUpdater._wifi_address("cu.usbmodem101") == ""
 
 
 def test_avrdude_arguments_target_caterina_atmega32u4() -> None:

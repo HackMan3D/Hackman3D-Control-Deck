@@ -16,6 +16,8 @@ class Action:
     long_value: str = ""
     long_label: str = "No long-press action"
     long_press_ms: int = 650
+    icon_data: str = ""
+    icon_source: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Action:
@@ -39,6 +41,10 @@ class Action:
             long_press_ms = int(data.get("long_press_ms", 650))
         except (TypeError, ValueError):
             long_press_ms = 650
+        icon_data = str(data.get("icon_data", ""))
+        icon_source = str(data.get("icon_source", ""))
+        if icon_source not in {"auto", "custom"}:
+            icon_source = "auto" if action_type == "open_url" and icon_data else ""
         return cls(
             type=action_type,
             value=str(short_data.get("value", "")),
@@ -47,6 +53,8 @@ class Action:
             long_value=str(long_data.get("value", data.get("long_value", ""))),
             long_label=str(long_data.get("label", data.get("long_label", "No long-press action"))),
             long_press_ms=max(200, min(5000, long_press_ms)),
+            icon_data=icon_data,
+            icon_source=icon_source,
         )
 
     def long_action(self) -> Action:

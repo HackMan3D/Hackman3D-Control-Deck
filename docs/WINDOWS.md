@@ -10,10 +10,15 @@ HackMan3D Control Deck supports 64-bit Windows 10 and Windows 11.
 4. Run `software\build_windows.ps1`.
 
 The finished installer is written to
-`software\dist\HackMan3D-Control-Deck-Windows-0.17.0-Setup.exe`.
+`software\dist\HackMan3D-Control-Deck-Windows-1.2.0-Setup.exe`.
 
 ## GitHub build
 
 The `Build Windows application` workflow can be launched manually from the
 Actions page. It builds on a real Windows runner and publishes the installer as
-a downloadable workflow artifact.
+a downloadable workflow artifact. The workflow also bundles Espressif's
+flashing tool, so HCD Pro can be installed directly from the desktop app.
+
+Windows Firewall may ask for local-network access the first time HCD Pro is
+discovered. Allow access on private networks; public-network access is not
+needed.

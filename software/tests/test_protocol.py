@@ -39,6 +39,36 @@ def test_parse_hcd_plus_info_and_potentiometer_events() -> None:
     )
 
 
+def test_parse_hcd_pro_info() -> None:
+    assert parse_line(
+        "HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.0.0|12|0"
+    ) == DeviceInfo(
+        "HackMan3D Control Deck Pro",
+        "1.0.0",
+        12,
+        "HCD-PRO",
+        0,
+    )
+
+
+def test_parse_hcd_pro_info_with_flash_icon_cache() -> None:
+    assert parse_line(
+        "HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.2.33|3|0|"
+        "00000000,1a2b3c4d,ffffffff"
+    ) == DeviceInfo(
+        "HackMan3D Control Deck Pro",
+        "1.2.33",
+        3,
+        "HCD-PRO",
+        0,
+        (0, 0x1A2B3C4D, 0xFFFFFFFF),
+    )
+
+
+def test_parse_hcd_pro_slider_event() -> None:
+    assert parse_line("HCD_SLIDER|1|820") == DeviceEvent(EventKind.SLIDER, 1, "820")
+
+
 def test_invalid_message_is_ignored() -> None:
     assert parse_line("HCD_KEY|wrong|DOWN") is None
     assert parse_line("") is None

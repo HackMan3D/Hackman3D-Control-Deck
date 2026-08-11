@@ -4,7 +4,8 @@
 
 - macOS 12 Monterey or newer
 - Python 3.11 or newer for building
-- Arduino Pro Micro connected over USB
+- USB connection for the initial firmware installation
+- Local Wi-Fi access for HCD Pro
 
 ## Build the `.app`
 
@@ -82,6 +83,14 @@ text to other applications:
 Serial device discovery does not normally require a separate permission. If
 macOS blocks the first launch because the app is locally built, Control-click
 the app, choose **Open**, then confirm once.
+
+The first HCD Pro discovery also displays the standard macOS **Local Network**
+permission prompt. Allow it so the app can find the display over Wi-Fi. This can
+later be changed in **System Settings → Privacy & Security → Local Network**.
+
+Building the application requires the Apple command-line tools license to be
+accepted once. If `lipo` or `install_name_tool` reports a license error, run
+`sudo xcodebuild -license accept` in Terminal before rebuilding.
 
 ## Distribution
 

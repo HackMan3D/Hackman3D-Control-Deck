@@ -18,6 +18,20 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
 
+      - name: Set up Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Bundle the ESP32 flashing tool
+        shell: pwsh
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@3.3.10
+          $Tool = Get-ChildItem "$env:LOCALAPPDATA\Arduino15\packages\esp32\tools\esptool_py" -Filter "esptool.exe" -Recurse | Select-Object -First 1
+          if (-not $Tool) { throw "The ESP32 flashing tool was not installed." }
+          $Target = "software\src\hackman_control_deck\assets\tools\windows"
+          New-Item -ItemType Directory -Force -Path $Target | Out-Null
+          Copy-Item $Tool.FullName "$Target\esptool.exe"
+
       - name: Build application and installer
         shell: pwsh
         run: software/build_windows.ps1
@@ -25,6 +39,6 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: HackMan3D-Control-Deck-Windows-1.1.0
-          path: software/dist/HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe
+          name: HackMan3D-Control-Deck-Windows-1.4.8
+          path: software/dist/HackMan3D-Control-Deck-Windows-1.4.8-Setup.exe
           if-no-files-found: error
