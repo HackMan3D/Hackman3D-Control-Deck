@@ -2,6 +2,7 @@ from hackman_control_deck.action_runner import ActionRunner
 from hackman_control_deck.main_window import MainWindow
 from hackman_control_deck.models import Action
 from pynput.keyboard import Key
+from pathlib import Path
 
 _ = Key
 
@@ -95,6 +96,12 @@ def test_system_presets_include_power_and_microphone_commands() -> None:
     assert {"microphone_mute", "lock", "sleep", "restart", "shutdown"} <= commands
 
 
+def test_system_presets_hide_commands_unsupported_by_platform(monkeypatch) -> None:
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "linux")
+
+    assert MainWindow._system_command_presets() == ()
+
+
 def test_unknown_system_command_is_rejected() -> None:
     runner = ActionRunner()
 
@@ -123,3 +130,42 @@ def test_shortcut_presets_are_platform_specific(monkeypatch) -> None:
     assert windows_shortcuts["command_copy"] == "CTRL+C"
     assert mac_shortcuts["command_screenshot"] == "CMD+SHIFT+4"
     assert windows_shortcuts["command_screenshot"] == "WIN+SHIFT+S"
+
+
+def test_windows_start_menu_apps_are_discovered(tmp_path: Path) -> None:
+    programs = tmp_path / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+    utilities = programs / "Utilities"
+    utilities.mkdir(parents=True)
+    (programs / "Example App.lnk").touch()
+    (utilities / "Web Tool.url").touch()
+    (programs / "Uninstall Example.lnk").touch()
+
+    applications = MainWindow._windows_start_menu_applications([programs])
+
+    assert set(applications) == {"example app", "web tool"}
+
+
+class EditorValue:
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def text(self) -> str:
+        return self.value
+
+
+class EditorPresets:
+    def __init__(self, value: str) -> None:
+        self.value = value
+
+    def currentData(self) -> str:
+        return self.value
+
+
+def test_system_action_save_uses_selected_command() -> None:
+    value = MainWindow._editor_value(
+        "system",
+        EditorValue(""),  # type: ignore[arg-type]
+        EditorPresets("brightness_up"),  # type: ignore[arg-type]
+    )
+
+    assert value == "brightness_up"

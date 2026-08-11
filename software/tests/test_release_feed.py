@@ -7,7 +7,7 @@ def test_release_feed_selects_platform_download_and_clamps_progress() -> None:
     payload = json.dumps(
         {
             "schema": 1,
-            "latest_version": "1.4.9",
+            "latest_version": "1.5.0",
             "downloads": {
                 "macos": "https://example.com/mac",
                 "windows": "https://example.com/windows",
@@ -18,7 +18,7 @@ def test_release_feed_selects_platform_download_and_clamps_progress() -> None:
 
     data = parse_release_feed(payload)
 
-    assert data.latest_version == "1.4.9"
+    assert data.latest_version == "1.5.0"
     assert data.roadmap_progress == 48.4
     assert data.download_url.startswith("https://example.com/")
     assert data.update_available

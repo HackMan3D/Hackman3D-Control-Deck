@@ -128,6 +128,22 @@ SYSTEM_ICON_FILES = {
     "sleep": "system_sleep.svg",
 }
 
+SYSTEM_COMMANDS = (
+    ("command_volume_up", "volume_up", {"darwin", "win32"}),
+    ("command_volume_down", "volume_down", {"darwin", "win32"}),
+    ("command_volume_mute", "volume_mute", {"darwin", "win32"}),
+    ("command_microphone_mute", "microphone_mute", {"darwin", "win32"}),
+    ("command_play_pause", "media_play_pause", {"darwin", "win32"}),
+    ("command_next_track", "media_next", {"darwin", "win32"}),
+    ("command_previous_track", "media_previous", {"darwin", "win32"}),
+    ("command_brightness_up", "brightness_up", {"darwin", "win32"}),
+    ("command_brightness_down", "brightness_down", {"darwin", "win32"}),
+    ("command_lock", "lock", {"darwin", "win32"}),
+    ("command_sleep", "sleep", {"darwin", "win32"}),
+    ("command_restart", "restart", {"darwin", "win32"}),
+    ("command_shutdown", "shutdown", {"darwin", "win32"}),
+)
+
 
 class _FaviconSignals(QObject):
     finished = Signal(str, str, str, bytes)
@@ -246,6 +262,7 @@ class MainWindow(QMainWindow):
         self._favicon_refresh_timer.timeout.connect(self._refresh_website_icons)
         self._favicon_refresh_timer.start()
         self._application_choices: list[tuple[str, str]] | None = None
+        self._application_icon_cache: dict[str, QIcon] = {}
 
         self._build_ui()
         self._device_preview.set_pro_second_fader(self._pro_second_fader)
@@ -612,6 +629,7 @@ class MainWindow(QMainWindow):
         self._value_edit.setEnabled(False)
         short_layout.addWidget(self._value_edit)
         self._preset_combo = QComboBox()
+        self._preset_combo.setIconSize(QSize(30, 30))
         self._preset_combo.setVisible(False)
         self._preset_combo.currentIndexChanged.connect(self._apply_preset)
         short_layout.addWidget(self._preset_combo)
@@ -652,6 +670,7 @@ class MainWindow(QMainWindow):
         self._long_value_edit.setEnabled(False)
         long_layout.addWidget(self._long_value_edit)
         self._long_preset_combo = QComboBox()
+        self._long_preset_combo.setIconSize(QSize(30, 30))
         self._long_preset_combo.setVisible(False)
         self._long_preset_combo.currentIndexChanged.connect(self._apply_long_preset)
         long_layout.addWidget(self._long_preset_combo)
@@ -1179,18 +1198,17 @@ class MainWindow(QMainWindow):
     def _save_action(self) -> None:
         if not self._selection:
             return
+        primary = self._editor_action()
         long_primary = self._long_editor_action()
-        action_type = str(self._action_type.currentData())
-        action_value = self._value_edit.text().strip()
         icon_data = self._custom_icon_data
         icon_source = self._icon_source
-        if action_type == "open_url" and icon_source != "custom":
-            icon_data = self._favicon_data(action_value)
+        if primary.type == "open_url" and icon_source != "custom":
+            icon_data = self._favicon_data(primary.value)
             icon_source = "auto" if icon_data else ""
         action = Action(
-            type=action_type,
-            value=action_value,
-            label=self._label_edit.text().strip() or "Unassigned",
+            type=primary.type,
+            value=primary.value,
+            label=primary.label,
             long_type=long_primary.type,
             long_value=long_primary.value,
             long_label=long_primary.label,
@@ -1206,21 +1224,54 @@ class MainWindow(QMainWindow):
     def _editor_action(self) -> Action:
         if not self._selection:
             return Action()
+        action_type = str(self._action_type.currentData())
         return Action(
-            type=str(self._action_type.currentData()),
-            value=self._value_edit.text().strip(),
-            label=self._label_edit.text().strip() or "Unassigned",
+            type=action_type,
+            value=self._editor_value(action_type, self._value_edit, self._preset_combo),
+            label=self._editor_label(
+                self._label_edit,
+                self._preset_combo,
+                "Unassigned",
+            ),
             long_press_ms=self._long_press_delay.value(),
             icon_data=self._custom_icon_data,
             icon_source=self._icon_source,
         )
 
     def _long_editor_action(self) -> Action:
+        action_type = str(self._long_action_type.currentData())
         return Action(
-            type=str(self._long_action_type.currentData()),
-            value=self._long_value_edit.text().strip(),
-            label=self._long_label_edit.text().strip() or self._text("long_press"),
+            type=action_type,
+            value=self._editor_value(
+                action_type,
+                self._long_value_edit,
+                self._long_preset_combo,
+            ),
+            label=self._editor_label(
+                self._long_label_edit,
+                self._long_preset_combo,
+                self._text("long_press"),
+            ),
         )
+
+    @staticmethod
+    def _editor_value(action_type: str, edit: QLineEdit, presets: QComboBox) -> str:
+        if action_type in {"system", "launch"}:
+            selected = presets.currentData()
+            if selected:
+                return str(selected).strip()
+        return edit.text().strip()
+
+    @staticmethod
+    def _editor_label(edit: QLineEdit, presets: QComboBox, fallback: str) -> str:
+        label = edit.text().strip()
+        if label:
+            return label
+        if presets.currentIndex() > 0:
+            preset_label = presets.currentText().split(" — ", maxsplit=1)[0].strip()
+            if preset_label:
+                return preset_label
+        return fallback
 
     def _test_action(self) -> None:
         if self._selection:
@@ -1408,7 +1459,7 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                self._preset_combo.addItem(name, path)
+                self._preset_combo.addItem(self._application_icon(path), name, path)
 
         matching_index = self._preset_combo.findData(selected_value)
         self._preset_combo.setCurrentIndex(max(0, matching_index))
@@ -1432,7 +1483,9 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._long_preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                self._long_preset_combo.addItem(name, path)
+                self._long_preset_combo.addItem(
+                    self._application_icon(path), name, path
+                )
         matching_index = self._long_preset_combo.findData(selected_value)
         self._long_preset_combo.setCurrentIndex(max(0, matching_index))
         self._long_preset_combo.setVisible(action_type in {"shortcut", "system", "launch"})
@@ -1467,20 +1520,10 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _system_command_presets() -> tuple[tuple[str, str], ...]:
-        return (
-            ("command_volume_up", "volume_up"),
-            ("command_volume_down", "volume_down"),
-            ("command_volume_mute", "volume_mute"),
-            ("command_microphone_mute", "microphone_mute"),
-            ("command_play_pause", "media_play_pause"),
-            ("command_next_track", "media_next"),
-            ("command_previous_track", "media_previous"),
-            ("command_brightness_up", "brightness_up"),
-            ("command_brightness_down", "brightness_down"),
-            ("command_lock", "lock"),
-            ("command_sleep", "sleep"),
-            ("command_restart", "restart"),
-            ("command_shutdown", "shutdown"),
+        return tuple(
+            (label, command)
+            for label, command, platforms in SYSTEM_COMMANDS
+            if sys.platform in platforms
         )
 
     def _apply_preset(self, index: int) -> None:
@@ -1546,10 +1589,55 @@ class MainWindow(QMainWindow):
         )
 
     def _application_icon(self, value: str) -> QIcon:
+        cached = self._application_icon_cache.get(value)
+        if cached is not None:
+            return cached
         path = Path(value)
         if not value or not path.exists():
             return QIcon()
-        return self._file_icon_provider.icon(QFileInfo(str(path)))
+        icon = self._file_icon_provider.icon(QFileInfo(str(path)))
+        if sys.platform == "win32":
+            icon = self._trimmed_icon(icon)
+        self._application_icon_cache[value] = icon
+        return icon
+
+    @staticmethod
+    def _trimmed_icon(icon: QIcon) -> QIcon:
+        if icon.isNull():
+            return icon
+        canvas_size = 256
+        image = icon.pixmap(QSize(canvas_size, canvas_size)).toImage()
+        image.setDevicePixelRatio(1.0)
+        left = image.width()
+        top = image.height()
+        right = -1
+        bottom = -1
+        for y in range(image.height()):
+            for x in range(image.width()):
+                if image.pixelColor(x, y).alpha() > 8:
+                    left = min(left, x)
+                    top = min(top, y)
+                    right = max(right, x)
+                    bottom = max(bottom, y)
+        if right < left or bottom < top:
+            return icon
+        visible = image.copy(left, top, right - left + 1, bottom - top + 1)
+        content_size = round(canvas_size * 0.9)
+        visible = visible.scaled(
+            QSize(content_size, content_size),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        canvas = QPixmap(canvas_size, canvas_size)
+        canvas.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(canvas)
+        painter.drawImage(
+            (canvas_size - visible.width()) // 2,
+            (canvas_size - visible.height()) // 2,
+            visible,
+        )
+        painter.end()
+        return QIcon(canvas)
 
     @staticmethod
     def _system_icon(value: str) -> QIcon:
@@ -1740,27 +1828,63 @@ class MainWindow(QMainWindow):
     def _installed_applications(self) -> list[tuple[str, str]]:
         if self._application_choices is not None:
             return self._application_choices
-        if sys.platform != "darwin":
-            return []
 
         applications: dict[str, str] = {}
-        roots = (Path("/Applications"), Path("/System/Applications"), Path.home() / "Applications")
-        for root in roots:
-            if not root.is_dir():
-                continue
-            for directory, subdirectories, _ in os.walk(root):
-                app_directories = [name for name in subdirectories if name.lower().endswith(".app")]
-                for app_directory in app_directories:
-                    path = Path(directory) / app_directory
-                    applications.setdefault(path.stem.casefold(), str(path))
-                subdirectories[:] = [
-                    name for name in subdirectories if not name.lower().endswith(".app")
-                ]
+        if sys.platform == "darwin":
+            roots = (
+                Path("/Applications"),
+                Path("/System/Applications"),
+                Path.home() / "Applications",
+            )
+            for root in roots:
+                if not root.is_dir():
+                    continue
+                for directory, subdirectories, _ in os.walk(root):
+                    app_directories = [
+                        name
+                        for name in subdirectories
+                        if name.lower().endswith(".app")
+                    ]
+                    for app_directory in app_directories:
+                        path = Path(directory) / app_directory
+                        applications.setdefault(path.stem.casefold(), str(path))
+                    subdirectories[:] = [
+                        name
+                        for name in subdirectories
+                        if not name.lower().endswith(".app")
+                    ]
+        elif sys.platform == "win32":
+            roots: list[Path] = []
+            for variable in ("PROGRAMDATA", "APPDATA"):
+                value = os.environ.get(variable)
+                if value:
+                    roots.append(
+                        Path(value)
+                        / "Microsoft"
+                        / "Windows"
+                        / "Start Menu"
+                        / "Programs"
+                    )
+            applications.update(self._windows_start_menu_applications(roots))
         self._application_choices = sorted(
             ((Path(path).stem, path) for path in applications.values()),
             key=lambda item: item[0].casefold(),
         )
         return self._application_choices
+
+    @staticmethod
+    def _windows_start_menu_applications(roots: list[Path]) -> dict[str, str]:
+        applications: dict[str, str] = {}
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for suffix in ("*.lnk", "*.url", "*.appref-ms"):
+                for path in root.rglob(suffix):
+                    if path.is_file() and not path.stem.casefold().startswith(
+                        ("uninstall", "désinstaller")
+                    ):
+                        applications.setdefault(path.stem.casefold(), str(path))
+        return applications
 
     def _browse_application(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
