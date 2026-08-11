@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, QTimer, Signal, Slot
 from PySide6.QtNetwork import (
     QAbstractSocket,
     QHostAddress,
+    QHostInfo,
     QNetworkInterface,
     QTcpSocket,
     QUdpSocket,
@@ -19,6 +20,7 @@ from .constants import (
     BAUD_RATE,
     CONNECTION_TIMEOUT_MS,
     HCD_DISCOVERY_PORT,
+    HCD_TCP_PORT,
     HEARTBEAT_INTERVAL_MS,
     PORT_PROBE_TIMEOUT_MS,
     PORT_SCAN_INTERVAL_MS,
@@ -77,6 +79,8 @@ class HcdDeviceManager(QObject):
         self._transport = ""
         self._network_endpoint = ""
         self._network_candidate = ""
+        self._mdns_lookup_active = False
+        self._last_mdns_lookup = 0.0
         self._pro_icon_signatures: dict[str, int | None] = {}
         self._pro_label_values: dict[str, str] = {}
         self._pro_display_state: tuple[int, bool, int, bool, int] | None = None
@@ -197,6 +201,7 @@ class HcdDeviceManager(QObject):
     @Slot()
     def _scan(self) -> None:
         self._send_discovery()
+        self._start_mdns_lookup()
         if self._connected or self._serial.isOpen() or self._tcp.state() != QTcpSocket.UnconnectedState:
             return
 
@@ -344,6 +349,29 @@ class HcdDeviceManager(QObject):
                 QHostAddress(address),
                 HCD_DISCOVERY_PORT,
             )
+
+    def _start_mdns_lookup(self) -> None:
+        if self._connected or self._mdns_lookup_active:
+            return
+        now = time.monotonic()
+        if now - self._last_mdns_lookup < 3.0:
+            return
+        self._last_mdns_lookup = now
+        self._mdns_lookup_active = True
+        QHostInfo.lookupHost("hcd-pro.local", self._mdns_resolved)
+
+    @Slot(QHostInfo)
+    def _mdns_resolved(self, host: QHostInfo) -> None:
+        self._mdns_lookup_active = False
+        if self._connected or self._tcp.state() != QTcpSocket.UnconnectedState:
+            return
+        for address in host.addresses():
+            if (
+                address.protocol()
+                == QAbstractSocket.NetworkLayerProtocol.IPv4Protocol
+            ):
+                self._try_network(address.toString(), HCD_TCP_PORT)
+                return
 
     @Slot()
     def _read_discovery_datagrams(self) -> None:

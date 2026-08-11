@@ -27,9 +27,9 @@ external HackMan3D PayPal page.
 ## HCD Plus and HCD Pro
 
 Both future models appear in the firmware selector with an **in development**
-label. They are previews only and cannot be installed from this public release.
-Their installation will be enabled when the hardware and assembly guides are
-ready for users.
+label. Their firmware remains selectable for HackMan3D prototype testing, but
+regular users should use HCD-BASE until the hardware and assembly guides are
+ready.
 
 HCD Pro is planned without additional physical buttons. Its display will offer
 either 28 programmable touch buttons with one slider, or 24 programmable touch
