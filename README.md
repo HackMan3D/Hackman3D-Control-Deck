@@ -96,9 +96,9 @@ powering the controller.
 
 The firmware manager shows **HCD Plus (in development)** and
 **HCD Pro (in development)** so the planned product family is visible. These
-entries are previews: installation is disabled until the hardware designs,
-assembly guides and firmware are ready for users. For now, build and flash only
-**HCD-BASE**.
+entries are development previews. Their firmware remains selectable for
+HackMan3D prototype testing, but the hardware and assembly guides are not ready
+for users. Regular users should build and flash only **HCD-BASE**.
 
 ## Support matters
 
@@ -228,8 +228,9 @@ listed.
 - The app displays the model reported by the firmware, such as `HCD-BASE`,
   instead of a system port name such as `cu.usbmodem101`.
 - The integrated firmware manager installs HCD-BASE without Arduino IDE.
-  HCD Plus and HCD Pro remain visible as clearly marked development previews,
-  but cannot be installed from the public application yet.
+  HCD Plus and HCD Pro remain visible as clearly marked development previews.
+  Their firmware can be selected for prototype testing, but their public
+  assembly guides are not available yet.
 - Compatible firmware updates are detected automatically and offered through a
   pop-up.
 - The diagnostics page displays the model, firmware version, serial port,
@@ -314,8 +315,8 @@ and provides clean Start menu, optional desktop and uninstall entries.
 The desktop application contains the HCD-BASE firmware and flashes it directly
 from the **Firmware** manager. Arduino IDE is not required for normal
 installation or updates. HCD Plus and HCD Pro are shown in the selector as
-**in development**, but their installation remains disabled until their public
-assembly documentation is ready.
+**in development**. Their firmware remains selectable for prototype testing,
+although their public assembly documentation is not ready.
 
 The source sketch remains available in
 `firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` and
