@@ -1,8 +1,9 @@
 from hackman_control_deck.action_runner import ActionRunner
 from hackman_control_deck.main_window import MainWindow
-from hackman_control_deck.models import Action
+from hackman_control_deck.models import Action, Profile
 from pynput.keyboard import Key
 from pathlib import Path
+from types import SimpleNamespace
 
 _ = Key
 
@@ -169,3 +170,66 @@ def test_system_action_save_uses_selected_command() -> None:
     )
 
     assert value == "brightness_up"
+
+
+def test_system_action_save_keeps_remembered_shutdown_command() -> None:
+    value = MainWindow._editor_value(
+        "system",
+        EditorValue(""),  # type: ignore[arg-type]
+        EditorPresets(""),  # type: ignore[arg-type]
+        "shutdown",
+    )
+
+    assert value == "shutdown"
+
+
+def test_windows_shortcut_uses_embedded_high_resolution_icon(
+    monkeypatch, tmp_path: Path
+) -> None:
+    shortcut = tmp_path / "Example App.lnk"
+    executable = tmp_path / "Example App.exe"
+    shortcut.touch()
+    executable.touch()
+    output = (
+        '{"shortcut":"'
+        + str(shortcut).replace("\\", "\\\\")
+        + '","source":"'
+        + str(executable).replace("\\", "\\\\")
+        + '"}'
+    )
+    monkeypatch.setattr(
+        "hackman_control_deck.main_window.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=output),
+    )
+
+    sources = MainWindow._windows_shortcut_icon_sources([shortcut])
+
+    assert sources[str(shortcut)] == str(executable)
+
+
+def test_shutdown_command_is_saved_on_pro_key_28() -> None:
+    profile = Profile()
+    profile.ensure_controls(28)
+    saved: list[Profile] = []
+    status = SimpleNamespace(showMessage=lambda *args: None)
+    window = SimpleNamespace(
+        _selection="28",
+        _editor_action=lambda: Action(
+            type="system", value="shutdown", label="Shut down computer"
+        ),
+        _long_editor_action=lambda: Action(),
+        _custom_icon_data="",
+        _icon_source="",
+        _long_press_delay=SimpleNamespace(value=lambda: 650),
+        _profile=profile,
+        _store=SimpleNamespace(save=saved.append),
+        _refresh_control_labels=lambda: None,
+        statusBar=lambda: status,
+        _text=lambda key, **values: key,
+    )
+
+    MainWindow._save_action(window)  # type: ignore[arg-type]
+
+    assert saved == [profile]
+    assert profile.keys["28"].type == "system"
+    assert profile.keys["28"].value == "shutdown"

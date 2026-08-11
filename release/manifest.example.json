@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.9",
+  "latest_version": "1.4.10",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Windows application list, clearer icons, reliable system-command saving and platform-specific action lists.",
+  "release_notes": "Higher-resolution Windows application icons and reliable system-command saving on every HCD Pro touch key.",
   "roadmap": {
     "progress": 0
   }
