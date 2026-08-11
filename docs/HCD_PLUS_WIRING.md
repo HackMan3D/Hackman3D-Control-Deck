@@ -1,5 +1,7 @@
 # HCD Plus wiring
 
+![HackMan3D Control Deck Plus wiring diagram](images/HCD_PLUS_Wiring_Diagram.svg)
+
 HCD Plus uses an Arduino Pro Micro (ATmega32U4, 5 V / 16 MHz) and one
 MCP23017 I/O expander at address `0x20`. The firmware uses the Arduino `Wire`
 library directly; no third-party MCP23017 library is required.
