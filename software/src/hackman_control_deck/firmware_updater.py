@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import re
 import sys
+import base64
+import http.client
+import secrets
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,17 +21,29 @@ class FirmwareTarget:
     version: str
     key_count: int
     potentiometer_count: int
+    architecture: str = "avr"
 
     @property
     def filename(self) -> str:
-        return (
-            f"HackMan3DControlDeck-{self.model_identifier}-{self.version}.hex"
-        )
+        extension = "bin" if self.architecture == "esp32s3" else "hex"
+        return f"HackMan3DControlDeck-{self.model_identifier}-{self.version}.{extension}"
+
+    @property
+    def ota_filename(self) -> str:
+        return f"HackMan3DControlDeck-{self.model_identifier}-{self.version}-ota.bin"
 
 
 FIRMWARE_TARGETS = {
     "HCD-BASE": FirmwareTarget("HCD-BASE", "HCD-BASE", "1.7.0", 9, 0),
     "HCD-PLUS": FirmwareTarget("HCD-PLUS", "HCD Plus", "1.0.0", 12, 2),
+    "HCD-PRO": FirmwareTarget(
+        "HCD-PRO",
+        "HCD Pro",
+        "1.2.36",
+        28,
+        0,
+        "esp32s3",
+    ),
 }
 BUNDLED_MODEL_IDENTIFIER = "HCD-BASE"
 BUNDLED_FIRMWARE_VERSION = FIRMWARE_TARGETS[BUNDLED_MODEL_IDENTIFIER].version
@@ -63,6 +79,10 @@ class FirmwareUpdater(QObject):
     progress_changed = Signal(int)
     log_changed = Signal(str)
     finished = Signal(bool, str)
+    esp32_bootloader_required = Signal()
+    ota_arm_requested = Signal(str)
+    ota_progress_received = Signal(int)
+    ota_finished = Signal(bool, str)
 
     _POLL_INTERVAL_MS = 80
     _BOOTLOADER_TIMEOUT_TICKS = 150
@@ -78,6 +98,8 @@ class FirmwareUpdater(QObject):
         self._process.readyReadStandardOutput.connect(self._read_process_output)
         self._process.finished.connect(self._process_finished)
         self._process.errorOccurred.connect(self._process_error)
+        self.ota_progress_received.connect(self._ota_progress)
+        self.ota_finished.connect(self._ota_upload_finished)
 
         self._busy = False
         self._original_port = ""
@@ -90,6 +112,13 @@ class FirmwareUpdater(QObject):
         self._bootloader_port = ""
         self._allow_existing_bootloader = False
         self._target = FIRMWARE_TARGETS[BUNDLED_MODEL_IDENTIFIER]
+        self._wifi_ssid = ""
+        self._wifi_password = ""
+        self._provision_attempts = 0
+        self._esp32_manual_retry_pending = False
+        self._displayed_progress = 0
+        self._ota_address = ""
+        self._ota_token = ""
 
     @property
     def is_busy(self) -> bool:
@@ -100,6 +129,8 @@ class FirmwareUpdater(QObject):
         port_name: str,
         model_identifier: str = BUNDLED_MODEL_IDENTIFIER,
         allow_existing_bootloader: bool = False,
+        wifi_ssid: str = "",
+        wifi_password: str = "",
     ) -> None:
         if self._busy:
             return
@@ -114,6 +145,19 @@ class FirmwareUpdater(QObject):
             self.finished.emit(False, f"Unsupported hardware model: {model_identifier}")
             return
         self._target = target
+
+        self._wifi_ssid = wifi_ssid.strip()
+        self._wifi_password = wifi_password
+        self._provision_attempts = 0
+        self._displayed_progress = 0
+
+        if target.architecture == "esp32s3":
+            ota_address = self._wifi_address(port_name)
+            if ota_address:
+                self._start_esp32_ota(ota_address)
+                return
+            self._start_esp32_install(port_name)
+            return
 
         executable, configuration, firmware = self.resource_paths(model_identifier)
         missing = [
@@ -158,6 +202,224 @@ class FirmwareUpdater(QObject):
             tool_directory / "avrdude.conf",
             ASSET_DIR / "firmware" / target.filename,
         )
+
+    @staticmethod
+    def esp32_resource_paths(model_identifier: str = "HCD-PRO") -> tuple[Path, Path]:
+        target = firmware_target(model_identifier)
+        if target is None or target.architecture != "esp32s3":
+            raise ValueError(f"Unsupported ESP32 model: {model_identifier}")
+        platform_directory = "windows" if sys.platform == "win32" else "macos"
+        executable_name = "esptool.exe" if sys.platform == "win32" else "esptool"
+        return (
+            ASSET_DIR / "tools" / platform_directory / executable_name,
+            ASSET_DIR / "firmware" / target.filename,
+        )
+
+    @staticmethod
+    def esp32_ota_resource_path(model_identifier: str = "HCD-PRO") -> Path:
+        target = firmware_target(model_identifier)
+        if target is None or target.architecture != "esp32s3":
+            raise ValueError(f"Unsupported ESP32 model: {model_identifier}")
+        return ASSET_DIR / "firmware" / target.ota_filename
+
+    @staticmethod
+    def _wifi_address(endpoint: str) -> str:
+        match = re.search(r"(?:Wi-Fi\s*[·|-]\s*)?((?:\d{1,3}\.){3}\d{1,3})", endpoint)
+        return match.group(1) if match else ""
+
+    def _start_esp32_ota(self, address: str) -> None:
+        firmware = self.esp32_ota_resource_path(self._target.model_identifier)
+        if not firmware.is_file():
+            self.finished.emit(False, f"Missing firmware resource: {firmware.name}")
+            return
+        self._busy = True
+        self._output = ""
+        self._displayed_progress = 5
+        self.log_changed.emit("")
+        self.progress_changed.emit(5)
+        self.status_changed.emit("Preparing the secure Wi-Fi update…")
+        token = secrets.token_hex(16)
+        self._ota_address = address
+        self._ota_token = token
+        # Arm the one-minute OTA window through the existing HCD command channel.
+        self.ota_arm_requested.emit(token)
+        QTimer.singleShot(250, self._launch_ota_worker)
+
+    @Slot()
+    def _launch_ota_worker(self) -> None:
+        if not self._busy:
+            return
+        self.status_changed.emit("Uploading the HCD Pro firmware over Wi-Fi…")
+        threading.Thread(target=self._run_ota_upload, daemon=True).start()
+
+    def _run_ota_upload(self) -> None:
+        firmware = self.esp32_ota_resource_path(self._target.model_identifier)
+        boundary = f"----HCD{secrets.token_hex(12)}"
+        prefix = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="firmware"; filename="hcd-pro.bin"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("ascii")
+        suffix = f"\r\n--{boundary}--\r\n".encode("ascii")
+        total = len(prefix) + firmware.stat().st_size + len(suffix)
+        connection: http.client.HTTPConnection | None = None
+        try:
+            connection = http.client.HTTPConnection(self._ota_address, 42102, timeout=20)
+            connection.putrequest("POST", f"/update?token={self._ota_token}")
+            connection.putheader("Content-Type", f"multipart/form-data; boundary={boundary}")
+            connection.putheader("Content-Length", str(total))
+            connection.endheaders()
+            connection.send(prefix)
+            sent = len(prefix)
+            with firmware.open("rb") as stream:
+                while chunk := stream.read(32768):
+                    if not self._busy:
+                        return
+                    connection.send(chunk)
+                    sent += len(chunk)
+                    progress = 10 + round((sent / total) * 85)
+                    self.ota_progress_received.emit(min(progress, 95))
+            connection.send(suffix)
+            response = connection.getresponse()
+            body = response.read().decode("utf-8", errors="replace")
+            if response.status != 200 or "HCD_OTA_OK" not in body:
+                raise RuntimeError(body or f"HTTP {response.status}")
+            self.ota_finished.emit(True, "")
+        except (OSError, http.client.HTTPException, RuntimeError) as error:
+            self.ota_finished.emit(False, str(error))
+        finally:
+            if connection is not None:
+                connection.close()
+
+    @Slot(int)
+    def _ota_progress(self, value: int) -> None:
+        if not self._busy:
+            return
+        self._displayed_progress = max(self._displayed_progress, value)
+        self.progress_changed.emit(self._displayed_progress)
+
+    @Slot(bool, str)
+    def _ota_upload_finished(self, successful: bool, error: str) -> None:
+        if not self._busy:
+            return
+        if successful:
+            self._busy = False
+            self.progress_changed.emit(100)
+            self.status_changed.emit("Wi-Fi update installed. HCD Pro is restarting…")
+            self.finished.emit(
+                True,
+                f"{self._target.display_name} firmware {self._target.version} "
+                "was installed over Wi-Fi.",
+            )
+            return
+        self._fail(
+            "Wi-Fi firmware update failed: "
+            f"{error or 'the HCD Pro did not accept the update.'} "
+            "The current firmware is unchanged; use USB installation if needed."
+        )
+
+    @staticmethod
+    def esptool_arguments(
+        port: str,
+        firmware: Path,
+        manual_bootloader: bool = False,
+    ) -> list[str]:
+        return [
+            "--chip",
+            "esp32s3",
+            "--port",
+            port,
+            "--baud",
+            "460800",
+            "--before",
+            "no-reset" if manual_bootloader else "default-reset",
+            "--after",
+            "hard-reset",
+            "write-flash",
+            "--flash-mode",
+            "dio",
+            "--flash-freq",
+            "80m",
+            "--flash-size",
+            "8MB",
+            "0x0",
+            str(firmware),
+        ]
+
+    def _start_esp32_install(self, port_name: str) -> None:
+        executable, firmware = self.esp32_resource_paths(self._target.model_identifier)
+        missing = [path.name for path in (executable, firmware) if not path.is_file()]
+        if missing:
+            self.finished.emit(False, f"Missing firmware resource: {', '.join(missing)}")
+            return
+        self._busy = True
+        self._original_port = self._serial_location(port_name)
+        self._output = ""
+        self._attempt_output = ""
+        self._attempt_count = 1
+        self._esp32_manual_retry_pending = False
+        self.log_changed.emit("")
+        self.progress_changed.emit(10)
+        self._displayed_progress = 10
+        self.status_changed.emit("Uploading the HCD Pro firmware to the ESP32-S3…")
+        self._process.setProgram(str(executable))
+        self._process.setArguments(
+            self.esptool_arguments(self._original_port, firmware)
+        )
+        self._process.start()
+
+    @Slot()
+    def resume_esp32_install(self) -> None:
+        """Continue after the user has placed the ESP32-S3 in download mode."""
+        if not self._busy or not self._esp32_manual_retry_pending:
+            return
+        executable, firmware = self.esp32_resource_paths(self._target.model_identifier)
+        port = self._current_esp32_port() or self._original_port
+        self._esp32_manual_retry_pending = False
+        self._attempt_count += 1
+        self._attempt_output = ""
+        self.progress_changed.emit(10)
+        self._displayed_progress = max(self._displayed_progress, 10)
+        self.status_changed.emit("Bootloader ready. Installing HCD Pro firmware…")
+        self._process.setProgram(str(executable))
+        self._process.setArguments(
+            self.esptool_arguments(port, firmware, manual_bootloader=True)
+        )
+        self._process.start()
+
+    @Slot()
+    def cancel(self) -> None:
+        if self._busy:
+            self._fail("Firmware installation cancelled.")
+
+    def _current_esp32_port(self) -> str:
+        preferred_name = Path(self._original_port).name
+        candidates: list[tuple[int, str]] = []
+        for info in QSerialPortInfo.availablePorts():
+            vendor = info.vendorIdentifier() if info.hasVendorIdentifier() else 0
+            product = info.productIdentifier() if info.hasProductIdentifier() else 0
+            identity = " ".join(
+                (info.portName(), info.description(), info.manufacturer())
+            ).casefold()
+            is_esp32 = (
+                vendor == 0x303A
+                or (vendor, product) == (0x1A86, 0x55D3)
+                or "esp32" in identity
+                or "espressif" in identity
+                or "usb single serial" in identity
+            )
+            if not is_esp32:
+                continue
+            location = info.systemLocation() or info.portName()
+            rank = 0 if info.portName() == preferred_name else 1
+            candidates.append((rank, location))
+        return min(candidates, default=(99, ""))[1]
+
+    @staticmethod
+    def _serial_location(port_name: str) -> str:
+        if sys.platform == "darwin" and not port_name.startswith("/dev/"):
+            return f"/dev/{port_name}"
+        return port_name
 
     @staticmethod
     def avrdude_arguments(port: str, configuration: Path, firmware: Path) -> list[str]:
@@ -282,9 +544,13 @@ class FirmwareUpdater(QObject):
                 "32u4",
                 "pro micro",
                 "hackman control deck",
+                "esp32",
+                "espressif",
+                "usb jtag",
             )
         )
-        return known_usb_id or looks_compatible
+        esp_usb_id = info.hasVendorIdentifier() and info.vendorIdentifier() == 0x303A
+        return known_usb_id or esp_usb_id or looks_compatible
 
     def _start_avrdude(self, port: str) -> None:
         if not self._busy:
@@ -312,7 +578,9 @@ class FirmwareUpdater(QObject):
         percentages = re.findall(r"(\d{1,3})\s*%", output)
         if percentages:
             percentage = min(100, int(percentages[-1]))
-            self.progress_changed.emit(30 + round(percentage * 0.65))
+            mapped_progress = 30 + round(percentage * 0.65)
+            self._displayed_progress = max(self._displayed_progress, mapped_progress)
+            self.progress_changed.emit(self._displayed_progress)
 
     @Slot(int, QProcess.ExitStatus)
     def _process_finished(self, exit_code: int, exit_status: QProcess.ExitStatus) -> None:
@@ -320,16 +588,32 @@ class FirmwareUpdater(QObject):
             return
         # Drain output that may have arrived immediately before QProcess.finished.
         self._read_process_output()
+        if self._target.architecture == "esp32s3":
+            if exit_status == QProcess.NormalExit and exit_code == 0:
+                if self._wifi_ssid:
+                    self.progress_changed.emit(96)
+                    self.status_changed.emit("Firmware installed. Sending Wi-Fi settings…")
+                    QTimer.singleShot(2200, self._provision_esp32_wifi)
+                else:
+                    self._finish_success()
+                return
+            if self._attempt_count == 1 and self._is_esp32_connection_failure(
+                self._attempt_output
+            ):
+                self._esp32_manual_retry_pending = True
+                self.progress_changed.emit(0)
+                self.status_changed.emit(
+                    "The automatic restart was not accepted. Follow the BOOT/RESET "
+                    "instructions shown by the application."
+                )
+                self.esp32_bootloader_required.emit()
+                return
+            suffix = self._failure_summary(self._attempt_output, exit_code)
+            self._fail(f"Firmware installation failed: {suffix}")
+            return
         flash_verified = self._flash_was_verified(self._attempt_output)
         if exit_status == QProcess.NormalExit and (exit_code == 0 or flash_verified):
-            self._busy = False
-            self.progress_changed.emit(100)
-            self.status_changed.emit("Firmware installed. Waiting for the Control Deck…")
-            self.finished.emit(
-                True,
-                f"{self._target.display_name} firmware "
-                f"{self._target.version} was installed successfully.",
-            )
+            self._finish_success()
             return
         if self._attempt_count < 2 and self._is_retryable_failure(self._attempt_output):
             self.progress_changed.emit(25)
@@ -392,6 +676,21 @@ class FirmwareUpdater(QObject):
             )
         )
 
+    @staticmethod
+    def _is_esp32_connection_failure(output: str) -> bool:
+        normalized = output.casefold()
+        return any(
+            marker in normalized
+            for marker in (
+                "failed to connect",
+                "no serial data received",
+                "invalid head of packet",
+                "wrong boot mode",
+                "could not open",
+                "port is busy",
+            )
+        )
+
     @Slot(QProcess.ProcessError)
     def _process_error(self, error: QProcess.ProcessError) -> None:
         if self._busy and error == QProcess.FailedToStart:
@@ -404,3 +703,78 @@ class FirmwareUpdater(QObject):
         self._busy = False
         self.status_changed.emit(message)
         self.finished.emit(False, message)
+
+    def _provision_esp32_wifi(self) -> None:
+        infos = list(QSerialPortInfo.availablePorts())
+        port_name = self._find_esp32_port(infos) or self._original_port
+        port = QSerialPort()
+        port.setPortName(port_name)
+        port.setBaudRate(115200)
+        if not port.open(QSerialPort.ReadWrite):
+            self._provision_attempts += 1
+            if self._provision_attempts < 20:
+                self.status_changed.emit(
+                    "Firmware installed. Waiting for the ESP32 USB port…"
+                )
+                QTimer.singleShot(500, self._provision_esp32_wifi)
+                return
+            self._fail(
+                "The firmware was installed, but Wi-Fi settings could not be sent. "
+                "Reconnect the ESP32 and configure Wi-Fi from its HCD-PRO-SETUP access point."
+            )
+            return
+        encoded_ssid = base64.b64encode(self._wifi_ssid.encode("utf-8")).decode("ascii")
+        encoded_password = base64.b64encode(
+            self._wifi_password.encode("utf-8")
+        ).decode("ascii")
+        port.write(
+            f"HCD_WIFI_CONFIG|{encoded_ssid}|{encoded_password}\n".encode("ascii")
+        )
+        port.waitForBytesWritten(1000)
+        response = bytearray()
+        if port.waitForReadyRead(250):
+            response.extend(bytes(port.readAll()))
+            while port.waitForReadyRead(40):
+                response.extend(bytes(port.readAll()))
+        port.close()
+        response_text = response.decode("utf-8", errors="replace")
+        if "HCD_WIFI_SAVED" in response_text:
+            self._finish_success()
+            return
+        if "HCD_WIFI_ERROR" in response_text:
+            self._fail("The firmware rejected the Wi-Fi settings.")
+            return
+        self._provision_attempts += 1
+        if self._provision_attempts < 24:
+            self.status_changed.emit(
+                "Firmware installed. Waiting for HCD Pro to accept Wi-Fi settings…"
+            )
+            QTimer.singleShot(500, self._provision_esp32_wifi)
+            return
+        self._fail(
+            "The firmware was installed, but HCD Pro did not confirm the Wi-Fi settings."
+        )
+
+    @staticmethod
+    def _find_esp32_port(infos: list[QSerialPortInfo]) -> str:
+        for info in infos:
+            identity = " ".join(
+                (info.portName(), info.description(), info.manufacturer())
+            ).casefold()
+            known_id = info.hasVendorIdentifier() and info.vendorIdentifier() == 0x303A
+            if known_id or any(
+                marker in identity
+                for marker in ("esp32", "espressif", "usb jtag", "usbmodem")
+            ):
+                return info.systemLocation() or info.portName()
+        return ""
+
+    def _finish_success(self) -> None:
+        self._busy = False
+        self.progress_changed.emit(100)
+        self.status_changed.emit("Firmware installed. Waiting for the Control Deck…")
+        self.finished.emit(
+            True,
+            f"{self._target.display_name} firmware "
+            f"{self._target.version} was installed successfully.",
+        )

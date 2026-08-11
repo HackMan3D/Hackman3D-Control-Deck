@@ -8,10 +8,11 @@ LEGACY_APP_NAME = "HackMan Control Deck"
 COMPATIBLE_PRODUCT_NAMES = (APP_NAME, LEGACY_APP_NAME)
 APP_SHORT_NAME = "HCD"
 ORGANIZATION_NAME = "HackMan3D"
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.4.8"
+RELEASES_URL = "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest"
 RELEASE_MANIFEST_URL = os.environ.get(
     "HCD_RELEASE_MANIFEST_URL",
-    "",
+    "https://gist.githubusercontent.com/HackMan3D/38cd647e9b0e02345827e8596fb7175d/raw/manifest.json",
 )
 RELEASE_CHECK_INTERVAL_SECONDS = 6 * 60 * 60
 
@@ -46,6 +47,8 @@ HEARTBEAT_INTERVAL_MS = 1_000
 CONNECTION_TIMEOUT_MS = 3_200
 PORT_SCAN_INTERVAL_MS = 500
 PORT_PROBE_TIMEOUT_MS = 600
+HCD_DISCOVERY_PORT = 42_100
+HCD_TCP_PORT = 42_101
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 ASSET_DIR = PACKAGE_DIR / "assets"

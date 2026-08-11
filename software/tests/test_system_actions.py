@@ -60,6 +60,41 @@ def test_macos_media_controls_still_use_system_events(monkeypatch) -> None:
     assert key_types == [16]
 
 
+def test_macos_power_commands_use_native_handler(monkeypatch) -> None:
+    commands: list[str] = []
+    runner = ActionRunner()
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "darwin")
+    monkeypatch.setattr(runner, "_macos_power", commands.append)
+
+    for command in ("lock", "sleep", "restart", "shutdown"):
+        runner._system(command)
+
+    assert commands == ["lock", "sleep", "restart", "shutdown"]
+
+
+def test_macos_lock_does_not_simulate_keyboard_input(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stderr = ""
+
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.subprocess.run",
+        lambda arguments, **kwargs: calls.append(arguments) or Result(),
+    )
+
+    ActionRunner._macos_power("lock")
+
+    assert calls == [["/usr/bin/pmset", "displaysleepnow"]]
+
+
+def test_system_presets_include_power_and_microphone_commands() -> None:
+    commands = {command for _, command in MainWindow._system_command_presets()}
+
+    assert {"microphone_mute", "lock", "sleep", "restart", "shutdown"} <= commands
+
+
 def test_unknown_system_command_is_rejected() -> None:
     runner = ActionRunner()
 

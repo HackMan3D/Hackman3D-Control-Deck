@@ -4,12 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hackman3d-control-deck"
-version = "1.1.0"
+version = "1.4.8"
 description = "HackMan3D Control Deck desktop configuration app"
 requires-python = ">=3.11"
 dependencies = [
     "PySide6>=6.7,<7",
     "pynput>=1.7.7,<2",
+    "pycaw>=20240210,<20270000; sys_platform == 'win32'",
+    "pyobjc-framework-CoreWLAN>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-CoreLocation>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-Network>=10,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-libdispatch>=10,<13; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +42,7 @@ hackman_control_deck = [
     "assets/*.ico",
     "assets/*.icns",
     "assets/firmware/*.hex",
+    "assets/firmware/*.bin",
     "assets/tools/macos/*",
     "assets/tools/windows/*",
 ]

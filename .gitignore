@@ -17,3 +17,4 @@ result.json
 .vscode/
 software/profiles/*.json
 !software/profiles/default.json
+release/roadmap.private.json

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "latest_version": "1.4.8",
+  "downloads": {
+    "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
+    "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
+    "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
+  },
+  "release_notes": "",
+  "roadmap": {
+    "progress": 2.0
+  }
+}

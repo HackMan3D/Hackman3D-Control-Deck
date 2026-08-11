@@ -3,15 +3,42 @@ from __future__ import annotations
 import os
 import sys
 import time
+import base64
 from pathlib import Path
 
-from PySide6.QtCore import QFileInfo, QSettings, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QGuiApplication, QIcon, QPixmap
+from PySide6.QtCore import (
+    QByteArray,
+    QBuffer,
+    QFileInfo,
+    QIODevice,
+    QObject,
+    QRunnable,
+    QSettings,
+    QSize,
+    Qt,
+    QThreadPool,
+    QTimer,
+    QUrl,
+    Signal,
+)
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QCloseEvent,
+    QDesktopServices,
+    QGuiApplication,
+    QIcon,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QApplication,
     QCheckBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFileIconProvider,
     QFrame,
@@ -45,6 +72,8 @@ from .constants import (
     CONTACT_URL,
     PAYPAL_URL,
     RELEASE_CHECK_INTERVAL_SECONDS,
+    RELEASE_MANIFEST_URL,
+    RELEASES_URL,
     SOCIAL_LINKS,
 )
 from .conflicts import find_action_conflicts
@@ -57,6 +86,7 @@ from .firmware_updater import (
     firmware_target,
     firmware_update_available,
 )
+from .favicon import download_favicon
 from .models import ACTION_TYPES, Action, Profile
 from .macos_integration import (
     MacMenuBarIcon,
@@ -82,6 +112,43 @@ ACTION_TRANSLATION_KEYS = {
     "launch": "launch_application",
 }
 
+SYSTEM_ICON_FILES = {
+    "volume_up": "system_volume_up.svg",
+    "volume_down": "system_volume_down.svg",
+    "volume_mute": "system_volume_mute.svg",
+    "microphone_mute": "system_microphone_mute.svg",
+    "media_play_pause": "system_play_pause.svg",
+    "media_next": "system_next.svg",
+    "media_previous": "system_previous.svg",
+    "brightness_up": "system_brightness_up.svg",
+    "brightness_down": "system_brightness_down.svg",
+    "shutdown": "system_shutdown.svg",
+    "restart": "system_restart.svg",
+    "lock": "system_lock.svg",
+    "sleep": "system_sleep.svg",
+}
+
+
+class _FaviconSignals(QObject):
+    finished = Signal(str, str, str, bytes)
+
+
+class _FaviconTask(QRunnable):
+    def __init__(self, profile: str, identifier: str, url: str) -> None:
+        super().__init__()
+        self.profile = profile
+        self.identifier = identifier
+        self.url = url
+        self.signals = _FaviconSignals()
+
+    def run(self) -> None:
+        self.signals.finished.emit(
+            self.profile,
+            self.identifier,
+            self.url,
+            download_favicon(self.url),
+        )
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
@@ -99,6 +166,7 @@ class MainWindow(QMainWindow):
         self._device = HcdDeviceManager(self)
         self._firmware_updater = FirmwareUpdater(self)
         self._firmware_dialog: FirmwareDialog | None = None
+        self._firmware_update_message: QMessageBox | None = None
         self._firmware_update_prompted_for: tuple[str, str] | None = None
         self._diagnostics_dialog: DiagnosticsDialog | None = None
         self._statistics_dialog: StatisticsDialog | None = None
@@ -112,11 +180,8 @@ class MainWindow(QMainWindow):
         self._release_prompted_for = self._settings.value(
             "updates/promptedVersion", "", type=str
         )
-        self._plus_progress_value = self._settings.value(
-            "roadmap/plusProgress", 0, type=int
-        )
-        self._pro_progress_value = self._settings.value(
-            "roadmap/proProgress", 0, type=int
+        self._roadmap_progress_value = self._settings.value(
+            "roadmap/progress", 0.0, type=float
         )
         self._language = self._settings.value("ui/language", "en", type=str)
         if self._language not in LANGUAGES:
@@ -127,6 +192,40 @@ class MainWindow(QMainWindow):
             0,
             min(2000, self._settings.value("device/feedbackHoldMs", 120, type=int)),
         )
+        self._pro_icon_size = max(
+            0, min(3, self._settings.value("pro/iconSize", 1, type=int))
+        )
+        self._pro_icon_shape = self._settings.value(
+            "pro/iconShape", "original", type=str
+        )
+        if self._pro_icon_shape not in {"original", "macos", "windows"}:
+            self._pro_icon_shape = "original"
+        # HCD Pro uses icons only. Text labels caused unnecessary full-screen
+        # redraws on the RGB panel and made the 7x4 layout less readable.
+        self._settings.remove("pro/showLabels")
+        self._pro_theme = max(0, min(2, self._settings.value("pro/theme", 1, type=int)))
+        self._pro_slider_mode = self._settings.value("pro/sliderMode", "volume", type=str)
+        if self._pro_slider_mode not in {"off", "volume", "brightness"}:
+            self._pro_slider_mode = "volume"
+        self._pro_second_fader = self._settings.value(
+            "pro/secondFader", False, type=bool
+        )
+        self._pending_slider_value = 50
+        self._pending_microphone_value = 50
+        self._slider_action_timer = QTimer(self)
+        self._slider_action_timer.setSingleShot(True)
+        self._slider_action_timer.setInterval(80)
+        self._slider_action_timer.timeout.connect(self._apply_pro_slider_value)
+        self._last_slider_input_at = 0.0
+        self._last_microphone_input_at = 0.0
+        self._microphone_action_timer = QTimer(self)
+        self._microphone_action_timer.setSingleShot(True)
+        self._microphone_action_timer.setInterval(80)
+        self._microphone_action_timer.timeout.connect(self._apply_pro_microphone_value)
+        self._system_level_timer = QTimer(self)
+        self._system_level_timer.setInterval(1_000)
+        self._system_level_timer.timeout.connect(self._sync_pro_slider_from_system)
+        self._system_level_timer.start()
         self._connected = False
         self._heartbeat_active = False
         self._connected_port = ""
@@ -137,9 +236,19 @@ class MainWindow(QMainWindow):
         self._key_pressed_at: dict[str, float] = {}
         self._has_activity = False
         self._loading_action = False
+        self._custom_icon_data = ""
+        self._icon_source = ""
+        self._favicon_pool = QThreadPool(self)
+        self._favicon_pool.setMaxThreadCount(3)
+        self._favicon_pending: set[tuple[str, str, str]] = set()
+        self._favicon_refresh_timer = QTimer(self)
+        self._favicon_refresh_timer.setInterval(6 * 60 * 60 * 1000)
+        self._favicon_refresh_timer.timeout.connect(self._refresh_website_icons)
+        self._favicon_refresh_timer.start()
         self._application_choices: list[tuple[str, str]] | None = None
 
         self._build_ui()
+        self._device_preview.set_pro_second_fader(self._pro_second_fader)
         self._resize_for_screen()
         self._build_tray()
         self._connect_signals()
@@ -163,14 +272,14 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         root = QWidget()
         root_layout = QVBoxLayout(root)
-        root_layout.setContentsMargins(18, 18, 18, 12)
-        root_layout.setSpacing(14)
+        root_layout.setContentsMargins(12, 12, 12, 10)
+        root_layout.setSpacing(10)
         root_layout.addWidget(self._build_top_bar())
         root_layout.addWidget(self._build_support_banner())
         root_layout.addWidget(self._build_roadmap())
 
         body = QHBoxLayout()
-        body.setSpacing(14)
+        body.setSpacing(10)
         body.addWidget(self._build_sidebar(), 0)
         body.addWidget(self._build_device_panel(), 1)
         body.addWidget(self._build_editor(), 0)
@@ -189,8 +298,8 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(18, 12, 18, 12)
         logo = QLabel()
         logo_pixmap = QPixmap(str(ASSET_DIR / "hcd_logo.png"))
-        logo.setPixmap(logo_pixmap.scaled(330, 156, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        logo.setFixedSize(330, 156)
+        logo.setPixmap(logo_pixmap.scaled(250, 118, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo.setFixedSize(250, 118)
         logo.setAlignment(Qt.AlignCenter)
         layout.addWidget(logo)
         layout.addWidget(self._build_social_links())
@@ -225,8 +334,8 @@ class MainWindow(QMainWindow):
         for key, tooltip, url in SOCIAL_LINKS:
             button = QToolButton(objectName="socialButton")
             button.setIcon(QIcon(str(ASSET_DIR / f"social_{key}.svg")))
-            button.setIconSize(QSize(22, 22))
-            button.setFixedSize(36, 36)
+            button.setIconSize(QSize(20, 20))
+            button.setFixedSize(32, 32)
             button.setToolTip(tooltip)
             button.setToolTipDuration(5000)
             button.setCursor(Qt.PointingHandCursor)
@@ -272,24 +381,23 @@ class MainWindow(QMainWindow):
         labels.addWidget(self._roadmap_message)
         layout.addLayout(labels, 1)
 
-        self._plus_progress_label = QLabel()
-        layout.addWidget(self._plus_progress_label)
-        self._plus_progress = QProgressBar()
-        self._plus_progress.setRange(0, 100)
-        self._plus_progress.setValue(max(0, min(100, self._plus_progress_value)))
-        self._plus_progress.setFormat("%p%")
-        self._plus_progress.setFixedWidth(180)
-        layout.addWidget(self._plus_progress)
-
-        self._pro_progress_label = QLabel()
-        layout.addWidget(self._pro_progress_label)
-        self._pro_progress = QProgressBar()
-        self._pro_progress.setRange(0, 100)
-        self._pro_progress.setValue(max(0, min(100, self._pro_progress_value)))
-        self._pro_progress.setFormat("%p%")
-        self._pro_progress.setFixedWidth(180)
-        layout.addWidget(self._pro_progress)
+        progress_layout = QVBoxLayout()
+        self._roadmap_progress = QProgressBar()
+        self._roadmap_progress.setRange(0, 1000)
+        self._set_roadmap_progress(self._roadmap_progress_value)
+        self._roadmap_progress.setFixedWidth(320)
+        progress_layout.addWidget(self._roadmap_progress)
+        self._roadmap_milestones = QLabel(objectName="subtitle")
+        self._roadmap_milestones.setAlignment(Qt.AlignCenter)
+        progress_layout.addWidget(self._roadmap_milestones)
+        layout.addLayout(progress_layout)
         return frame
+
+    def _set_roadmap_progress(self, progress: float) -> None:
+        value = max(0.0, min(100.0, float(progress)))
+        self._roadmap_progress.setValue(round(value * 10))
+        label = f"{value:.1f}".rstrip("0").rstrip(".")
+        self._roadmap_progress.setFormat(f"{label}%")
 
     def _build_tray(self) -> None:
         if sys.platform == "darwin":
@@ -332,8 +440,16 @@ class MainWindow(QMainWindow):
 
     def _build_sidebar(self) -> QWidget:
         frame = QFrame(objectName="sidebar")
-        frame.setFixedWidth(250)
-        layout = QVBoxLayout(frame)
+        frame.setMinimumWidth(225)
+        frame.setMaximumWidth(250)
+        outer_layout = QVBoxLayout(frame)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_scroll = QScrollArea()
+        sidebar_scroll.setWidgetResizable(True)
+        sidebar_scroll.setFrameShape(QFrame.NoFrame)
+        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(14, 16, 14, 14)
         self._profiles_title = QLabel("Profiles", objectName="sectionTitle")
         layout.addWidget(self._profiles_title)
@@ -366,6 +482,9 @@ class MainWindow(QMainWindow):
         self._restore_profiles_action.triggered.connect(self._restore_profiles)
         self._profile_tools_button.setMenu(profile_menu)
         layout.addWidget(self._profile_tools_button)
+        self._deck_settings_button = QPushButton("Deck settings…")
+        self._deck_settings_button.clicked.connect(self._open_deck_settings)
+        layout.addWidget(self._deck_settings_button)
         self._language_label = QLabel("Language")
         layout.addWidget(self._language_label)
         self._language_combo = QComboBox()
@@ -397,15 +516,6 @@ class MainWindow(QMainWindow):
             self._permissions_button = QPushButton("macOS permissions…")
             self._permissions_button.clicked.connect(self._open_permissions_assistant)
             layout.addWidget(self._permissions_button)
-        self._feedback_hold_label = QLabel("Minimum LED duration")
-        layout.addWidget(self._feedback_hold_label)
-        self._feedback_hold_spin = QSpinBox()
-        self._feedback_hold_spin.setRange(0, 2000)
-        self._feedback_hold_spin.setSingleStep(20)
-        self._feedback_hold_spin.setSuffix(" ms")
-        self._feedback_hold_spin.setValue(self._feedback_hold_ms)
-        self._feedback_hold_spin.valueChanged.connect(self._set_feedback_hold_ms)
-        layout.addWidget(self._feedback_hold_spin)
         self._statistics_checkbox = QCheckBox("Enable local statistics")
         self._statistics_checkbox.setChecked(self._statistics_enabled)
         self._statistics_checkbox.toggled.connect(self._set_statistics_enabled)
@@ -415,12 +525,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._statistics_button)
         self._version_label = QLabel(f"Desktop app {APP_VERSION}", objectName="subtitle")
         layout.addWidget(self._version_label)
+        layout.addStretch()
+        sidebar_scroll.setWidget(content)
+        outer_layout.addWidget(sidebar_scroll)
         return frame
 
     def _build_device_panel(self) -> QWidget:
         frame = QFrame(objectName="devicePanel")
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(28, 22, 28, 24)
+        layout.setContentsMargins(12, 16, 12, 16)
         title_row = QHBoxLayout()
         self._device_title = QLabel("Control Deck", objectName="title")
         title_row.addWidget(self._device_title)
@@ -435,6 +548,7 @@ class MainWindow(QMainWindow):
         layout.addSpacing(14)
 
         self._device_preview = DevicePreview(ASSET_DIR / "hcd_device_render_off.png")
+        self._device_preview.setMaximumSize(1100, 660)
         self._device_preview.control_selected.connect(self._select)
         self._device_preview.application_dropped.connect(self._application_dropped)
         self._control_buttons = self._device_preview.buttons
@@ -458,15 +572,17 @@ class MainWindow(QMainWindow):
 
     def _build_editor(self) -> QWidget:
         frame = QFrame(objectName="editor")
-        frame.setFixedWidth(300)
+        frame.setMinimumWidth(325)
+        frame.setMaximumWidth(350)
         outer_layout = QVBoxLayout(frame)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setContentsMargins(14, 16, 14, 16)
         self._action_title = QLabel("Action", objectName="sectionTitle")
         layout.addWidget(self._action_title)
         self._selection_label = QLabel("Select a key", objectName="subtitle")
@@ -503,6 +619,12 @@ class MainWindow(QMainWindow):
         self._browse_button.setVisible(False)
         self._browse_button.clicked.connect(self._browse_application)
         short_layout.addWidget(self._browse_button)
+        self._choose_icon_button = QPushButton("Choose icon…")
+        self._choose_icon_button.clicked.connect(self._choose_custom_icon)
+        short_layout.addWidget(self._choose_icon_button)
+        self._clear_icon_button = QPushButton("Remove icon")
+        self._clear_icon_button.clicked.connect(self._clear_custom_icon)
+        short_layout.addWidget(self._clear_icon_button)
         self._test_action_button = QPushButton("Test action")
         self._test_action_button.clicked.connect(self._test_action)
         short_layout.addWidget(self._test_action_button)
@@ -581,6 +703,10 @@ class MainWindow(QMainWindow):
         self._firmware_updater.progress_changed.connect(self._firmware_progress_changed)
         self._firmware_updater.log_changed.connect(self._firmware_log_changed)
         self._firmware_updater.finished.connect(self._firmware_finished)
+        self._firmware_updater.esp32_bootloader_required.connect(
+            self._show_esp32_bootloader_assistant
+        )
+        self._firmware_updater.ota_arm_requested.connect(self._device.arm_pro_ota)
         self._release_feed.loaded.connect(self._release_feed_loaded)
         self._release_feed.failed.connect(self._release_feed_failed)
 
@@ -624,6 +750,8 @@ class MainWindow(QMainWindow):
         self._long_display_name_label.setText(self._text("display_name"))
         self._long_action_type_label.setText(self._text("action_type"))
         self._browse_button.setText(self._text("browse"))
+        self._choose_icon_button.setText(self._text("choose_custom_icon"))
+        self._clear_icon_button.setText(self._text("remove_custom_icon"))
         self._long_browse_button.setText(self._text("browse"))
         self._save_action_button.setText(self._text("save_action"))
         self._test_action_button.setText(self._text("test_action"))
@@ -637,7 +765,7 @@ class MainWindow(QMainWindow):
         self._reset_keys_button.setText(
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )
-        self._feedback_hold_label.setText(self._text("minimum_led_duration"))
+        self._deck_settings_button.setText(self._text("deck_settings"))
         self._statistics_checkbox.setText(self._text("enable_statistics"))
         self._statistics_button.setText(self._text("view_statistics"))
         self._shortcut_hint.setText(self._text("shortcut_hint"))
@@ -645,12 +773,10 @@ class MainWindow(QMainWindow):
         self._credit_label.setText(self._text("credits"))
         self._roadmap_title.setText(self._text("community_roadmap"))
         self._roadmap_message.setText(self._text("roadmap_message"))
-        self._plus_progress_label.setText(self._text("hcd_plus"))
-        self._pro_progress_label.setText(self._text("hcd_pro"))
-        self._plus_progress_label.setToolTip(self._text("hcd_plus_details"))
-        self._plus_progress.setToolTip(self._text("hcd_plus_details"))
-        self._pro_progress_label.setToolTip(self._text("hcd_pro_details"))
-        self._pro_progress.setToolTip(self._text("hcd_pro_details"))
+        self._roadmap_milestones.setText(self._text("roadmap_milestones"))
+        self._roadmap_progress.setToolTip(
+            self._text("hcd_plus_details") + "\n\n" + self._text("hcd_pro_details")
+        )
 
         if sys.platform == "darwin":
             self._start_at_login_checkbox.setText(self._text("start_with_mac"))
@@ -683,19 +809,26 @@ class MainWindow(QMainWindow):
         self._refresh_conflicts()
 
     def _check_release_feed_if_due(self) -> None:
+        if not RELEASE_MANIFEST_URL:
+            return
         last_check = self._settings.value("updates/lastCheck", 0, type=int)
         if int(time.time()) - last_check >= RELEASE_CHECK_INTERVAL_SECONDS:
             self._start_release_check(manual=False)
 
     def _check_release_feed_manually(self) -> None:
+        if not RELEASE_MANIFEST_URL:
+            self._open_external_link(RELEASES_URL)
+            self.statusBar().showMessage(self._text("opening_downloads"), 5_000)
+            return
         self._start_release_check(manual=True)
 
     def _start_release_check(self, *, manual: bool) -> None:
-        if self._release_feed.is_busy:
+        if self._release_feed.is_busy or not RELEASE_MANIFEST_URL:
             return
         self._manual_release_check = manual
         self._updates_button.setEnabled(False)
-        self.statusBar().showMessage(self._text("checking_updates"))
+        if manual:
+            self.statusBar().showMessage(self._text("checking_updates"))
         self._release_feed.check()
 
     def _release_feed_loaded(self, data: ReleaseFeedData) -> None:
@@ -704,10 +837,8 @@ class MainWindow(QMainWindow):
         self._updates_button.setEnabled(True)
         self._settings.setValue("updates/lastCheck", int(time.time()))
 
-        self._plus_progress.setValue(data.plus_progress)
-        self._pro_progress.setValue(data.pro_progress)
-        self._settings.setValue("roadmap/plusProgress", data.plus_progress)
-        self._settings.setValue("roadmap/proProgress", data.pro_progress)
+        self._set_roadmap_progress(data.roadmap_progress)
+        self._settings.setValue("roadmap/progress", data.roadmap_progress)
 
         if not data.update_available:
             self.statusBar().showMessage(self._text("app_up_to_date"), 5_000)
@@ -758,9 +889,9 @@ class MainWindow(QMainWindow):
         manual = self._manual_release_check
         self._manual_release_check = False
         self._updates_button.setEnabled(True)
-        self.statusBar().showMessage(self._text("update_check_failed"), 5_000)
         if not manual:
             return
+        self.statusBar().showMessage(self._text("update_check_failed"), 5_000)
         message = QMessageBox(self)
         message.setWindowTitle(self._text("app_updates"))
         message.setIcon(QMessageBox.Warning)
@@ -807,6 +938,7 @@ class MainWindow(QMainWindow):
         self._refresh_control_labels()
         if self._selection:
             self._show_action(self._selection)
+        self._refresh_website_icons()
 
     def _new_profile(self) -> None:
         dialog = QInputDialog(self)
@@ -988,6 +1120,8 @@ class MainWindow(QMainWindow):
             )
             self._long_value_edit.setText(action.long_value)
             self._long_press_delay.setValue(action.long_press_ms)
+            self._custom_icon_data = action.icon_data
+            self._icon_source = action.icon_source
             self._update_value_hint()
             self._update_long_value_hint()
         finally:
@@ -998,6 +1132,8 @@ class MainWindow(QMainWindow):
         if not self._loading_action:
             self._label_edit.clear()
             self._value_edit.clear()
+            self._custom_icon_data = ""
+            self._icon_source = ""
         self._update_value_hint()
 
     def _long_action_type_changed(self, index: int = -1) -> None:
@@ -1044,14 +1180,23 @@ class MainWindow(QMainWindow):
         if not self._selection:
             return
         long_primary = self._long_editor_action()
+        action_type = str(self._action_type.currentData())
+        action_value = self._value_edit.text().strip()
+        icon_data = self._custom_icon_data
+        icon_source = self._icon_source
+        if action_type == "open_url" and icon_source != "custom":
+            icon_data = self._favicon_data(action_value)
+            icon_source = "auto" if icon_data else ""
         action = Action(
-            type=str(self._action_type.currentData()),
-            value=self._value_edit.text().strip(),
+            type=action_type,
+            value=action_value,
             label=self._label_edit.text().strip() or "Unassigned",
             long_type=long_primary.type,
             long_value=long_primary.value,
             long_label=long_primary.label,
             long_press_ms=self._long_press_delay.value(),
+            icon_data=icon_data,
+            icon_source=icon_source,
         )
         self._profile.keys[self._selection] = action
         self._store.save(self._profile)
@@ -1066,6 +1211,8 @@ class MainWindow(QMainWindow):
             value=self._value_edit.text().strip(),
             label=self._label_edit.text().strip() or "Unassigned",
             long_press_ms=self._long_press_delay.value(),
+            icon_data=self._custom_icon_data,
+            icon_source=self._icon_source,
         )
 
     def _long_editor_action(self) -> Action:
@@ -1092,13 +1239,66 @@ class MainWindow(QMainWindow):
             action = self._action_for(identifier)
             full_label = action.label or f"Key {identifier}"
             button.setText(self._preview_label(full_label))
-            button.setIcon(
-                self._application_icon(action.value) if action.type == "launch" else QIcon()
-            )
+            button.setIcon(self._action_icon(action))
             button.setToolTip(
                 f"{full_label}\n{action.value}" if action.type == "launch" else full_label
             )
         self._refresh_conflicts()
+        self._sync_pro_labels()
+
+    def _sync_pro_labels(self) -> None:
+        info = self._device_info_data
+        if info is None or info.model_identifier != "HCD-PRO":
+            return
+        labels = {
+            str(index): self._action_for(str(index)).label or f"Key {index}"
+            for index in range(1, info.key_count + 1)
+        }
+        icons: dict[str, bytes] = {}
+        for index in range(1, info.key_count + 1):
+            identifier = str(index)
+            action = self._action_for(identifier)
+            icon = self._action_icon(action)
+            if not icon.isNull():
+                icons[identifier] = self._pro_icon_data(icon)
+        self._device.set_pro_layout(
+            labels,
+            icons,
+            self._pro_icon_size,
+            False,
+            self._pro_theme,
+            self._pro_second_fader,
+            self._pro_slider_mode,
+        )
+
+    def _pro_icon_data(self, icon: QIcon) -> bytes:
+        image = QImage(64, 64, QImage.Format.Format_RGB32)
+        key_backgrounds = ("#171717", "#202020", "#050505")
+        image.fill(QColor(key_backgrounds[self._pro_theme]))
+        source = icon.pixmap(QSize(128, 128)).toImage()
+        source.setDevicePixelRatio(1.0)
+        source = source.scaled(
+            QSize(58, 58),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        painter = QPainter(image)
+        painter.drawImage((64 - source.width()) // 2, (64 - source.height()) // 2, source)
+        painter.end()
+
+        data = bytearray(64 * 64 * 2)
+        position = 0
+        for y in range(64):
+            for x in range(64):
+                pixel = image.pixel(x, y)
+                red = (pixel >> 16) & 0xFF
+                green = (pixel >> 8) & 0xFF
+                blue = pixel & 0xFF
+                rgb565 = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3)
+                data[position] = rgb565 & 0xFF
+                data[position + 1] = rgb565 >> 8
+                position += 2
+        return bytes(data)
 
     def _refresh_conflicts(self) -> None:
         conflicts = find_action_conflicts(self._profile)
@@ -1202,7 +1402,9 @@ class MainWindow(QMainWindow):
         elif action_type == "system":
             self._preset_combo.addItem(self._text("choose_system_command"), "")
             for label_key, command in self._system_command_presets():
-                self._preset_combo.addItem(self._text(label_key), command)
+                self._preset_combo.addItem(
+                    self._system_icon(command), self._text(label_key), command
+                )
         elif action_type == "launch":
             self._preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
@@ -1224,7 +1426,9 @@ class MainWindow(QMainWindow):
         elif action_type == "system":
             self._long_preset_combo.addItem(self._text("choose_system_command"), "")
             for label_key, command in self._system_command_presets():
-                self._long_preset_combo.addItem(self._text(label_key), command)
+                self._long_preset_combo.addItem(
+                    self._system_icon(command), self._text(label_key), command
+                )
         elif action_type == "launch":
             self._long_preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
@@ -1267,11 +1471,16 @@ class MainWindow(QMainWindow):
             ("command_volume_up", "volume_up"),
             ("command_volume_down", "volume_down"),
             ("command_volume_mute", "volume_mute"),
+            ("command_microphone_mute", "microphone_mute"),
             ("command_play_pause", "media_play_pause"),
             ("command_next_track", "media_next"),
             ("command_previous_track", "media_previous"),
             ("command_brightness_up", "brightness_up"),
             ("command_brightness_down", "brightness_down"),
+            ("command_lock", "lock"),
+            ("command_sleep", "sleep"),
+            ("command_restart", "restart"),
+            ("command_shutdown", "shutdown"),
         )
 
     def _apply_preset(self, index: int) -> None:
@@ -1342,6 +1551,192 @@ class MainWindow(QMainWindow):
             return QIcon()
         return self._file_icon_provider.icon(QFileInfo(str(path)))
 
+    @staticmethod
+    def _system_icon(value: str) -> QIcon:
+        filename = SYSTEM_ICON_FILES.get(value)
+        return QIcon(str(ASSET_DIR / filename)) if filename else QIcon()
+
+    @staticmethod
+    def _padded_icon(icon: QIcon, scale: float = 0.78) -> QIcon:
+        if icon.isNull():
+            return icon
+        canvas_size = 256
+        content_size = max(1, round(canvas_size * scale))
+        source = icon.pixmap(QSize(canvas_size, canvas_size))
+        source.setDevicePixelRatio(1.0)
+        source = source.scaled(
+            QSize(content_size, content_size),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        canvas = QPixmap(canvas_size, canvas_size)
+        canvas.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(canvas)
+        painter.drawPixmap(
+            (canvas_size - source.width()) // 2,
+            (canvas_size - source.height()) // 2,
+            source,
+        )
+        painter.end()
+        return QIcon(canvas)
+
+    def _masked_icon(self, icon: QIcon) -> QIcon:
+        if icon.isNull() or self._pro_icon_shape == "original":
+            return icon
+        canvas_size = 256
+        canvas = QPixmap(canvas_size, canvas_size)
+        canvas.fill(Qt.GlobalColor.transparent)
+        # A Retina pixmap can contain 512 physical pixels for a requested
+        # logical size of 256. Normalize it before measuring or clipping;
+        # otherwise the 256 px scan only sees the upper-left quarter.
+        source_image = icon.pixmap(QSize(canvas_size, canvas_size)).toImage()
+        source_image.setDevicePixelRatio(1.0)
+        source_image = source_image.scaled(
+            QSize(canvas_size, canvas_size),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        normalized = QPixmap(canvas_size, canvas_size)
+        normalized.fill(Qt.GlobalColor.transparent)
+        normalizer = QPainter(normalized)
+        normalizer.drawImage(
+            (canvas_size - source_image.width()) // 2,
+            (canvas_size - source_image.height()) // 2,
+            source_image,
+        )
+        normalizer.end()
+        image = normalized.toImage()
+        left = canvas_size
+        top = canvas_size
+        right = -1
+        bottom = -1
+        for y in range(canvas_size):
+            for x in range(canvas_size):
+                if image.pixelColor(x, y).alpha() > 8:
+                    left = min(left, x)
+                    top = min(top, y)
+                    right = max(right, x)
+                    bottom = max(bottom, y)
+        if right < left or bottom < top:
+            return icon
+        visible_width = right - left + 1
+        visible_height = bottom - top + 1
+        path = QPainterPath()
+        radius_ratio = 0.22 if self._pro_icon_shape == "macos" else 0.06
+        radius = min(visible_width, visible_height) * radius_ratio
+        path.addRoundedRect(
+            float(left),
+            float(top),
+            float(visible_width),
+            float(visible_height),
+            radius,
+            radius,
+        )
+        painter = QPainter(canvas)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, normalized)
+        painter.end()
+        return QIcon(canvas)
+
+    def _action_icon(self, action: Action) -> QIcon:
+        icon = QIcon()
+        if action.icon_data:
+            try:
+                pixmap = QPixmap()
+                if pixmap.loadFromData(base64.b64decode(action.icon_data)):
+                    icon = QIcon(pixmap)
+                    if action.type == "open_url" and action.icon_source == "auto":
+                        icon = self._padded_icon(icon)
+            except (ValueError, TypeError):
+                pass
+        if icon.isNull() and action.type == "launch":
+            icon = self._application_icon(action.value)
+        if icon.isNull() and action.type == "system":
+            icon = self._padded_icon(self._system_icon(action.value))
+        return self._masked_icon(icon)
+
+    def _choose_custom_icon(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._text("choose_custom_icon"),
+            str(Path.home()),
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.ico *.svg)",
+        )
+        if not path:
+            return
+        icon = QIcon(path)
+        if icon.isNull():
+            return
+        self._custom_icon_data = self._encode_icon(icon)
+        self._icon_source = "custom"
+
+    def _clear_custom_icon(self) -> None:
+        self._custom_icon_data = ""
+        self._icon_source = ""
+
+    @staticmethod
+    def _encode_icon(icon: QIcon) -> str:
+        pixmap = icon.pixmap(QSize(256, 256))
+        data = QByteArray()
+        buffer = QBuffer(data)
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        pixmap.save(buffer, "PNG")
+        buffer.close()
+        return base64.b64encode(bytes(data)).decode("ascii")
+
+    def _favicon_data(self, value: str) -> str:
+        payload = download_favicon(value)
+        pixmap = QPixmap()
+        if payload and pixmap.loadFromData(payload):
+            return self._encode_icon(QIcon(pixmap))
+        return ""
+
+    def _refresh_website_icons(self) -> None:
+        profile_name = self._profile.name
+        for identifier, action in self._profile.keys.items():
+            if action.type != "open_url" or not action.value or action.icon_source == "custom":
+                continue
+            pending_key = (profile_name, identifier, action.value)
+            if pending_key in self._favicon_pending:
+                continue
+            self._favicon_pending.add(pending_key)
+            task = _FaviconTask(profile_name, identifier, action.value)
+            task.signals.finished.connect(self._website_icon_refreshed)
+            self._favicon_pool.start(task)
+
+    def _website_icon_refreshed(
+        self,
+        profile_name: str,
+        identifier: str,
+        url: str,
+        payload: bytes,
+    ) -> None:
+        self._favicon_pending.discard((profile_name, identifier, url))
+        if profile_name != self._profile.name or not payload:
+            return
+        action = self._profile.keys.get(identifier)
+        if (
+            action is None
+            or action.type != "open_url"
+            or action.value != url
+            or action.icon_source == "custom"
+        ):
+            return
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(payload):
+            return
+        refreshed = self._encode_icon(QIcon(pixmap))
+        if refreshed == action.icon_data:
+            return
+        action.icon_data = refreshed
+        action.icon_source = "auto"
+        self._store.save(self._profile)
+        self._refresh_control_labels()
+        if self._selection == identifier:
+            self._custom_icon_data = refreshed
+            self._icon_source = "auto"
+
     def _installed_applications(self) -> list[tuple[str, str]]:
         if self._application_choices is not None:
             return self._application_choices
@@ -1403,7 +1798,6 @@ class MainWindow(QMainWindow):
         if connected:
             self._device.set_feedback_hold_ms(self._feedback_hold_ms)
         if not connected:
-            self._firmware_update_prompted_for = None
             self._device_product = ""
             self._device_model_identifier = ""
             self._device_info_data = None
@@ -1486,6 +1880,144 @@ class MainWindow(QMainWindow):
         self._settings.setValue("device/feedbackHoldMs", self._feedback_hold_ms)
         if self._connected:
             self._device.set_feedback_hold_ms(self._feedback_hold_ms)
+
+    def _open_deck_settings(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._text("deck_settings_title"))
+        dialog.setMinimumWidth(430)
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(22, 22, 22, 22)
+        layout.setSpacing(12)
+
+        title = QLabel(self._text("deck_settings_title"), objectName="title")
+        layout.addWidget(title)
+        help_label = QLabel(self._text("deck_settings_help"), objectName="subtitle")
+        help_label.setWordWrap(True)
+        layout.addWidget(help_label)
+
+        form = QFrame(objectName="firmwareCard")
+        form_layout = QVBoxLayout(form)
+        form_layout.setContentsMargins(16, 16, 16, 16)
+        form_layout.setSpacing(8)
+
+        form_layout.addWidget(QLabel(self._text("icon_size")))
+        icon_size = QComboBox()
+        for key in ("small", "normal", "large", "extra_large"):
+            icon_size.addItem(self._text(key))
+        icon_size.setCurrentIndex(self._pro_icon_size)
+        form_layout.addWidget(icon_size)
+
+        form_layout.addWidget(QLabel(self._text("icon_shape")))
+        icon_shape = QComboBox()
+        icon_shape.addItem(self._text("icon_shape_original"), "original")
+        icon_shape.addItem(self._text("icon_shape_macos"), "macos")
+        icon_shape.addItem(self._text("icon_shape_windows"), "windows")
+        icon_shape.setCurrentIndex(max(0, icon_shape.findData(self._pro_icon_shape)))
+        form_layout.addWidget(icon_shape)
+
+        form_layout.addWidget(QLabel(self._text("key_style")))
+        theme = QComboBox()
+        for key in ("minimal", "mechanical_keyboard", "high_contrast"):
+            theme.addItem(self._text(key))
+        theme.setCurrentIndex(self._pro_theme)
+        form_layout.addWidget(theme)
+
+        form_layout.addWidget(QLabel(self._text("vertical_fader")))
+        slider_mode = QComboBox()
+        slider_mode.addItem(self._text("master_volume"), "volume")
+        slider_mode.addItem(self._text("screen_brightness"), "brightness")
+        slider_mode.addItem(self._text("disabled"), "off")
+        slider_mode.setCurrentIndex(max(0, slider_mode.findData(self._pro_slider_mode)))
+        form_layout.addWidget(slider_mode)
+
+        second_fader = QCheckBox(self._text("second_microphone_fader"))
+        second_fader.setChecked(self._pro_second_fader)
+        second_fader.setToolTip(self._text("second_microphone_fader_help"))
+        form_layout.addWidget(second_fader)
+
+        form_layout.addWidget(QLabel(self._text("minimum_led_duration")))
+        feedback_hold = QSpinBox()
+        feedback_hold.setRange(0, 2000)
+        feedback_hold.setSingleStep(20)
+        feedback_hold.setSuffix(" ms")
+        feedback_hold.setValue(self._feedback_hold_ms)
+        form_layout.addWidget(feedback_hold)
+        layout.addWidget(form)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText(self._text("ok"))
+        buttons.button(QDialogButtonBox.Cancel).setText(self._text("cancel"))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() != QDialog.Accepted:
+            return
+        self._set_pro_icon_size(icon_size.currentIndex())
+        self._set_pro_icon_shape(str(icon_shape.currentData() or "original"))
+        self._set_pro_theme(theme.currentIndex())
+        self._set_pro_slider_mode_value(str(slider_mode.currentData() or "off"))
+        self._set_pro_second_fader(second_fader.isChecked())
+        self._set_feedback_hold_ms(feedback_hold.value())
+
+    def _set_pro_icon_size(self, index: int) -> None:
+        self._pro_icon_size = max(0, min(3, index))
+        self._settings.setValue("pro/iconSize", self._pro_icon_size)
+        self._sync_pro_labels()
+
+    def _set_pro_icon_shape(self, shape: str) -> None:
+        self._pro_icon_shape = (
+            shape if shape in {"original", "macos", "windows"} else "original"
+        )
+        self._settings.setValue("pro/iconShape", self._pro_icon_shape)
+        self._refresh_control_labels()
+
+    def _set_pro_theme(self, index: int) -> None:
+        self._pro_theme = max(0, min(2, index))
+        self._settings.setValue("pro/theme", self._pro_theme)
+        self._sync_pro_labels()
+
+    def _set_pro_slider_mode_value(self, mode: str) -> None:
+        self._pro_slider_mode = mode if mode in {"off", "volume", "brightness"} else "off"
+        self._settings.setValue("pro/sliderMode", self._pro_slider_mode)
+        self._sync_pro_labels()
+        QTimer.singleShot(0, self._sync_pro_slider_from_system)
+
+    def _set_pro_second_fader(self, enabled: bool) -> None:
+        self._pro_second_fader = bool(enabled)
+        self._settings.setValue("pro/secondFader", self._pro_second_fader)
+        self._device_preview.set_pro_second_fader(self._pro_second_fader)
+        self._sync_pro_labels()
+        QTimer.singleShot(0, self._sync_pro_slider_from_system)
+
+    def _apply_pro_slider_value(self) -> None:
+        if self._pro_slider_mode != "off":
+            self._runner.set_continuous_value(
+                self._pro_slider_mode,
+                self._pending_slider_value,
+            )
+
+    def _apply_pro_microphone_value(self) -> None:
+        if self._pro_second_fader:
+            self._runner.set_continuous_value("microphone", self._pending_microphone_value)
+
+    def _sync_pro_slider_from_system(self) -> None:
+        info = self._device_info_data
+        if info is None or info.model_identifier != "HCD-PRO":
+            return
+        now = time.monotonic()
+        if self._pro_slider_mode != "off" and now - self._last_slider_input_at >= 0.7:
+            value = self._runner.continuous_value(self._pro_slider_mode)
+            if value is not None:
+                self._pending_slider_value = value
+                self._device_preview.set_pro_slider_value(value)
+                self._device.set_pro_slider_value(value, 1)
+        if self._pro_second_fader and now - self._last_microphone_input_at >= 0.7:
+            microphone_value = self._runner.continuous_value("microphone")
+            if microphone_value is not None:
+                self._pending_microphone_value = microphone_value
+                self._device_preview.set_pro_microphone_value(microphone_value)
+                self._device.set_pro_slider_value(microphone_value, 2)
 
     def _set_statistics_enabled(self, enabled: bool) -> None:
         self._statistics_enabled = enabled
@@ -1572,10 +2104,17 @@ class MainWindow(QMainWindow):
                 info.potentiometer_count,
             )
         QTimer.singleShot(250, self._offer_firmware_update)
+        QTimer.singleShot(350, self._sync_pro_slider_from_system)
 
     def _offer_firmware_update(self) -> None:
         info = self._device_info_data
-        if info is None or not self._connected_port or self._firmware_updater.is_busy:
+        if (
+            info is None
+            or not self._connected_port
+            or self._firmware_updater.is_busy
+            or self._firmware_dialog is not None
+            or self._firmware_update_message is not None
+        ):
             return
         target = firmware_target(info.model_identifier)
         if target is None or not info.product.startswith(COMPATIBLE_PRODUCT_NAMES):
@@ -1588,6 +2127,7 @@ class MainWindow(QMainWindow):
         self._firmware_update_prompted_for = prompt_key
 
         message = QMessageBox(self)
+        self._firmware_update_message = message
         message.setWindowTitle(self._text("firmware_update_available_title"))
         message.setIcon(QMessageBox.Information)
         message.setText(
@@ -1599,9 +2139,12 @@ class MainWindow(QMainWindow):
         )
         update_button = message.addButton(self._text("update_now"), QMessageBox.AcceptRole)
         message.addButton(self._text("later"), QMessageBox.RejectRole)
-        message.exec()
-        if message.clickedButton() is update_button:
-            self._open_firmware_manager()
+        try:
+            message.exec()
+            if message.clickedButton() is update_button:
+                self._open_firmware_manager()
+        finally:
+            self._firmware_update_message = None
 
     def _open_diagnostics(self) -> None:
         if self._diagnostics_dialog is not None:
@@ -1639,6 +2182,11 @@ class MainWindow(QMainWindow):
     def _open_firmware_manager(self) -> None:
         if self._firmware_updater.is_busy:
             return
+        if self._firmware_dialog is not None:
+            self._firmware_dialog.show()
+            self._firmware_dialog.raise_()
+            self._firmware_dialog.activateWindow()
+            return
         dialog = FirmwareDialog(
             self._device_info_data,
             self._connected_port,
@@ -1646,13 +2194,21 @@ class MainWindow(QMainWindow):
             self,
         )
         dialog.update_requested.connect(
-            lambda port, model: self._confirm_firmware_install(
-                port, model, new_device=False
+            lambda port, model, ssid, password: self._confirm_firmware_install(
+                port,
+                model,
+                new_device=False,
+                wifi_ssid=ssid,
+                wifi_password=password,
             )
         )
         dialog.install_requested.connect(
-            lambda port, model: self._confirm_firmware_install(
-                port, model, new_device=True
+            lambda port, model, ssid, password: self._confirm_firmware_install(
+                port,
+                model,
+                new_device=True,
+                wifi_ssid=ssid,
+                wifi_password=password,
             )
         )
         dialog.finished.connect(lambda result: self._firmware_dialog_closed(result))
@@ -1669,13 +2225,17 @@ class MainWindow(QMainWindow):
         port: str,
         model_identifier: str,
         new_device: bool,
+        wifi_ssid: str,
+        wifi_password: str,
     ) -> None:
         message = QMessageBox(self)
         message.setWindowTitle(self._text("firmware_manager"))
         message.setIcon(QMessageBox.Warning)
         message.setText(
             self._text(
-                "new_model_firmware_warning",
+                "new_esp32_firmware_warning"
+                if model_identifier == "HCD-PRO"
+                else "new_model_firmware_warning",
                 port=port,
                 model=model_identifier,
             )
@@ -1686,23 +2246,35 @@ class MainWindow(QMainWindow):
         message.addButton(self._text("cancel"), QMessageBox.RejectRole)
         message.exec()
         if message.clickedButton() is install_button:
-            self._begin_firmware_install(port, model_identifier, new_device)
+            self._begin_firmware_install(
+                port,
+                model_identifier,
+                new_device,
+                wifi_ssid,
+                wifi_password,
+            )
 
     def _begin_firmware_install(
         self,
         port: str,
         model_identifier: str,
         new_device: bool,
+        wifi_ssid: str,
+        wifi_password: str,
     ) -> None:
         if self._firmware_dialog is not None:
             self._firmware_dialog.set_busy(True)
-        self._device.stop()
+        wifi_ota = model_identifier == "HCD-PRO" and port.startswith("Wi-Fi")
+        if not wifi_ota:
+            self._device.stop()
         QTimer.singleShot(
             180,
             lambda: self._firmware_updater.start(
                 port,
                 model_identifier,
                 allow_existing_bootloader=new_device,
+                wifi_ssid=wifi_ssid,
+                wifi_password=wifi_password,
             ),
         )
 
@@ -1719,12 +2291,47 @@ class MainWindow(QMainWindow):
         if self._firmware_dialog is not None:
             self._firmware_dialog.set_log(log)
 
+    def _show_esp32_bootloader_assistant(self) -> None:
+        message = QMessageBox(self)
+        message.setWindowTitle(self._text("esp32_bootloader_title"))
+        message.setIcon(QMessageBox.Information)
+        message.setText(self._text("esp32_bootloader_instructions"))
+        continue_button = message.addButton(
+            self._text("esp32_bootloader_continue"), QMessageBox.AcceptRole
+        )
+        message.addButton(self._text("cancel"), QMessageBox.RejectRole)
+        message.exec()
+        if message.clickedButton() is continue_button:
+            self._firmware_updater.resume_esp32_install()
+        else:
+            self._firmware_updater.cancel()
+
     def _firmware_finished(self, successful: bool, message: str) -> None:
         if self._firmware_dialog is not None:
             self._firmware_dialog.finish(successful, message)
         QTimer.singleShot(1800, self._device.start)
 
     def _device_event(self, event: DeviceEvent) -> None:
+        if event.kind == EventKind.SLIDER:
+            self._has_activity = True
+            value = round(int(event.state) * 100 / 1023)
+            if event.control_id == 2:
+                self._last_microphone_input_at = time.monotonic()
+                self._pending_microphone_value = value
+                self._device_preview.set_pro_microphone_value(value)
+                self._activity_label.setText(
+                    f"{self._text('microphone_volume')}: {value}%"
+                )
+                self._microphone_action_timer.start()
+            else:
+                self._last_slider_input_at = time.monotonic()
+                self._pending_slider_value = value
+                self._device_preview.set_pro_slider_value(value)
+                self._activity_label.setText(
+                    f"{self._text('vertical_fader')}: {value}%"
+                )
+                self._slider_action_timer.start()
+            return
         if event.kind == EventKind.POTENTIOMETER:
             self._has_activity = True
             self._activity_label.setText(

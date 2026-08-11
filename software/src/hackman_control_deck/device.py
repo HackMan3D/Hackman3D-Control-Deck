@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import base64
+from collections import deque
 import time
+import zlib
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
+from PySide6.QtNetwork import (
+    QAbstractSocket,
+    QHostAddress,
+    QNetworkInterface,
+    QTcpSocket,
+    QUdpSocket,
+)
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 
 from .constants import (
     BAUD_RATE,
     CONNECTION_TIMEOUT_MS,
+    HCD_DISCOVERY_PORT,
     HEARTBEAT_INTERVAL_MS,
     PORT_PROBE_TIMEOUT_MS,
     PORT_SCAN_INTERVAL_MS,
@@ -29,6 +40,20 @@ class HcdDeviceManager(QObject):
         self._serial.readyRead.connect(self._read_available)
         self._serial.errorOccurred.connect(self._handle_error)
 
+        self._tcp = QTcpSocket(self)
+        self._tcp.connected.connect(self._network_connected)
+        self._tcp.readyRead.connect(self._read_network_available)
+        self._tcp.disconnected.connect(self._network_disconnected)
+        self._tcp.errorOccurred.connect(self._network_error)
+
+        self._udp = QUdpSocket(self)
+        self._udp.readyRead.connect(self._read_discovery_datagrams)
+        self._udp.bind(
+            QHostAddress.AnyIPv4,
+            0,
+            QUdpSocket.ShareAddress | QUdpSocket.ReuseAddressHint,
+        )
+
         self._scan_timer = QTimer(self)
         self._scan_timer.setInterval(PORT_SCAN_INTERVAL_MS)
         self._scan_timer.timeout.connect(self._scan)
@@ -43,11 +68,23 @@ class HcdDeviceManager(QObject):
         self._probe_timer.timeout.connect(self._probe_timed_out)
 
         self._buffer = bytearray()
+        self._network_buffer = bytearray()
         self._candidate_ports: list[str] = []
         self._candidate_index = 0
         self._connected = False
         self._last_pong = 0.0
         self._heartbeat_active = False
+        self._transport = ""
+        self._network_endpoint = ""
+        self._network_candidate = ""
+        self._pro_icon_signatures: dict[str, int | None] = {}
+        self._pro_label_values: dict[str, str] = {}
+        self._pro_display_state: tuple[int, bool, int, bool, int] | None = None
+        self._pro_upload_queue: deque[str] = deque()
+        self._pro_upload_timer = QTimer(self)
+        # Keep icon transfers below the RGB display's memory-bandwidth peaks.
+        self._pro_upload_timer.setInterval(30)
+        self._pro_upload_timer.timeout.connect(self._send_next_pro_upload)
 
     @property
     def is_connected(self) -> bool:
@@ -55,6 +92,8 @@ class HcdDeviceManager(QObject):
 
     @property
     def port_name(self) -> str:
+        if self._transport == "wifi":
+            return self._network_endpoint
         return self._serial.portName() if self._serial.isOpen() else ""
 
     def start(self) -> None:
@@ -65,15 +104,100 @@ class HcdDeviceManager(QObject):
     def stop(self) -> None:
         self._scan_timer.stop()
         self._heartbeat_timer.stop()
-        self._close_port()
+        self._close_connection()
 
     def set_feedback_hold_ms(self, duration_ms: int) -> None:
         duration = max(0, min(2000, int(duration_ms)))
         self._write_line(f"HCD_SET_LED_HOLD|{duration}")
 
+    def set_pro_slider_value(self, value: int, slider_id: int = 1) -> None:
+        if not self._connected or self._transport != "wifi":
+            return
+        normalized = max(0, min(100, int(value)))
+        self._write_line(
+            f"HCD_PRO_SLIDER_STATE|{max(1, min(2, int(slider_id)))}|"
+            f"{round(normalized * 1023 / 100)}"
+        )
+
+    def arm_pro_ota(self, token: str) -> None:
+        if not self._connected or self._transport != "wifi":
+            return
+        self._write_line(f"HCD_OTA_ARM|{token}")
+
+    def set_pro_layout(
+        self,
+        labels: dict[str, str],
+        icons: dict[str, bytes],
+        icon_size: int = 1,
+        show_labels: bool = False,
+        theme: int = 1,
+        second_fader: bool = False,
+        slider_mode: str = "volume",
+    ) -> None:
+        if not self._connected or self._transport != "wifi":
+            return
+        slider_mode_id = {"off": 0, "volume": 1, "brightness": 2}.get(slider_mode, 0)
+        display_state = (
+            max(0, min(3, icon_size)),
+            False,
+            max(0, min(2, theme)),
+            bool(second_fader),
+            slider_mode_id,
+        )
+        if display_state != self._pro_display_state:
+            self._write_line(
+                f"HCD_PRO_DISPLAY|{display_state[0]}|{int(display_state[1])}|"
+                f"{display_state[2]}|{int(display_state[3])}|{display_state[4]}"
+            )
+            self._pro_display_state = display_state
+        icons_changed = False
+        for identifier in labels:
+            if not identifier.isdigit():
+                continue
+            icon = icons.get(identifier, b"")
+            signature = zlib.crc32(icon) if icon else None
+            if (
+                identifier in self._pro_icon_signatures
+                and self._pro_icon_signatures[identifier] == signature
+            ):
+                continue
+            if not icon:
+                self._pro_upload_queue.append(f"HCD_PRO_ICON_CLEAR|{identifier}")
+            else:
+                self._pro_upload_queue.append(
+                    f"HCD_PRO_ICON_BEGIN|{identifier}|{len(icon)}|{signature:08x}"
+                )
+                for offset in range(0, len(icon), 240):
+                    chunk = base64.b64encode(icon[offset : offset + 240]).decode("ascii")
+                    self._pro_upload_queue.append(f"HCD_PRO_ICON_CHUNK|{chunk}")
+                self._pro_upload_queue.append(f"HCD_PRO_ICON_END|{identifier}")
+            self._pro_icon_signatures[identifier] = signature
+            icons_changed = True
+        if icons_changed:
+            self._pro_upload_queue = deque(
+                command
+                for command in self._pro_upload_queue
+                if command not in {"HCD_PRO_REFRESH", "HCD_PRO_CACHE_COMMIT"}
+            )
+            self._pro_upload_queue.append("HCD_PRO_CACHE_COMMIT")
+        if self._pro_upload_queue and not self._pro_upload_timer.isActive():
+            self._pro_upload_timer.start()
+
+    @Slot()
+    def _send_next_pro_upload(self) -> None:
+        if not self._connected or self._transport != "wifi":
+            self._pro_upload_queue.clear()
+            self._pro_upload_timer.stop()
+            return
+        if not self._pro_upload_queue:
+            self._pro_upload_timer.stop()
+            return
+        self._write_line(self._pro_upload_queue.popleft())
+
     @Slot()
     def _scan(self) -> None:
-        if self._connected or self._serial.isOpen():
+        self._send_discovery()
+        if self._connected or self._serial.isOpen() or self._tcp.state() != QTcpSocket.UnconnectedState:
             return
 
         port_infos = sorted(QSerialPortInfo.availablePorts(), key=self._port_priority)
@@ -94,13 +218,13 @@ class HcdDeviceManager(QObject):
         self._try_port(name)
 
     def _try_port(self, name: str) -> None:
+        self._transport = "serial"
         self._serial.setPortName(name)
         if not self._serial.open(QSerialPort.ReadWrite):
             return
         self._serial.clear()
         self._buffer.clear()
         self._last_pong = time.monotonic()
-        self.status_changed.emit(f"Checking {name}")
         self._write_line("HCD_PING")
         self._probe_timer.start()
 
@@ -120,17 +244,17 @@ class HcdDeviceManager(QObject):
     def _probe_timed_out(self) -> None:
         if self._connected:
             return
-        self._close_port()
+        self._close_connection()
         QTimer.singleShot(20, self._scan)
 
     @Slot()
     def _heartbeat(self) -> None:
-        if not self._serial.isOpen():
+        if not self._transport_open():
             return
 
         now = time.monotonic()
         if (now - self._last_pong) * 1_000 > CONNECTION_TIMEOUT_MS:
-            self._close_port()
+            self._close_connection()
             self.status_changed.emit("Device disconnected")
             QTimer.singleShot(100, self._scan)
             return
@@ -138,13 +262,22 @@ class HcdDeviceManager(QObject):
 
     @Slot()
     def _read_available(self) -> None:
-        self._buffer.extend(bytes(self._serial.readAll()))
-        while b"\n" in self._buffer:
-            raw_line, _, remainder = self._buffer.partition(b"\n")
-            self._buffer = bytearray(remainder)
+        self._consume_data(bytes(self._serial.readAll()), self._buffer, "serial")
+
+    @Slot()
+    def _read_network_available(self) -> None:
+        self._consume_data(bytes(self._tcp.readAll()), self._network_buffer, "wifi")
+
+    def _consume_data(self, data: bytes, buffer: bytearray, transport: str) -> None:
+        buffer.extend(data)
+        while b"\n" in buffer:
+            raw_line, _, remainder = buffer.partition(b"\n")
+            buffer[:] = remainder
             line = raw_line.rstrip(b"\r").decode("utf-8", errors="replace")
             message = parse_line(line)
             if message == "HCD_PONG":
+                if transport != self._transport:
+                    continue
                 self._probe_timer.stop()
                 self._last_pong = time.monotonic()
                 if not self._heartbeat_active:
@@ -152,34 +285,140 @@ class HcdDeviceManager(QObject):
                     self.heartbeat_changed.emit(True)
                 if not self._connected:
                     self._connected = True
-                    self.connection_changed.emit(True, self._serial.portName())
-                    self.status_changed.emit(f"Connected on {self._serial.portName()}")
+                    endpoint = self.port_name
+                    self.connection_changed.emit(True, endpoint)
+                    self.status_changed.emit(f"Connected on {endpoint}")
                     self._write_line("HCD_GET_INFO")
             elif message == "HCD_READY":
                 self._write_line("HCD_PING")
             elif isinstance(message, DeviceEvent):
                 self.event_received.emit(message)
             elif isinstance(message, DeviceInfo):
+                if message.model_identifier == "HCD-PRO" and message.icon_signatures:
+                    self._pro_icon_signatures = {
+                        str(index): signature or None
+                        for index, signature in enumerate(message.icon_signatures, start=1)
+                    }
                 self.info_received.emit(message)
 
     def _write_line(self, text: str) -> None:
-        if self._serial.isOpen():
+        if self._transport == "wifi" and self._tcp.state() == QTcpSocket.ConnectedState:
+            self._tcp.write((text + "\n").encode("ascii"))
+        elif self._serial.isOpen():
             self._serial.write((text + "\n").encode("ascii"))
+
+    def _transport_open(self) -> bool:
+        if self._transport == "wifi":
+            return self._tcp.state() == QTcpSocket.ConnectedState
+        return self._serial.isOpen()
+
+    def _send_discovery(self) -> None:
+        if self._connected:
+            return
+        destinations: set[str] = set()
+        required_flags = (
+            QNetworkInterface.InterfaceFlag.IsUp
+            | QNetworkInterface.InterfaceFlag.IsRunning
+        )
+        for interface in QNetworkInterface.allInterfaces():
+            flags = interface.flags()
+            if flags & required_flags != required_flags:
+                continue
+            if flags & QNetworkInterface.InterfaceFlag.IsLoopBack:
+                continue
+            for entry in interface.addressEntries():
+                if (
+                    entry.ip().protocol()
+                    != QAbstractSocket.NetworkLayerProtocol.IPv4Protocol
+                ):
+                    continue
+                broadcast = entry.broadcast()
+                address = broadcast.toString()
+                if not broadcast.isNull() and address:
+                    destinations.add(address)
+        if not destinations:
+            destinations.add(QHostAddress.Broadcast.toString())
+        for address in destinations:
+            self._udp.writeDatagram(
+                b"HCD_DISCOVER\n",
+                QHostAddress(address),
+                HCD_DISCOVERY_PORT,
+            )
+
+    @Slot()
+    def _read_discovery_datagrams(self) -> None:
+        while self._udp.hasPendingDatagrams():
+            datagram = self._udp.receiveDatagram()
+            line = bytes(datagram.data()).decode("utf-8", errors="replace").strip()
+            parts = line.split("|")
+            if len(parts) != 7 or parts[0] != "HCD_HERE" or parts[2] != "HCD-PRO":
+                continue
+            try:
+                tcp_port = int(parts[6])
+            except ValueError:
+                continue
+            address = datagram.senderAddress().toString()
+            if self._connected and self._transport == "wifi":
+                continue
+            self._try_network(address, tcp_port)
+
+    def _try_network(self, address: str, port: int) -> None:
+        if self._tcp.state() != QTcpSocket.UnconnectedState:
+            return
+        if self._serial.isOpen() and not self._connected:
+            self._serial.close()
+            self._buffer.clear()
+        self._transport = "wifi"
+        self._network_candidate = address
+        self._network_endpoint = f"Wi-Fi · {address}"
+        self._last_pong = time.monotonic()
+        self._tcp.connectToHost(address, port)
+
+    @Slot()
+    def _network_connected(self) -> None:
+        self._network_buffer.clear()
+        self._write_line("HCD_PING")
+        self._probe_timer.start()
+
+    @Slot()
+    def _network_disconnected(self) -> None:
+        if self._transport == "wifi":
+            self._close_connection()
+            QTimer.singleShot(100, self._scan)
+
+    @Slot(QAbstractSocket.SocketError)
+    def _network_error(self, error: QAbstractSocket.SocketError) -> None:
+        if error != QAbstractSocket.UnknownSocketError and self._transport == "wifi":
+            self._close_connection()
 
     @Slot(QSerialPort.SerialPortError)
     def _handle_error(self, error: QSerialPort.SerialPortError) -> None:
-        if error in {QSerialPort.ResourceError, QSerialPort.DeviceNotFoundError}:
-            self._close_port()
+        if self._transport == "serial" and error in {
+            QSerialPort.ResourceError,
+            QSerialPort.DeviceNotFoundError,
+        }:
+            self._close_connection()
 
-    def _close_port(self) -> None:
+    def _close_connection(self) -> None:
         self._probe_timer.stop()
         was_connected = self._connected
         self._connected = False
+        self._transport = ""
         if self._heartbeat_active:
             self._heartbeat_active = False
             self.heartbeat_changed.emit(False)
         self._buffer.clear()
+        self._network_buffer.clear()
         if self._serial.isOpen():
             self._serial.close()
+        if self._tcp.state() != QTcpSocket.UnconnectedState:
+            self._tcp.abort()
+        self._network_endpoint = ""
+        self._network_candidate = ""
+        self._pro_upload_timer.stop()
+        self._pro_upload_queue.clear()
+        self._pro_icon_signatures.clear()
+        self._pro_label_values.clear()
+        self._pro_display_state = None
         if was_connected:
             self.connection_changed.emit(False, "")

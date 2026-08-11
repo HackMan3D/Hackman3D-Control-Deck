@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import ctypes
 import subprocess
 import sys
 from collections.abc import Callable
@@ -29,6 +30,180 @@ class ActionRunner(QObject):
             handler(action.value.strip())
         except Exception as error:  # OS input and process errors need a UI-safe boundary.
             self.action_failed.emit(str(error))
+
+    def set_continuous_value(self, mode: str, value: int) -> None:
+        level = max(0, min(100, int(value)))
+        try:
+            if mode == "volume":
+                self._set_absolute_volume(level)
+            elif mode == "brightness":
+                self._set_absolute_brightness(level)
+            elif mode == "microphone":
+                self._set_absolute_microphone(level)
+        except Exception as error:
+            self.action_failed.emit(str(error))
+
+    def continuous_value(self, mode: str) -> int | None:
+        try:
+            if mode == "volume":
+                return self._absolute_volume()
+            if mode == "brightness":
+                return self._absolute_brightness()
+            if mode == "microphone":
+                return self._absolute_microphone()
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _set_absolute_volume(level: int) -> None:
+        if sys.platform == "darwin":
+            result = subprocess.run(  # noqa: S603
+                ["osascript", "-e", f"set volume output volume {level}"],
+                check=False,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or "Could not set the volume")
+            return
+        if sys.platform == "win32":
+            ActionRunner._windows_endpoint_volume().SetMasterVolumeLevelScalar(
+                level / 100.0,
+                None,
+            )
+            return
+        raise OSError("Absolute volume control is not available on this platform yet")
+
+    @staticmethod
+    def _absolute_volume() -> int:
+        if sys.platform == "darwin":
+            result = subprocess.run(  # noqa: S603
+                ["osascript", "-e", "output volume of (get volume settings)"],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            return max(0, min(100, round(float(result.stdout.strip()))))
+        if sys.platform == "win32":
+            scalar = ActionRunner._windows_endpoint_volume().GetMasterVolumeLevelScalar()
+            return max(0, min(100, round(float(scalar) * 100)))
+        raise OSError("Volume level is unavailable on this platform")
+
+    @staticmethod
+    def _set_absolute_microphone(level: int) -> None:
+        if sys.platform == "darwin":
+            result = subprocess.run(  # noqa: S603
+                ["osascript", "-e", f"set volume input volume {level}"],
+                check=False,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or "Could not set microphone volume")
+            return
+        if sys.platform == "win32":
+            ActionRunner._windows_microphone_endpoint().SetMasterVolumeLevelScalar(
+                level / 100.0,
+                None,
+            )
+            return
+        raise OSError("Microphone level is unavailable on this platform")
+
+    @staticmethod
+    def _absolute_microphone() -> int:
+        if sys.platform == "darwin":
+            result = subprocess.run(  # noqa: S603
+                ["osascript", "-e", "input volume of (get volume settings)"],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            return max(0, min(100, round(float(result.stdout.strip()))))
+        if sys.platform == "win32":
+            scalar = ActionRunner._windows_microphone_endpoint().GetMasterVolumeLevelScalar()
+            return max(0, min(100, round(float(scalar) * 100)))
+        raise OSError("Microphone level is unavailable on this platform")
+
+    @staticmethod
+    def _windows_endpoint_volume():
+        from pycaw.pycaw import AudioUtilities
+
+        device = AudioUtilities.GetSpeakers()
+        endpoint = getattr(device, "EndpointVolume", None)
+        if endpoint is not None:
+            return endpoint
+
+        from comtypes import CLSCTX_ALL
+        from ctypes import POINTER, cast
+        from pycaw.pycaw import IAudioEndpointVolume
+
+        interface = device.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        return cast(interface, POINTER(IAudioEndpointVolume))
+
+    @staticmethod
+    def _set_absolute_brightness(level: int) -> None:
+        if sys.platform == "darwin":
+            from Quartz import CGMainDisplayID
+
+            framework = ctypes.cdll.LoadLibrary(
+                "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices"
+            )
+            setter = framework.DisplayServicesSetBrightness
+            setter.argtypes = [ctypes.c_uint32, ctypes.c_float]
+            setter.restype = ctypes.c_int
+            if setter(CGMainDisplayID(), ctypes.c_float(level / 100.0)) != 0:
+                raise RuntimeError("macOS could not set the display brightness")
+            return
+        if sys.platform == "win32":
+            script = (
+                "$m=Get-CimInstance -Namespace root/WMI -Class WmiMonitorBrightnessMethods;"
+                f"$m|Invoke-CimMethod -MethodName WmiSetBrightness -Arguments "
+                f"@{{Timeout=1;Brightness=[byte]{level}}}|Out-Null"
+            )
+            subprocess.run(  # noqa: S603
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                check=True,
+                close_fds=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            return
+        raise OSError("Brightness control is unavailable on this platform")
+
+    @staticmethod
+    def _absolute_brightness() -> int:
+        if sys.platform == "darwin":
+            from Quartz import CGMainDisplayID
+
+            framework = ctypes.cdll.LoadLibrary(
+                "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices"
+            )
+            getter = framework.DisplayServicesGetBrightness
+            getter.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_float)]
+            getter.restype = ctypes.c_int
+            value = ctypes.c_float()
+            if getter(CGMainDisplayID(), ctypes.byref(value)) != 0:
+                raise RuntimeError("macOS could not read the display brightness")
+            return max(0, min(100, round(value.value * 100)))
+        if sys.platform == "win32":
+            script = (
+                "(Get-CimInstance -Namespace root/WMI -Class WmiMonitorBrightness | "
+                "Select-Object -First 1 -ExpandProperty CurrentBrightness)"
+            )
+            result = subprocess.run(  # noqa: S603
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            return max(0, min(100, round(float(result.stdout.strip()))))
+        raise OSError("Brightness level is unavailable on this platform")
 
     @staticmethod
     def _keyboard_controller():
@@ -81,6 +256,12 @@ class ActionRunner(QObject):
 
     def _system(self, value: str) -> None:
         if sys.platform == "darwin":
+            if value in {"shutdown", "restart", "lock", "sleep"}:
+                self._macos_power(value)
+                return
+            if value == "microphone_mute":
+                self._macos_microphone_mute()
+                return
             if value in {"volume_up", "volume_down", "volume_mute"}:
                 self._macos_audio(value)
                 return
@@ -115,7 +296,99 @@ class ActionRunner(QObject):
         if value in {"brightness_up", "brightness_down"}:
             self._change_brightness(value == "brightness_up")
             return
+        if sys.platform == "win32" and value in {"shutdown", "restart", "lock", "sleep"}:
+            self._windows_power(value)
+            return
+        if sys.platform == "win32" and value == "microphone_mute":
+            endpoint = self._windows_microphone_endpoint()
+            endpoint.SetMute(not bool(endpoint.GetMute()), None)
+            return
         raise ValueError(f"Unknown system command: {value}")
+
+    @staticmethod
+    def _macos_microphone_mute() -> None:
+        script = """
+            set currentInput to input volume of (get volume settings)
+            if currentInput is 0 then
+                set volume input volume 50
+            else
+                set volume input volume 0
+            end if
+        """
+        result = subprocess.run(  # noqa: S603
+            ["osascript", "-e", script],
+            check=False,
+            close_fds=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            raise RuntimeError(result.stderr.strip() or "macOS could not mute the microphone")
+
+    @staticmethod
+    def _windows_microphone_endpoint():
+        from pycaw.pycaw import AudioUtilities
+
+        device = AudioUtilities.GetMicrophone()
+        endpoint = getattr(device, "EndpointVolume", None)
+        if endpoint is not None:
+            return endpoint
+
+        from comtypes import CLSCTX_ALL
+        from ctypes import POINTER, cast
+        from pycaw.pycaw import IAudioEndpointVolume
+
+        interface = device.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+        return cast(interface, POINTER(IAudioEndpointVolume))
+
+    @staticmethod
+    def _macos_power(command: str) -> None:
+        if command == "lock":
+            result = subprocess.run(  # noqa: S603
+                ["/usr/bin/pmset", "displaysleepnow"],
+                check=False,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or "macOS could not lock the session")
+            return
+        scripts = {
+            "shutdown": 'tell application "System Events" to shut down',
+            "restart": 'tell application "System Events" to restart',
+            "sleep": 'tell application "System Events" to sleep',
+        }
+        script = scripts.get(command)
+        if script is None:
+            raise ValueError(f"Unknown macOS power command: {command}")
+        result = subprocess.run(  # noqa: S603
+            ["osascript", "-e", script],
+            check=False,
+            close_fds=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            raise RuntimeError(result.stderr.strip() or "macOS could not run the power command")
+
+    @staticmethod
+    def _windows_power(command: str) -> None:
+        commands = {
+            "shutdown": ["shutdown.exe", "/s", "/t", "0"],
+            "restart": ["shutdown.exe", "/r", "/t", "0"],
+            "lock": ["rundll32.exe", "user32.dll,LockWorkStation"],
+            "sleep": ["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"],
+        }
+        arguments = commands.get(command)
+        if arguments is None:
+            raise ValueError(f"Unknown Windows power command: {command}")
+        subprocess.run(  # noqa: S603
+            arguments,
+            check=True,
+            close_fds=True,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
 
     @staticmethod
     def _macos_audio(command: str) -> None:

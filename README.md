@@ -1,8 +1,8 @@
 # HackMan3D Control Deck
 
-![Version](https://img.shields.io/badge/Version-1.1.0-0A84FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.4.8-0A84FF?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows-0A84FF?style=flat-square)
-![Hardware](https://img.shields.io/badge/Hardware-Arduino%20Pro%20Micro-00979D?style=flat-square&logo=arduino&logoColor=white)
+![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
 ![Controls](https://img.shields.io/badge/Controls-9%20MX%20Keys-7B61FF?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Private%20Preview-555555?style=flat-square)
@@ -12,13 +12,13 @@ HackMan3D Control Deck (HCD) is a programmable desktop controller built around a
 Arduino Pro Micro. The repository contains the Windows and macOS configuration
 app, the branded HackMan interface and the device firmware.
 
-## Download the app — version 1.1.0
+## Download the app — version 1.4.8
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-macOS-1.1.0.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.8/HackMan3D-Control-Deck-macOS-1.4.8.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.8/HackMan3D-Control-Deck-Windows-1.4.8-Setup.exe)
 
 ## Quick start — recommended
 
@@ -29,11 +29,11 @@ working HackMan3D Control Deck.
    [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
    [wiring notes](docs/WIRING.md).
 2. Download and install the HCD application for
-   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-macOS-1.1.0.dmg)
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.8/HackMan3D-Control-Deck-macOS-1.4.8.dmg)
    or
-   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.1.0/HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe).
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.8/HackMan3D-Control-Deck-Windows-1.4.8-Setup.exe).
 3. Connect the compatible Arduino Pro Micro to the computer by USB.
-4. Open **Firmware** in the application, select the model you built and click
+4. Open **Firmware** in the application, select **HCD-BASE** and click
    **Install firmware**.
 5. Wait for the upload and automatic reconnection, then assign actions to the
    keys from the 3D editor.
@@ -92,24 +92,13 @@ ground. The connection LED and key-feedback light are switched by separate
 IRLB8721 MOSFETs. See the [complete wiring notes](docs/WIRING.md) before
 powering the controller.
 
-## HCD Plus hardware
+## Future hardware previews
 
-The repository also contains the first HCD Plus firmware target:
-
-- 12 physical buttons connected through an MCP23017;
-- 2 analog potentiometers on A0 and A1;
-- one push switch on each potentiometer;
-- the same red connection LED and white action-feedback LED as HCD-BASE;
-- automatic identification as `HCD-PLUS`.
-
-The desktop firmware manager lets the builder choose **HCD-BASE** or
-**HCD Plus** before flashing a new compatible board. Once programmed, the
-application reads the model identifier automatically and displays either the
-9-control Base editor or the 12-button Plus editor with its two clickable
-potentiometers.
-
-See the [HCD Plus wiring table](docs/HCD_PLUS_WIRING.md) for the complete
-MCP23017, potentiometer and LED pin assignment.
+The firmware manager shows **HCD Plus (in development)** and
+**HCD Pro (in development)** so the planned product family is visible. These
+entries are previews: installation is disabled until the hardware designs,
+assembly guides and firmware are ready for users. For now, build and flash only
+**HCD-BASE**.
 
 ## Support matters
 
@@ -129,9 +118,22 @@ visible.
 
 ## HCD roadmap
 
-The progress indicators in the application show only a percentage. No donation
-amount or financial target is stored or displayed. The exact feature set will
-evolve after prototype testing and community feedback.
+HackMan3D Control Deck is developed and shared free of charge. Community
+support helps fund the prototypes, components and development time needed for
+the next editions.
+
+The application displays one community progress bar from 0 to 100%:
+
+- **HCD Plus** is the milestone shown at 50%;
+- **HCD Pro** is the final milestone shown at 100%;
+- the bar is updated through the HackMan3D release feed as support is received;
+- only the resulting percentage is public. Donation totals and financial
+  targets are never included in the application, its public feed or the source
+  repository.
+
+The application does not collect payments. The support button only opens the
+external HackMan3D PayPal page. The exact feature set will continue to evolve
+after prototype testing and community feedback.
 
 ### HCD Plus
 
@@ -150,9 +152,9 @@ and the same two status lights:
 The Pro edition focuses on direct visual identification and a more compact,
 interactive surface:
 
-- multiple touch buttons, with the final quantity to be defined;
-- application images sent directly from the desktop application and displayed
-  on the corresponding touch controls;
+- 12 touch buttons arranged in a 4 × 3 grid on the 800 × 480 display;
+- labels synchronised automatically from the active desktop profile;
+- automatic Wi-Fi discovery and heartbeat on the local network;
 - 4 additional physical buttons;
 - 2 configurable potentiometers;
 - the same connection LED and action-feedback LED as HCD-BASE and HCD Plus;
@@ -166,6 +168,7 @@ needed to explore these Plus and Pro editions.
 ```text
 firmware/HackMan3DControlDeck/       HCD-BASE firmware
 firmware/HackMan3DControlDeckPlus/   HCD Plus firmware
+firmware/HackMan3DControlDeckPro/    HCD Pro ESP32-S3 Wi-Fi firmware
 software/                            shared PySide6 desktop app
 docs/                                protocol and wiring notes
 ```
@@ -222,8 +225,9 @@ listed.
 - Automatic serial discovery prioritises compatible Arduino and USB devices.
 - The app displays the model reported by the firmware, such as `HCD-BASE`,
   instead of a system port name such as `cu.usbmodem101`.
-- The integrated firmware manager installs or updates HCD-BASE and HCD Plus
-  without Arduino IDE.
+- The integrated firmware manager installs HCD-BASE without Arduino IDE.
+  HCD Plus and HCD Pro remain visible as clearly marked development previews,
+  but cannot be installed from the public application yet.
 - Compatible firmware updates are detected automatically and offered through a
   pop-up.
 - The diagnostics page displays the model, firmware version, serial port,
@@ -269,8 +273,15 @@ updates and the Plus/Pro roadmap. The feed is disabled by default while the
 project is private. It can be tested by setting `HCD_RELEASE_MANIFEST_URL`
 without publishing any repository. Publishing a new version requires changing
 `latest_version`, the two platform download links and, when appropriate, the
-two integer roadmap percentages. The feed deliberately contains no donation
+the public roadmap percentage. The feed deliberately contains no donation
 amounts.
+
+Donation totals and targets can remain private in
+`release/roadmap.private.json` (this file is ignored by Git). Copy
+`release/roadmap.private.example.json`, enter the private values, then run
+`python3 release/build_public_manifest.py`. The generated public manifest
+contains only the two rounded percentages. Users can read the percentages used
+by the application, but cannot access the private amounts or modify the feed.
 
 ### macOS application
 
@@ -292,22 +303,22 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-1.1.0-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.4.8-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 
 ## Firmware
 
-The desktop application contains separate HCD-BASE and HCD Plus firmware
-images and flashes the selected model directly from the **Firmware** manager.
-Arduino IDE is not required for normal installation or updates. A programmed
-controller identifies its own model, so later updates automatically select the
-matching firmware.
+The desktop application contains the HCD-BASE firmware and flashes it directly
+from the **Firmware** manager. Arduino IDE is not required for normal
+installation or updates. HCD Plus and HCD Pro are shown in the selector as
+**in development**, but their installation remains disabled until their public
+assembly documentation is ready.
 
 The source sketch remains available in
 `firmware/HackMan3DControlDeck/HackMan3DControlDeck.ino` and
-`firmware/HackMan3DControlDeckPlus/HackMan3DControlDeckPlus.ino` for firmware
-development. Both use only the standard Arduino core.
+`firmware/HackMan3DControlDeckPlus/HackMan3DControlDeckPlus.ino`, plus the
+ESP32-S3 source in `firmware/HackMan3DControlDeckPro/`, for firmware development.
 
 `software/build_firmware.sh` produces the branded firmware bundled with the
 app. It gives each model its own USB product name and sets the manufacturer to
@@ -315,3 +326,5 @@ app. It gives each model its own USB product name and sets the manufacturer to
 
 See the [HCD-BASE wiring notes](docs/WIRING.md) or the
 [HCD Plus wiring notes](docs/HCD_PLUS_WIRING.md) before connecting hardware.
+HCD Pro setup and network requirements are documented in
+[docs/HCD_PRO.md](docs/HCD_PRO.md).
