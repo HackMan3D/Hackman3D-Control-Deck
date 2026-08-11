@@ -25,11 +25,13 @@ The display and computer must be on the same local network. The desktop app
 broadcasts discovery packets on UDP port **42100**, then opens a TCP connection
 to the deck on port **42101**. No manual IP address is required.
 
-The screen provides 12 programmable touch keys in a 4 × 3 grid. Their names are
-synchronised from the active profile. A red indicator in the upper-right corner
-turns on only while the desktop heartbeat is active. Touch events are ignored
-when the app is not connected, matching the safety behaviour of the physical
-HCD models.
+The screen has no additional physical buttons. It can display either 28
+programmable touch keys with one vertical slider, or 24 programmable touch keys
+with two vertical sliders. The sliders can control functions such as speaker
+volume, microphone level or display brightness. Icons are synchronised from the
+active desktop profile. A red indicator in the upper-right corner turns on only
+while the desktop heartbeat is active. Touch events are ignored when the app is
+not connected, matching the safety behaviour of the other HCD models.
 
 The current local-network protocol is intended for a trusted home or workshop
 network. Do not expose TCP port 42101 to the internet. Guest Wi-Fi isolation,

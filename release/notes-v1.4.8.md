@@ -30,3 +30,7 @@ Both future models appear in the firmware selector with an **in development**
 label. They are previews only and cannot be installed from this public release.
 Their installation will be enabled when the hardware and assembly guides are
 ready for users.
+
+HCD Pro is planned without additional physical buttons. Its display will offer
+either 28 programmable touch buttons with one slider, or 24 programmable touch
+buttons with two sliders.

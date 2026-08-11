@@ -21,7 +21,7 @@ separated with `|`.
 | `HCD_READY|1.7.0` | Device boot announcement |
 | `HCD_INFO|HackMan3D Control Deck|HCD-BASE|1.7.0|9` | HCD-BASE information |
 | `HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.0.0|12|2` | HCD Plus information, including the potentiometer count |
-| `HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.0.0|12|0` | HCD Pro Wi-Fi touch-screen information |
+| `HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.0.0|28|0` | HCD Pro Wi-Fi touch-screen information |
 | `HCD_KEY|1|DOWN` | Physical key press; IDs are 1–9 on Base and 1–12 on Plus |
 | `HCD_KEY|1|UP` | Physical key release |
 | `HCD_POT_BUTTON|1|DOWN` | HCD Plus potentiometer push switch pressed |

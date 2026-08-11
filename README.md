@@ -152,11 +152,13 @@ and the same two status lights:
 The Pro edition focuses on direct visual identification and a more compact,
 interactive surface:
 
-- 12 touch buttons arranged in a 4 × 3 grid on the 800 × 480 display;
+- no additional physical buttons;
+- 28 programmable touch buttons with one vertical slider; or
+- 24 programmable touch buttons with two vertical sliders;
 - labels synchronised automatically from the active desktop profile;
 - automatic Wi-Fi discovery and heartbeat on the local network;
-- 4 additional physical buttons;
-- 2 configurable potentiometers;
+- configurable sliders for functions such as speaker volume, microphone level
+  or display brightness;
 - the same connection LED and action-feedback LED as HCD-BASE and HCD Plus;
 - configuration and integrated firmware installation from the HCD application.
 
