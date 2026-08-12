@@ -2298,6 +2298,9 @@ $result | ConvertTo-Json -Compress
         if not connected:
             self._pressed_keys.clear()
             self._device_preview.set_feedback_active(False)
+            self._device_preview.clear_model()
+            self._device_title.setText(self._text("control_deck"))
+            self._activity_label.setText(self._text("no_activity"))
         self._connection_dot.setProperty("connected", connected)
         self._connection_dot.style().unpolish(self._connection_dot)
         self._connection_dot.style().polish(self._connection_dot)

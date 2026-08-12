@@ -97,3 +97,26 @@ accepted once. If `lipo` or `install_name_tool` reports a license error, run
 The included build is ad-hoc signed for local use. Public distribution outside
 the Mac that built it requires an Apple Developer ID signature and Apple
 notarization.
+
+## Completing a cross-platform release created on Windows
+
+When the Windows installer has already created the release tag, first update
+the local checkout and confirm that `APP_VERSION`, `pyproject.toml`, the
+PyInstaller bundle metadata and `build_dmg.sh` all show the same version.
+
+For version 1.4.17:
+
+```bash
+git switch main
+git pull --ff-only origin main
+cd software
+./build_macos.sh
+./build_dmg.sh
+gh release upload v1.4.17 \
+  "dist/HackMan3D-Control-Deck-macOS-1.4.17.dmg" \
+  --repo HackMan3D/Hackman3D-Control-Deck --clobber
+```
+
+This adds or replaces only the macOS asset in the existing cross-platform
+release. It preserves the Windows installer and keeps both downloads under the
+same version number.

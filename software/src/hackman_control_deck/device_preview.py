@@ -68,8 +68,8 @@ class DevicePreview(QWidget):
         self._image_rect = QRect()
         self._connection_active = False
         self._feedback_active = False
-        self._model_identifier = "HCD-BASE"
-        self._key_count = 9
+        self._model_identifier = ""
+        self._key_count = 0
         self._potentiometer_count = 0
         self._pro_slider_value = 50
         self._pro_microphone_value = 50
@@ -84,6 +84,16 @@ class DevicePreview(QWidget):
 
         self.buttons: dict[str, QToolButton] = {}
         self._configure_controls()
+
+    def clear_model(self) -> None:
+        """Show an empty detection area until a controller identifies itself."""
+        self._model_identifier = ""
+        self._key_count = 0
+        self._potentiometer_count = 0
+        self._connection_active = False
+        self._feedback_active = False
+        self._configure_controls()
+        self.update()
 
     def set_model(
         self,
@@ -207,7 +217,8 @@ class DevicePreview(QWidget):
         elif self._model_identifier == "HCD-PRO":
             self._paint_pro_device(painter)
         elif not self._scaled.isNull():
-            painter.drawPixmap(self._image_rect, self._scaled)
+            if self._model_identifier == "HCD-BASE":
+                painter.drawPixmap(self._image_rect, self._scaled)
 
         scale = (
             self._image_rect.width() / self._SOURCE_WIDTH

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import re
-import sys
 import base64
 import http.client
+import re
 import secrets
+import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Signal, Slot
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 
 from .constants import ASSET_DIR
+
 
 @dataclass(frozen=True, slots=True)
 class FirmwareTarget:
@@ -438,6 +439,8 @@ class FirmwareUpdater(QObject):
     def _touch_1200_baud(port_name: str) -> bool:
         if sys.platform == "darwin":
             return FirmwareUpdater._touch_macos_1200_baud(port_name)
+        if sys.platform == "win32":
+            return FirmwareUpdater._touch_windows_1200_baud(port_name)
 
         serial = QSerialPort()
         serial.setPortName(port_name)
@@ -450,6 +453,23 @@ class FirmwareUpdater(QObject):
         QThread.msleep(40)
         serial.close()
         return True
+
+    @staticmethod
+    def _touch_windows_1200_baud(port_name: str) -> bool:
+        # QtSerialPort can open the Leonardo CDC port on Windows without
+        # causing the 1200-baud touch reset. pySerial performs the same native
+        # DTR/close sequence as Arduino's uploader and reliably exposes the
+        # Caterina bootloader on a new COM port.
+        try:
+            import serial
+
+            port = serial.Serial(port_name, 1200, timeout=0)
+            port.dtr = False
+            QThread.msleep(100)
+            port.close()
+            return True
+        except (OSError, serial.SerialException):
+            return False
 
     @staticmethod
     def _touch_macos_1200_baud(port_name: str) -> bool:

@@ -61,6 +61,10 @@ def test_pro_style_only_sync_is_wrapped_and_refreshed_once() -> None:
 def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
     manager = HcdDeviceManager()
     attempts: list[str] = []
+    monkeypatch.setattr(
+        "hackman_control_deck.device.QSerialPortInfo.availablePorts",
+        lambda: [],
+    )
     monkeypatch.setattr(manager, "_send_discovery", lambda: attempts.append("discovery"))
 
     manager.start()
@@ -68,6 +72,17 @@ def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
     manager._scan()
 
     assert attempts == ["discovery"]
+
+
+def test_disconnect_resets_usb_candidates_for_immediate_rescan() -> None:
+    manager = HcdDeviceManager()
+    manager._candidate_ports = ["COM9"]
+    manager._candidate_index = 1
+
+    manager._close_connection()
+
+    assert manager._candidate_ports == []
+    assert manager._candidate_index == 0
 
 
 def test_pro_upload_waits_for_network_backpressure(monkeypatch) -> None:

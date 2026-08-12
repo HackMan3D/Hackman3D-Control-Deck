@@ -1,5 +1,11 @@
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+from hackman_control_deck.device import HcdDeviceManager
+from hackman_control_deck.firmware_dialog import FirmwareDialog
 from hackman_control_deck.firmware_updater import (
     BUNDLED_FIRMWARE_VERSION,
     BUNDLED_MODEL_IDENTIFIER,
@@ -7,7 +13,6 @@ from hackman_control_deck.firmware_updater import (
     FirmwareUpdater,
     firmware_update_available,
 )
-from hackman_control_deck.firmware_dialog import FirmwareDialog
 
 
 class PortInfo:
@@ -98,6 +103,37 @@ def test_manual_esp32_flash_does_not_reset_the_bootloader() -> None:
     assert arguments[arguments.index("--before") + 1] == "no-reset"
 
 
+def test_windows_1200_baud_touch_uses_pyserial(monkeypatch) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class FakePort:
+        def __init__(self, name: str, baud: int, timeout: int) -> None:
+            calls.append(("open", (name, baud, timeout)))
+
+        @property
+        def dtr(self) -> bool:
+            return True
+
+        @dtr.setter
+        def dtr(self, value: bool) -> None:
+            calls.append(("dtr", value))
+
+        def close(self) -> None:
+            calls.append(("close", None))
+
+    fake_serial = SimpleNamespace(Serial=FakePort, SerialException=OSError)
+    monkeypatch.setitem(sys.modules, "serial", fake_serial)
+    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "win32")
+    monkeypatch.setattr("hackman_control_deck.firmware_updater.QThread.msleep", lambda _ms: None)
+
+    assert FirmwareUpdater._touch_1200_baud("COM9")
+    assert calls == [
+        ("open", ("COM9", 1200, 0)),
+        ("dtr", False),
+        ("close", None),
+    ]
+
+
 def test_esp32_connection_failures_offer_manual_bootloader_retry() -> None:
     assert FirmwareUpdater._is_esp32_connection_failure(
         "A fatal error occurred: Failed to connect to ESP32-S3: No serial data received."
@@ -111,6 +147,18 @@ def test_esp32_connection_failures_offer_manual_bootloader_retry() -> None:
 def test_esp32_usb_port_is_offered_for_firmware() -> None:
     assert FirmwareUpdater.is_compatible_port(
         PortInfo("cu.usbmodem1101", "ESP32-S3 USB JTAG", "Espressif", 0x303A)
+    )
+
+
+def test_usb_device_candidates_are_prioritized_for_discovery() -> None:
+    assert HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM9", "Arduino Leonardo", "Arduino", 0x2341, 0x8036)
+    )
+    assert HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM12", "ESP32-S3 USB JTAG", "Espressif", 0x303A, 0x1001)
+    )
+    assert not HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM1", "Communications Port", "Microsoft")
     )
 
 
@@ -297,7 +345,7 @@ def test_avr_retry_restarts_returned_application_port(monkeypatch) -> None:
 
 def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
     events: list[object] = []
-    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "win32")
+    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "linux")
 
     class FakeSerial:
         ReadWrite = object()
@@ -335,7 +383,7 @@ def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
 
 
 def test_macos_1200_baud_touch_uses_native_open_and_close(monkeypatch) -> None:
-    import fcntl
+    fcntl = pytest.importorskip("fcntl")
     import os
     import termios
 
