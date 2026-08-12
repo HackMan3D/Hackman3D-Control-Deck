@@ -73,19 +73,27 @@ class FirmwareDialog(QDialog):
         for row in range(4):
             info_layout.setRowMinimumHeight(row, 25)
         info_layout.addWidget(QLabel(text("detected_device")), 0, 0)
-        info_layout.addWidget(
-            QLabel(device_info.product if device_info else text("no_hcd_detected")), 0, 1
+        self._detected_device_value = QLabel(
+            device_info.product if device_info else text("no_hcd_detected")
         )
+        info_layout.addWidget(self._detected_device_value, 0, 1)
         info_layout.addWidget(QLabel(text("hardware_model")), 1, 0)
-        info_layout.addWidget(QLabel(device_info.model_identifier if device_info else "—"), 1, 1)
+        self._hardware_model_value = QLabel(
+            device_info.model_identifier if device_info else "—"
+        )
+        info_layout.addWidget(self._hardware_model_value, 1, 1)
         info_layout.addWidget(QLabel(text("installed_firmware")), 2, 0)
-        info_layout.addWidget(QLabel(device_info.firmware_version if device_info else "—"), 2, 1)
+        self._installed_firmware_value = QLabel(
+            device_info.firmware_version if device_info else "—"
+        )
+        info_layout.addWidget(self._installed_firmware_value, 2, 1)
         detected_target = (
             firmware_target(device_info.model_identifier) if device_info else None
         )
         included_version = detected_target.version if detected_target else "—"
         info_layout.addWidget(QLabel(text("included_firmware")), 3, 0)
-        info_layout.addWidget(QLabel(included_version), 3, 1)
+        self._included_firmware_value = QLabel(included_version)
+        info_layout.addWidget(self._included_firmware_value, 3, 1)
         layout.addWidget(info_frame)
 
         update_row = QHBoxLayout()
@@ -227,6 +235,32 @@ class FirmwareDialog(QDialog):
         self.refresh_ports()
         self._model_changed()
         self._start_wifi_scan()
+
+    def update_detected_device(
+        self,
+        device_info: DeviceInfo | None,
+        connected_port: str,
+    ) -> None:
+        """Refresh a dialog that was opened before the controller connected."""
+        self._device_info = device_info
+        self._connected_port = connected_port
+        target = firmware_target(device_info.model_identifier) if device_info else None
+        self._detected_device_value.setText(
+            device_info.product if device_info else self._text("no_hcd_detected")
+        )
+        self._hardware_model_value.setText(
+            device_info.model_identifier if device_info else "—"
+        )
+        self._installed_firmware_value.setText(
+            device_info.firmware_version if device_info else "—"
+        )
+        self._included_firmware_value.setText(target.version if target else "—")
+        if device_info is not None:
+            model_index = self._model_combo.findData(device_info.model_identifier)
+            if model_index >= 0:
+                self._model_combo.setCurrentIndex(model_index)
+        self.refresh_ports()
+        self._update_button.setEnabled(not self._busy and self._can_update_connected_device())
 
     def _can_update_connected_device(self) -> bool:
         if self._device_info is None or not self._connected_port:

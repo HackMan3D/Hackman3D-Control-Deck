@@ -196,6 +196,30 @@ def test_unknown_clone_bootloader_is_preferred_over_returned_application_port() 
     assert updater._select_bootloader_port(ports) == "/dev/cu.usbserial-clone"
 
 
+def test_existing_application_port_is_not_mistaken_for_bootloader() -> None:
+    updater = FirmwareUpdater()
+    updater._baseline_ports = {"COM8"}
+    updater._original_port = "COM8"
+    updater._saw_original_disappear = False
+    ports = [
+        PortInfo("COM8", "Arduino Leonardo", "Arduino", 0x2341, 0x8036),
+    ]
+
+    assert updater._select_bootloader_port(ports) == ""
+
+
+def test_explicit_caterina_port_can_keep_same_name() -> None:
+    updater = FirmwareUpdater()
+    updater._baseline_ports = {"COM8"}
+    updater._original_port = "COM8"
+    updater._saw_original_disappear = False
+    ports = [
+        PortInfo("COM8", "Arduino Leonardo bootloader", "Arduino", 0x2341, 0x0036),
+    ]
+
+    assert updater._select_bootloader_port(ports).endswith("COM8")
+
+
 def test_unrelated_serial_port_is_not_offered_for_firmware() -> None:
     assert not FirmwareUpdater.is_compatible_port(
         PortInfo("cu.Bluetooth-Incoming-Port", "Bluetooth")

@@ -493,7 +493,9 @@ class FirmwareUpdater(QObject):
             if candidate:
                 self._poll_timer.stop()
                 self._bootloader_port = candidate
-                self.status_changed.emit("Bootloader detected. Preparing the upload…")
+                self.status_changed.emit(
+                    f"Bootloader detected on {candidate}. Preparing the upload…"
+                )
                 QTimer.singleShot(300, lambda: self._start_avrdude(candidate))
                 return
 
@@ -522,7 +524,24 @@ class FirmwareUpdater(QObject):
             known_bootloader_pid = info.hasProductIdentifier() and info.productIdentifier() in {
                 0x0036,  # Arduino Leonardo Caterina
                 0x0037,  # Arduino Micro Caterina
+                0x9205,  # SparkFun Pro Micro bootloader
+                0x9206,  # SparkFun Pro Micro bootloader
             }
+            looks_like_bootloader = known_bootloader_pid or any(
+                marker in identity
+                for marker in ("caterina", "bootloader")
+            )
+            # For "install on a new Arduino", the selected application port
+            # already existed in the baseline. It is not a bootloader merely
+            # because four poll ticks elapsed. Accept that same name only after
+            # it disappeared/reappeared, or when USB explicitly identifies it
+            # as a bootloader.
+            if (
+                is_returned_original
+                and not self._saw_original_disappear
+                and not looks_like_bootloader
+            ):
+                continue
             rank = 0 if is_new and known_bootloader_pid else 1 if is_new else 2
             ranked.append((rank, location))
         return min(ranked, default=(99, ""))[1]
@@ -563,7 +582,8 @@ class FirmwareUpdater(QObject):
         self.progress_changed.emit(30)
         retry = " (retry)" if self._attempt_count > 1 else ""
         self.status_changed.emit(
-            f"Uploading and verifying the {self._target.display_name} firmware…{retry}"
+            f"Uploading and verifying the {self._target.display_name} firmware "
+            f"on {port}…{retry}"
         )
         self._process.setProgram(str(executable))
         self._process.setArguments(self.avrdude_arguments(port, configuration, firmware))

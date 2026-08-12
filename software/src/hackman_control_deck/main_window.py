@@ -2314,6 +2314,11 @@ $result | ConvertTo-Json -Compress
             self._device_info_data = None
             self._connection_label.setToolTip("")
             self._firmware_label.setText(self._text("firmware_unknown"))
+        if self._firmware_dialog is not None and not self._firmware_updater.is_busy:
+            self._firmware_dialog.update_detected_device(
+                self._device_info_data if connected else None,
+                port if connected else "",
+            )
         self._update_diagnostics()
 
     def _heartbeat_changed(self, active: bool) -> None:
@@ -2739,6 +2744,8 @@ $result | ConvertTo-Json -Compress
         self._connection_label.setText(info.product)
         self._connection_label.setToolTip(f"{info.model_identifier} · {self._connected_port}")
         self._firmware_label.setText(f"Firmware {info.firmware_version}")
+        if self._firmware_dialog is not None and not self._firmware_updater.is_busy:
+            self._firmware_dialog.update_detected_device(info, self._connected_port)
         self.statusBar().showMessage(
             f"{info.product} · {info.model_identifier} · {self._connected_port}"
         )
