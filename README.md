@@ -93,6 +93,9 @@ actions, test the command and save it to the current HCD-BASE profile.
 - 1 white key-feedback LED
 - Arduino Pro Micro (ATmega32U4, 5 V / 16 MHz)
 
+The complete electronics, printed-parts and screw list is available in the
+[HCD-BASE bill of materials](docs/WIRING.md#bill-of-materials).
+
 The connection LED is controlled by the app heartbeat. It turns off about three
 seconds after the app stops responding. The feedback LED remains on while one or
 more of the nine MX keys is held, but only while the desktop app is connected.

@@ -7,6 +7,44 @@ The original draft used sequential key numbers; the firmware deliberately
 reverses each physical row so the front-panel numbering matches the 3 × 3
 software preview.
 
+## Bill of materials
+
+### Electronics
+
+| Quantity | Component | Specification |
+| ---: | --- | --- |
+| 1 | Arduino Pro Micro USB-C | ATmega32U4, 5 V / 16 MHz |
+| 9 | Mechanical switches | Cherry MX or compatible |
+| 2 | N-channel MOSFETs | IRLB8721, TO-220 |
+| 1 | Red connection LED | 5 mm |
+| 1 | White COB LED strip | 5 V, approximately 5 cm |
+| 4 | Resistors | 100 Ω: two MOSFET gate resistors and two in series for the red LED |
+| 1 | USB-C cable | Must support both data and power |
+| As required | Hook-up wire and heat-shrink tubing | For wiring and insulation |
+
+The white 5 V COB strip must include its own current limiting. The red LED uses
+two 100 Ω resistors in series, for a total of 200 Ω. The nine switches do not
+need external resistors because the firmware enables the Pro Micro's internal
+pull-ups. No MOSFET gate pull-down resistor is used in the validated HCD-BASE
+assembly.
+
+### Printed parts and hardware
+
+| Quantity | Part | Use |
+| ---: | --- | --- |
+| 1 | HCD-BASE enclosure set | Main printed enclosure |
+| 1 | Front white-light cover | Print in **white or transparent/translucent filament** |
+| 9 | MX keycaps | Cherry MX compatible |
+| 4 | M2 × 10 screws | Feet |
+| 4 | M3 × 8 screws | Arduino and MOSFET supports |
+| 2 | M2 × 4 screws | Front white-light cover |
+| 3 | M2 × 10 screws | Cherry MX switch support |
+
+This requires **7 M2 × 10 screws in total**. The red connection LED is installed
+without a separate diffuser or cover.
+
+## Pin mapping
+
 All switch inputs use the ATmega32U4 internal pull-ups. Connect each switch
 between its assigned pin and GND.
 
