@@ -6,7 +6,7 @@ namespace HcdConfig {
 
 constexpr char PRODUCT_NAME[] = "HackMan3D Control Deck";
 constexpr char MODEL_IDENTIFIER[] = "HCD-BASE";
-constexpr char FIRMWARE_VERSION[] = "1.7.0";
+constexpr char FIRMWARE_VERSION[] = "1.7.1";
 constexpr unsigned long SERIAL_BAUD_RATE = 115200;
 
 constexpr uint8_t KEY_COUNT = 9;
@@ -19,6 +19,7 @@ constexpr uint8_t KEY_PINS[KEY_COUNT] = {4, 3, 2, 7, 6, 5, 10, 9, 8};
 constexpr uint8_t CONNECTION_MOSFET_GATE_PIN = 21;  // A3
 constexpr uint8_t FEEDBACK_MOSFET_GATE_PIN = 1;     // TX
 constexpr bool MOSFET_GATE_ACTIVE_HIGH = true;
+constexpr unsigned long LED_PWM_PERIOD_US = 2000;
 
 constexpr unsigned long DEBOUNCE_MS = 20;
 constexpr unsigned long HEARTBEAT_TIMEOUT_MS = 3000;

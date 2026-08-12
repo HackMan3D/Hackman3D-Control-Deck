@@ -60,7 +60,7 @@ def test_bundled_hcd_base_firmware_is_valid_intel_hex() -> None:
 
     content = firmware.read_text(encoding="ascii")
     assert BUNDLED_MODEL_IDENTIFIER == "HCD-BASE"
-    assert BUNDLED_FIRMWARE_VERSION == "1.7.0"
+    assert BUNDLED_FIRMWARE_VERSION == "1.7.1"
     assert content.startswith(":")
     assert ":00000001FF" in content
 
@@ -69,7 +69,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
     _, _, firmware = FirmwareUpdater.resource_paths("HCD-PLUS")
 
     content = firmware.read_text(encoding="ascii")
-    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.1.1"
+    assert FIRMWARE_TARGETS["HCD-PLUS"].version == "1.1.2"
     assert content.startswith(":")
     assert ":00000001FF" in content
 
@@ -77,7 +77,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
 def test_bundled_hcd_pro_firmware_is_a_complete_8mb_esp32_image() -> None:
     executable, firmware = FirmwareUpdater.esp32_resource_paths("HCD-PRO")
 
-    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.3.3"
+    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.3.6"
     assert executable.is_file()
     assert firmware.read_bytes()[:1] == b"\xE9"
     assert firmware.stat().st_size == 8 * 1024 * 1024
@@ -181,7 +181,8 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert not firmware_update_available(BUNDLED_FIRMWARE_VERSION)
     assert not firmware_update_available("1.10.0")
     assert firmware_update_available("0.9.0", "HCD-PLUS")
-    assert not firmware_update_available("1.1.1", "HCD-PLUS")
+    assert firmware_update_available("1.1.1", "HCD-PLUS")
+    assert not firmware_update_available("1.1.2", "HCD-PLUS")
     assert firmware_update_available("1.0.0", "HCD-PRO")
     assert firmware_update_available("1.0.1", "HCD-PRO")
     assert firmware_update_available("1.2.0", "HCD-PRO")
@@ -198,7 +199,10 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert firmware_update_available("1.3.0", "HCD-PRO")
     assert firmware_update_available("1.3.1", "HCD-PRO")
     assert firmware_update_available("1.3.2", "HCD-PRO")
-    assert not firmware_update_available("1.3.3", "HCD-PRO")
+    assert firmware_update_available("1.3.3", "HCD-PRO")
+    assert firmware_update_available("1.3.4", "HCD-PRO")
+    assert firmware_update_available("1.3.5", "HCD-PRO")
+    assert not firmware_update_available("1.3.6", "HCD-PRO")
 
 
 def test_avrdude_arguments_target_caterina_atmega32u4() -> None:

@@ -339,3 +339,5 @@ See the [HCD-BASE wiring notes](docs/WIRING.md) or the
 [HCD Plus wiring notes](docs/HCD_PLUS_WIRING.md) before connecting hardware.
 HCD Pro setup and USB requirements are documented in
 [docs/HCD_PRO.md](docs/HCD_PRO.md).
+Its optional physical feedback light is driven through a MOSFET from the
+accessible `AD / IO6` signal on the rear Sensor AD connector.

@@ -25,16 +25,32 @@ a 115200-baud USB serial connection. Fields are separated with `|`.
 | Message | Purpose |
 | --- | --- |
 | `HCD_PONG` | Heartbeat acknowledgement |
-| `HCD_READY|1.7.0` | Device boot announcement |
-| `HCD_INFO|HackMan3D Control Deck|HCD-BASE|1.7.0|9` | HCD-BASE information |
-| `HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.1.1|12|2` | HCD Plus information |
-| `HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.3.3|28|0|...` | HCD Pro information and icon signatures |
+| `HCD_READY|1.7.1` | Device boot announcement |
+| `HCD_INFO|HackMan3D Control Deck|HCD-BASE|1.7.1|9` | HCD-BASE information |
+| `HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.1.2|12|2` | HCD Plus information |
+| `HCD_INFO|HackMan3D Control Deck Pro|HCD-PRO|1.3.6|28|0|...` | HCD Pro information and icon signatures |
 | `HCD_KEY|1|DOWN` | Key or Pro touch-key pressed |
 | `HCD_KEY|1|UP` | Key or Pro touch-key released |
 | `HCD_POT_BUTTON|1|DOWN` | HCD Plus encoder switch pressed |
 | `HCD_POT_BUTTON|1|UP` | HCD Plus encoder switch released |
 | `HCD_ENCODER|1|LEFT` | HCD Plus encoder rotated counter-clockwise |
 | `HCD_ENCODER|1|RIGHT` | HCD Plus encoder rotated clockwise |
+
+Desktop lighting commands:
+
+| Command | Purpose |
+| --- | --- |
+| `HCD_SET_CONNECTION_BRIGHTNESS|0..100` | Base/Plus red heartbeat LED PWM level |
+| `HCD_SET_FEEDBACK_BRIGHTNESS|0..100` | White action bar PWM level on all models |
+| `HCD_SET_LED_HOLD|0..2000` | Minimum action-bar duration in milliseconds |
+
+The brightness commands change intensity only. They do not change when a light
+is allowed to turn on.
+
+HCD Pro firmware 1.3.6 replies with
+`HCD_PRO_ICON_ACK|key|crc32` after a complete icon transfer, or
+`HCD_PRO_ICON_NACK|key` after an incomplete transfer. The desktop retries icons
+that are not acknowledged.
 
 The firmware considers the desktop app connected after a valid `HCD_PING`. If
 no heartbeat arrives for roughly three seconds, the connection indicator and

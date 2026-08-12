@@ -42,6 +42,37 @@ A red indicator in the upper-right corner turns on only while the desktop
 heartbeat is active. Touch events are ignored when the app is not connected,
 matching the safety behavior of the other HCD models.
 
+## Optional white feedback light
+
+Firmware 1.3.4 adds an action-feedback output on **GPIO6**, available on the
+three-pin **Sensor AD** connector as `AD / IO6`. The light is switched on while
+at least one touchscreen key is held, but only while the desktop application is
+connected. It is switched off at boot, after the final key release and whenever
+the heartbeat is lost.
+
+GPIO6 is a 3.3 V control signal only. It must drive the gate of an external
+MOSFET and must not power the LED strip directly. For the current short white
+strip, the Sensor AD 3.3 V supply can be used when its current remains within
+the board regulator's capacity:
+
+```text
+Sensor AD: AD / IO6 -- 100 ohm -- MOSFET gate
+ESP32 GND ---------------------- MOSFET source
+LED negative ------------------ MOSFET drain
+Sensor AD: 3.3 V -------------- LED positive
+```
+
+The ESP32, MOSFET and LED supply grounds must be common. Never connect the LED
+load directly to GPIO6.
+
+Firmware 1.3.5 adds PWM brightness control. The percentage selected in the HCD
+Pro Deck settings applies only while a touch key is held; the strip remains
+fully off at all other times.
+
+Firmware 1.3.6 confirms every received icon to the desktop application. Missing
+or incomplete transfers are retried automatically instead of being marked as
+synchronized.
+
 ## Display synchronization
 
 The desktop app sends a protected snapshot over USB. Transfers are paced to

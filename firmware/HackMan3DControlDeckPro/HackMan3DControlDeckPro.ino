@@ -28,8 +28,8 @@ void setup() {
   }
   HcdFlashCache::applyPreloadedIcons();
   HcdProtocol::begin();
-  Serial.println(F("HCD_READY|1.3.3"));
-  Serial0.println(F("HCD_READY|1.3.3"));
+  Serial.println(F("HCD_READY|1.3.6"));
+  Serial0.println(F("HCD_READY|1.3.6"));
 }
 
 void loop() {

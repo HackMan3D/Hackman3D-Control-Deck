@@ -11,7 +11,7 @@
   <rect x="38" y="34" width="1724" height="1032" rx="24" class="panel"/>
   <rect x="38" y="34" width="1724" height="12" rx="6" fill="#ff5b35"/>
   <text x="78" y="102" class="title">HackMan3D Control Deck Plus — Wiring diagram</text>
-  <text x="78" y="140" class="sub">Pro Micro 5 V / 16 MHz · MCP23017 · 12 keys · 2 powered rotary encoder modules · firmware 1.1.1</text>
+  <text x="78" y="140" class="sub">Pro Micro 5 V / 16 MHz · MCP23017 · 12 keys · 2 powered rotary encoder modules · firmware 1.1.2</text>
 
   <!-- shared power rails -->
   <path d="M85 165H1715" class="wire vcc"/>
