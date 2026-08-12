@@ -4,6 +4,53 @@ from hackman_control_deck.device import HcdDeviceManager
 from hackman_control_deck.protocol import DeviceInfo
 
 
+def test_pro_feedback_brightness_is_clamped_and_sent_separately() -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    written: list[str] = []
+    manager._write_line = written.append  # type: ignore[method-assign]
+
+    manager.set_pro_feedback_brightness(42)
+    manager.set_pro_feedback_brightness(120)
+
+    assert written == [
+        "HCD_PRO_FEEDBACK_BRIGHTNESS|42",
+        "HCD_PRO_FEEDBACK_BRIGHTNESS|100",
+    ]
+
+
+def test_model_led_brightness_commands_are_clamped() -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    written: list[str] = []
+    manager._write_line = written.append  # type: ignore[method-assign]
+
+    manager.set_led_brightness(-5, 73)
+
+    assert written == [
+        "HCD_SET_CONNECTION_BRIGHTNESS|0",
+        "HCD_SET_FEEDBACK_BRIGHTNESS|73",
+    ]
+
+
+def test_pro_icon_is_confirmed_only_after_ack() -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    icon = bytes(8192)
+    signature = __import__("zlib").crc32(icon)
+
+    manager.set_pro_layout({"1": "One"}, {"1": icon})
+
+    assert manager._pro_icon_signatures.get("1") is None
+    assert "1" in manager._pro_icon_ack_pending
+    assert manager._accept_icon_acknowledgement(
+        f"HCD_PRO_ICON_ACK|1|{signature:08x}"
+    )
+    assert manager._pro_icon_signatures["1"] == signature
+    assert "1" not in manager._pro_icon_ack_pending
+    manager._pro_upload_timer.stop()
+
+
 def test_pro_layout_is_paced_and_not_duplicated_during_upload() -> None:
     manager = HcdDeviceManager()
     manager._connected = True

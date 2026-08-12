@@ -40,7 +40,7 @@ build_firmware() {
 build_pro_firmware() {
   local sketch_name="HackMan3DControlDeckPro"
   local model="HCD-PRO"
-  local version="1.3.3"
+  local version="1.3.6"
   local firmware_dir="$PROJECT_DIR/firmware/$sketch_name"
   local build_dir="$BUILD_ROOT/$model"
   local output_dir="$OUTPUT_ROOT/$model"
@@ -70,6 +70,6 @@ build_pro_firmware() {
   echo "Firmware ready: $packaged_bin"
 }
 
-build_firmware "HackMan3DControlDeck" "HCD-BASE" "1.7.0" "HackMan3D Control Deck"
-build_firmware "HackMan3DControlDeckPlus" "HCD-PLUS" "1.1.1" "HackMan3D Control Deck Plus"
+build_firmware "HackMan3DControlDeck" "HCD-BASE" "1.7.1" "HackMan3D Control Deck"
+build_firmware "HackMan3DControlDeckPlus" "HCD-PLUS" "1.1.2" "HackMan3D Control Deck Plus"
 build_pro_firmware

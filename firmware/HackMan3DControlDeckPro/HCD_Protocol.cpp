@@ -21,7 +21,7 @@ Preferences labelPreferences;
 unsigned long lastHeartbeatAt = 0;
 bool appConnected = false;
 uint8_t pressedKeyCount = 0;
-bool physicalLedsEnabled = false;
+uint8_t feedbackLedDuty = 255;
 std::unique_ptr<uint8_t[]> iconUpload;
 uint8_t iconUploadKey = 0;
 size_t iconUploadExpected = 0;
@@ -48,9 +48,9 @@ void dispatchKeyEvent(const PendingKeyEvent& event) {
   } else if (pressedKeyCount > 0) {
     --pressedKeyCount;
   }
-  if (physicalLedsEnabled) {
-    digitalWrite(HcdConfig::FEEDBACK_LED_PIN, pressedKeyCount > 0 ? HIGH : LOW);
-  }
+  ledcWrite(
+      HcdConfig::FEEDBACK_LED_GATE_PIN,
+      pressedKeyCount > 0 ? feedbackLedDuty : 0);
   HcdUsb::sendLine(
       "HCD_KEY|" + String(event.keyId) + (event.pressed ? "|DOWN" : "|UP"));
 }
@@ -151,14 +151,9 @@ void setAppConnected(bool connected) {
     return;
   }
   appConnected = connected;
-  if (physicalLedsEnabled) {
-    digitalWrite(HcdConfig::CONNECTION_LED_PIN, connected ? HIGH : LOW);
-  }
   if (!connected) {
     pressedKeyCount = 0;
-    if (physicalLedsEnabled) {
-      digitalWrite(HcdConfig::FEEDBACK_LED_PIN, LOW);
-    }
+    ledcWrite(HcdConfig::FEEDBACK_LED_GATE_PIN, 0);
     if (displaySyncActive) {
       displaySyncActive = false;
       HcdDisplay::finishDisplaySync();
@@ -261,8 +256,19 @@ void finishIconUpload(const String& line) {
   if (keyId == 0 || keyId != iconUploadKey) {
     return;
   }
-  if (iconUpload && iconUploadReceived == iconUploadExpected) {
+  const bool complete = iconUpload && iconUploadReceived == iconUploadExpected;
+  if (complete) {
     HcdDisplay::setKeyIcon(keyId, iconUpload.get(), iconUploadExpected);
+    char acknowledgement[48];
+    snprintf(
+        acknowledgement,
+        sizeof(acknowledgement),
+        "HCD_PRO_ICON_ACK|%u|%08lx",
+        keyId,
+        static_cast<unsigned long>(iconUploadSignature));
+    HcdUsb::sendLine(String(acknowledgement));
+  } else {
+    HcdUsb::sendLine("HCD_PRO_ICON_NACK|" + String(keyId));
   }
   iconUpload.reset();
   iconUploadKey = 0;
@@ -350,6 +356,16 @@ void handleCommand(const String& line, Print& reply) {
     updateAppearance(line);
   } else if (line.startsWith("HCD_PRO_COLORS|")) {
     updateColors(line);
+  } else if (
+      line.startsWith("HCD_PRO_FEEDBACK_BRIGHTNESS|") ||
+      line.startsWith("HCD_SET_FEEDBACK_BRIGHTNESS|")) {
+    const int separator = line.indexOf('|');
+    const uint8_t percentage = static_cast<uint8_t>(constrain(
+        line.substring(separator + 1).toInt(), 0, 100));
+    feedbackLedDuty = static_cast<uint8_t>(map(percentage, 0, 100, 0, 255));
+    ledcWrite(
+        HcdConfig::FEEDBACK_LED_GATE_PIN,
+        pressedKeyCount > 0 && appConnected ? feedbackLedDuty : 0);
   } else if (line.startsWith("HCD_PRO_SLIDER_STATE|")) {
     const int separator = line.indexOf('|', 21);
     const uint8_t sliderId = separator < 0
@@ -382,9 +398,13 @@ void begin() {
   labelPreferences.begin("hcd_labels", false);
   loadAppearance();
   HcdUsb::begin();
-  // GPIO 43/44 carry UART0 to the board's USB-C serial bridge. They must
-  // remain under Serial0 control; the Pro uses its on-screen indicators.
-  physicalLedsEnabled = false;
+  // GPIO 43/44 remain under Serial0 control for the USB-C serial bridge.
+  // The optional white feedback bar is switched separately through a MOSFET.
+  ledcAttach(
+      HcdConfig::FEEDBACK_LED_GATE_PIN,
+      HcdConfig::FEEDBACK_LED_PWM_FREQUENCY,
+      HcdConfig::FEEDBACK_LED_PWM_RESOLUTION);
+  ledcWrite(HcdConfig::FEEDBACK_LED_GATE_PIN, 0);
   HcdDisplay::setUsbStatus(false);
 }
 

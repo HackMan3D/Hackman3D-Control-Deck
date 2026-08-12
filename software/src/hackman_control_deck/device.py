@@ -61,6 +61,11 @@ class HcdDeviceManager(QObject):
         self._pro_color_state: tuple[str, str, str, str, str] | None = None
         self._pro_upload_queue: deque[str] = deque()
         self._pro_upload_warming = False
+        self._pro_icon_ack_pending: dict[str, tuple[int, tuple[str, ...], int]] = {}
+        self._pro_icon_ack_timer = QTimer(self)
+        self._pro_icon_ack_timer.setSingleShot(True)
+        self._pro_icon_ack_timer.setInterval(900)
+        self._pro_icon_ack_timer.timeout.connect(self._retry_unacknowledged_icons)
         self._pro_upload_timer = QTimer(self)
         # Keep enough space between packets for the ESP32 display task. Large
         # theme changes can otherwise starve the RGB panel while it redraws.
@@ -106,6 +111,24 @@ class HcdDeviceManager(QObject):
             f"HCD_PRO_SLIDER_STATE|{max(1, min(2, int(slider_id)))}|"
             f"{round(normalized * 1023 / 100)}"
         )
+
+    def set_pro_feedback_brightness(self, percentage: int) -> None:
+        if not self._connected:
+            return
+        normalized = max(0, min(100, int(percentage)))
+        self._write_line(f"HCD_PRO_FEEDBACK_BRIGHTNESS|{normalized}")
+
+    def set_led_brightness(
+        self,
+        connection_percentage: int,
+        feedback_percentage: int,
+    ) -> None:
+        if not self._connected:
+            return
+        connection = max(0, min(100, int(connection_percentage)))
+        feedback = max(0, min(100, int(feedback_percentage)))
+        self._write_line(f"HCD_SET_CONNECTION_BRIGHTNESS|{connection}")
+        self._write_line(f"HCD_SET_FEEDBACK_BRIGHTNESS|{feedback}")
 
     def set_pro_layout(
         self,
@@ -179,7 +202,14 @@ class HcdDeviceManager(QObject):
                 commands.extend(icon_commands)
                 if not first_icon_commands:
                     first_icon_commands = icon_commands
-            self._pro_icon_signatures[identifier] = signature
+            if icon:
+                self._pro_icon_ack_pending[identifier] = (
+                    int(signature or 0),
+                    tuple(icon_commands),
+                    0,
+                )
+            else:
+                self._pro_icon_signatures[identifier] = None
         if commands:
             # The first icon reaches the UART while the ESP32 is creating the
             # update overlay. Repeat it after the display is settled so a
@@ -201,6 +231,8 @@ class HcdDeviceManager(QObject):
             return
         if not self._pro_upload_queue:
             self._pro_upload_timer.stop()
+            if self._pro_icon_ack_pending:
+                self._pro_icon_ack_timer.start()
             return
         if self._pro_upload_warming:
             self._pro_upload_warming = False
@@ -216,6 +248,55 @@ class HcdDeviceManager(QObject):
             # first 8 KiB icon starts crossing the USB-UART bridge.
             self._pro_upload_warming = True
             self._pro_upload_timer.setInterval(450)
+
+    @Slot()
+    def _retry_unacknowledged_icons(self) -> None:
+        if not self._connected or self._pro_upload_queue:
+            return
+        retry_commands: deque[str] = deque(["HCD_PRO_SYNC_BEGIN"])
+        retried = False
+        for identifier, (signature, commands, attempts) in tuple(
+            self._pro_icon_ack_pending.items()
+        ):
+            if attempts >= 3:
+                self.status_changed.emit(
+                    f"Icon {identifier} was not confirmed by HCD Pro"
+                )
+                del self._pro_icon_ack_pending[identifier]
+                continue
+            retry_commands.extend(commands)
+            self._pro_icon_ack_pending[identifier] = (
+                signature,
+                commands,
+                attempts + 1,
+            )
+            retried = True
+        if not retried:
+            return
+        retry_commands.append("HCD_PRO_SYNC_END")
+        self._pro_upload_queue.extend(retry_commands)
+        self._pro_upload_timer.start()
+
+    def _accept_icon_acknowledgement(self, line: str) -> bool:
+        parts = line.split("|")
+        if len(parts) == 3 and parts[0] == "HCD_PRO_ICON_ACK":
+            identifier = parts[1]
+            try:
+                signature = int(parts[2], 16)
+            except ValueError:
+                return True
+            pending = self._pro_icon_ack_pending.get(identifier)
+            if pending is not None and pending[0] == signature:
+                self._pro_icon_signatures[identifier] = signature
+                del self._pro_icon_ack_pending[identifier]
+                if not self._pro_icon_ack_pending:
+                    self._pro_icon_ack_timer.stop()
+            return True
+        if len(parts) == 2 and parts[0] == "HCD_PRO_ICON_NACK":
+            if parts[1] in self._pro_icon_ack_pending:
+                self._pro_icon_ack_timer.start(50)
+            return True
+        return False
 
     @Slot()
     def _scan(self) -> None:
@@ -353,6 +434,8 @@ class HcdDeviceManager(QObject):
             raw_line, _, remainder = buffer.partition(b"\n")
             buffer[:] = remainder
             line = raw_line.rstrip(b"\r").decode("utf-8", errors="replace")
+            if self._accept_icon_acknowledgement(line):
+                continue
             message = parse_line(line)
             if message == "HCD_PONG":
                 if transport != self._transport:
@@ -417,9 +500,11 @@ class HcdDeviceManager(QObject):
         if self._serial.isOpen():
             self._serial.close()
         self._pro_upload_timer.stop()
+        self._pro_icon_ack_timer.stop()
         self._pro_upload_timer.setInterval(20)
         self._pro_upload_warming = False
         self._pro_upload_queue.clear()
+        self._pro_icon_ack_pending.clear()
         self._pro_icon_signatures.clear()
         self._pro_label_values.clear()
         self._pro_display_state = None

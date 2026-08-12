@@ -56,6 +56,32 @@ void handleLine(const char* line) {
     HcdLeds::setFeedbackHoldMs(duration);
     Serial.print(F("HCD_LED_HOLD|"));
     Serial.println(duration);
+    return;
+  }
+
+  constexpr char CONNECTION_BRIGHTNESS_PREFIX[] =
+      "HCD_SET_CONNECTION_BRIGHTNESS|";
+  if (strncmp(
+          line,
+          CONNECTION_BRIGHTNESS_PREFIX,
+          sizeof(CONNECTION_BRIGHTNESS_PREFIX) - 1) == 0) {
+    const uint8_t percentage = static_cast<uint8_t>(min(
+        strtoul(line + sizeof(CONNECTION_BRIGHTNESS_PREFIX) - 1, nullptr, 10),
+        100UL));
+    HcdLeds::setConnectionBrightness(percentage);
+    return;
+  }
+
+  constexpr char FEEDBACK_BRIGHTNESS_PREFIX[] =
+      "HCD_SET_FEEDBACK_BRIGHTNESS|";
+  if (strncmp(
+          line,
+          FEEDBACK_BRIGHTNESS_PREFIX,
+          sizeof(FEEDBACK_BRIGHTNESS_PREFIX) - 1) == 0) {
+    const uint8_t percentage = static_cast<uint8_t>(min(
+        strtoul(line + sizeof(FEEDBACK_BRIGHTNESS_PREFIX) - 1, nullptr, 10),
+        100UL));
+    HcdLeds::setFeedbackBrightness(percentage);
   }
 }
 

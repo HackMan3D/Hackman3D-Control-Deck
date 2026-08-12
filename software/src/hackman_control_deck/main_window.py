@@ -56,6 +56,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSlider,
     QSplitter,
     QSpinBox,
     QSizePolicy,
@@ -352,6 +353,40 @@ class MainWindow(QMainWindow):
         self._pro_second_fader = self._settings.value(
             "pro/secondFader", False, type=bool
         )
+        self._pro_feedback_brightness = max(
+            0,
+            min(
+                100,
+                self._settings.value("pro/feedbackBrightness", 100, type=int),
+            ),
+        )
+        self._led_brightness: dict[str, dict[str, int]] = {}
+        for model in ProfileStore.MODELS:
+            migrated_feedback = (
+                self._pro_feedback_brightness if model == "HCD-PRO" else 100
+            )
+            self._led_brightness[model] = {
+                "connection": max(
+                    0,
+                    min(
+                        100,
+                        self._settings.value(
+                            f"led/{model}/connectionBrightness", 100, type=int
+                        ),
+                    ),
+                ),
+                "feedback": max(
+                    0,
+                    min(
+                        100,
+                        self._settings.value(
+                            f"led/{model}/feedbackBrightness",
+                            migrated_feedback,
+                            type=int,
+                        ),
+                    ),
+                ),
+            }
         self._pending_slider_value = 50
         self._pending_microphone_value = 50
         self._slider_action_timer = QTimer(self)
@@ -2401,6 +2436,11 @@ $result | ConvertTo-Json -Compress
 
     def _open_deck_settings(self) -> None:
         is_pro = self._device_model_identifier == "HCD-PRO"
+        model = (
+            self._device_model_identifier
+            if self._device_model_identifier in self._led_brightness
+            else self._store.model_identifier
+        )
         dialog = QDialog(self)
         dialog.setWindowTitle(self._text("deck_settings_title"))
         dialog.setMinimumWidth(430)
@@ -2527,6 +2567,39 @@ $result | ConvertTo-Json -Compress
         form_layout.addWidget(second_fader)
 
         pro_widgets = form.findChildren(QWidget)
+        if not is_pro:
+            for widget in pro_widgets:
+                widget.setVisible(False)
+
+        def add_brightness_slider(label_key: str, initial: int) -> QSlider:
+            form_layout.addWidget(QLabel(self._text(label_key)))
+            row = QHBoxLayout()
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setRange(0, 100)
+            slider.setSingleStep(5)
+            slider.setPageStep(10)
+            slider.setValue(initial)
+            value_label = QLabel(f"{initial}%")
+            value_label.setMinimumWidth(44)
+            slider.valueChanged.connect(
+                lambda value: value_label.setText(f"{value}%")
+            )
+            row.addWidget(slider, 1)
+            row.addWidget(value_label)
+            form_layout.addLayout(row)
+            return slider
+
+        connection_brightness: QSlider | None = None
+        if model in {"HCD-BASE", "HCD-PLUS"}:
+            connection_brightness = add_brightness_slider(
+                "connection_led_brightness",
+                self._led_brightness[model]["connection"],
+            )
+        feedback_brightness = add_brightness_slider(
+            "feedback_led_brightness",
+            self._led_brightness[model]["feedback"],
+        )
+
         form_layout.addWidget(QLabel(self._text("minimum_led_duration")))
         feedback_hold = QSpinBox()
         feedback_hold.setRange(0, 2000)
@@ -2534,9 +2607,6 @@ $result | ConvertTo-Json -Compress
         feedback_hold.setSuffix(" ms")
         feedback_hold.setValue(self._feedback_hold_ms)
         form_layout.addWidget(feedback_hold)
-        if not is_pro:
-            for widget in pro_widgets:
-                widget.setVisible(False)
         layout.addWidget(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -2554,6 +2624,15 @@ $result | ConvertTo-Json -Compress
             self._set_pro_colors(selected_colors)
             self._set_pro_slider_mode_value(str(slider_mode.currentData() or "off"))
             self._set_pro_second_fader(second_fader.isChecked())
+        self._set_model_led_brightness(
+            model,
+            (
+                connection_brightness.value()
+                if connection_brightness is not None
+                else self._led_brightness[model]["connection"]
+            ),
+            feedback_brightness.value(),
+        )
         self._set_feedback_hold_ms(feedback_hold.value())
 
     def _set_pro_icon_size(self, index: int) -> None:
@@ -2585,6 +2664,40 @@ $result | ConvertTo-Json -Compress
         self._settings.setValue("pro/sliderMode", self._pro_slider_mode)
         self._schedule_pro_sync(force=True)
         QTimer.singleShot(0, self._sync_pro_slider_from_system)
+
+    def _set_pro_feedback_brightness(self, percentage: int) -> None:
+        self._pro_feedback_brightness = max(0, min(100, int(percentage)))
+        self._settings.setValue(
+            "pro/feedbackBrightness", self._pro_feedback_brightness
+        )
+        if self._connected and self._device_model_identifier == "HCD-PRO":
+            self._device.set_pro_feedback_brightness(
+                self._pro_feedback_brightness
+            )
+
+    def _set_model_led_brightness(
+        self,
+        model: str,
+        connection: int,
+        feedback: int,
+    ) -> None:
+        if model not in self._led_brightness:
+            return
+        connection = max(0, min(100, int(connection)))
+        feedback = max(0, min(100, int(feedback)))
+        self._led_brightness[model] = {
+            "connection": connection,
+            "feedback": feedback,
+        }
+        self._settings.setValue(
+            f"led/{model}/connectionBrightness", connection
+        )
+        self._settings.setValue(f"led/{model}/feedbackBrightness", feedback)
+        if model == "HCD-PRO":
+            self._pro_feedback_brightness = feedback
+            self._settings.setValue("pro/feedbackBrightness", feedback)
+        if self._connected and self._device_model_identifier == model:
+            self._device.set_led_brightness(connection, feedback)
 
     def _set_pro_second_fader(self, enabled: bool) -> None:
         self._pro_second_fader = bool(enabled)
@@ -2722,6 +2835,11 @@ $result | ConvertTo-Json -Compress
         self._device_info_data = info
         self._device_product = info.product
         self._device_model_identifier = info.model_identifier
+        brightness = self._led_brightness.get(info.model_identifier)
+        if brightness is not None:
+            self._device.set_led_brightness(
+                brightness["connection"], brightness["feedback"]
+            )
         self._profile.ensure_controls(info.key_count, info.potentiometer_count)
         self._store.save(self._profile)
         self._device_preview.set_model(

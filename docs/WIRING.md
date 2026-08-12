@@ -2,7 +2,7 @@
 
 ![HackMan3D Control Deck V1 wiring diagram](images/HCD_Wiring_Diagram_V1.svg)
 
-The diagram above is validated against `HCD_Config.h` from firmware 1.7.0.
+The diagram above is validated against `HCD_Config.h` from firmware 1.7.1.
 The original draft used sequential key numbers; the firmware deliberately
 reverses each physical row so the front-panel numbering matches the 3 × 3
 software preview.
