@@ -29,6 +29,8 @@ size_t iconUploadExpected = 0;
 size_t iconUploadReceived = 0;
 uint32_t iconUploadSignature = 0;
 unsigned long lastKeyEventSentAt = 0;
+bool displaySyncActive = false;
+unsigned long displaySyncStartedAt = 0;
 
 struct PendingKeyEvent {
   uint8_t keyId;
@@ -157,6 +159,10 @@ void setAppConnected(bool connected) {
     pressedKeyCount = 0;
     if (physicalLedsEnabled) {
       digitalWrite(HcdConfig::FEEDBACK_LED_PIN, LOW);
+    }
+    if (displaySyncActive) {
+      displaySyncActive = false;
+      HcdDisplay::finishDisplaySync();
     }
   }
   HcdDisplay::setAppConnected(connected);
@@ -322,8 +328,11 @@ void handleCommand(const String& line, Print& reply) {
     return;
   }
   if (line == "HCD_PRO_SYNC_BEGIN") {
+    displaySyncActive = true;
+    displaySyncStartedAt = millis();
     HcdDisplay::showDisplaySync();
   } else if (line == "HCD_PRO_SYNC_END") {
+    displaySyncActive = false;
     HcdDisplay::finishDisplaySync();
   } else if (line.startsWith("HCD_PRO_ICON_BEGIN|")) {
     beginIconUpload(line);
@@ -409,6 +418,12 @@ void update() {
   }
   if (appConnected && millis() - lastHeartbeatAt > HcdConfig::HEARTBEAT_TIMEOUT_MS) {
     setAppConnected(false);
+  }
+  if (
+      displaySyncActive &&
+      millis() - displaySyncStartedAt > HcdConfig::DISPLAY_SYNC_TIMEOUT_MS) {
+    displaySyncActive = false;
+    HcdDisplay::finishDisplaySync();
   }
 }
 

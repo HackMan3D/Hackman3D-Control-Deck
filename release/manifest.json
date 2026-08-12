@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.14",
+  "latest_version": "1.4.15",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "HCD Pro firmware 1.2.44 stabilizes display updates with 11 or more icons, while HCD Plus firmware 1.1.1 improves encoder handling.",
+  "release_notes": "Windows display synchronization now recovers automatically after an interrupted transfer. HCD Pro firmware 1.2.45 adds an autonomous safety timeout.",
   "roadmap": {
     "progress": 4.0
   }

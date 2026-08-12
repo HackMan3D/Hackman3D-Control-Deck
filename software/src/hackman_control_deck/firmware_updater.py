@@ -39,7 +39,7 @@ FIRMWARE_TARGETS = {
     "HCD-PRO": FirmwareTarget(
         "HCD-PRO",
         "HCD Pro",
-        "1.2.44",
+        "1.2.45",
         28,
         0,
         "esp32s3",
@@ -617,11 +617,55 @@ class FirmwareUpdater(QObject):
             return
         if self._attempt_count < 2 and self._is_retryable_failure(self._attempt_output):
             self.progress_changed.emit(25)
-            self.status_changed.emit("The bootloader did not answer. Retrying automatically…")
-            QTimer.singleShot(350, lambda: self._start_avrdude(self._bootloader_port))
+            self.status_changed.emit(
+                "The bootloader did not answer. Restarting it before retrying…"
+            )
+            QTimer.singleShot(350, self._prepare_avr_retry)
             return
         suffix = self._failure_summary(self._attempt_output, exit_code)
         self._fail(f"Firmware installation failed: {suffix}")
+
+    @Slot()
+    def _prepare_avr_retry(self) -> None:
+        """Retry against a live Caterina port, never a stale COM name."""
+        if not self._busy:
+            return
+        infos = list(QSerialPortInfo.availablePorts())
+        locations = {
+            (info.systemLocation() or info.portName()): info.portName()
+            for info in infos
+        }
+        if self._bootloader_port in locations:
+            self._start_avrdude(self._bootloader_port)
+            return
+
+        original = next(
+            (
+                info
+                for info in infos
+                if info.portName() == self._original_port
+                or (info.systemLocation() or info.portName()) == self._original_port
+            ),
+            None,
+        )
+        if original is None:
+            self._fail(
+                "The controller disappeared before the retry. Reconnect it, close other "
+                "serial applications, then try again."
+            )
+            return
+
+        self._baseline_ports = {info.portName() for info in infos}
+        self._original_port = original.portName()
+        self._saw_original_disappear = False
+        self._poll_ticks = 0
+        self._bootloader_port = ""
+        if not self._touch_1200_baud(self._original_port):
+            self._fail(
+                f"Could not reopen {self._original_port} to restart the bootloader."
+            )
+            return
+        self._poll_timer.start()
 
     @staticmethod
     def _flash_was_verified(output: str) -> bool:
