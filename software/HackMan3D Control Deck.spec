@@ -55,8 +55,8 @@ app = BUNDLE(
     icon='src/hackman_control_deck/assets/hcd_app_icon.icns',
     bundle_identifier='com.hackman3d.control-deck',
     info_plist={
-        'CFBundleShortVersionString': '1.5.4',
-        'CFBundleVersion': '1.5.4',
+        'CFBundleShortVersionString': '1.5.5',
+        'CFBundleVersion': '1.5.5',
         'LSMinimumSystemVersion': '12.0',
     },
 )
