@@ -1,6 +1,6 @@
 # HackMan3D Control Deck
 
-![Version](https://img.shields.io/badge/Version-1.5.4-0A84FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.5.5-0A84FF?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows-0A84FF?style=flat-square)
 ![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
@@ -13,13 +13,13 @@ HCD-BASE and HCD Plus use an Arduino Pro Micro; HCD Pro uses an ESP32-S3
 touchscreen. This repository contains the shared Windows/macOS configuration
 app, the branded interface and the firmware for all three models.
 
-## Download the app — version 1.5.4
+## Download the app — version 1.5.5
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-macOS-1.5.4.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe)
 
 ## Quick start — recommended
 
@@ -30,9 +30,9 @@ working HackMan3D Control Deck.
    [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
    [wiring notes](docs/WIRING.md).
 2. Download and install the HCD application for
-   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-macOS-1.5.4.dmg)
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
    or
-   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe).
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe).
 3. Connect the compatible Arduino Pro Micro to the computer by USB.
 4. Open **Firmware** in the application, select **HCD-BASE** and click
    **Install firmware**.
@@ -314,7 +314,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 
