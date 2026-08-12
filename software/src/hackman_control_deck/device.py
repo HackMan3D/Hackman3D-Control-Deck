@@ -76,6 +76,7 @@ class HcdDeviceManager(QObject):
         self._connected = False
         self._last_pong = 0.0
         self._heartbeat_active = False
+        self._device_info_received = False
         self._transport = ""
         self._network_endpoint = ""
         self._network_candidate = ""
@@ -306,6 +307,11 @@ class HcdDeviceManager(QObject):
             QTimer.singleShot(100, self._scan)
             return
         self._write_line("HCD_PING")
+        # A lit connection LED proves PING/PONG works, but the first INFO reply
+        # can still be lost while Windows finishes enumerating the CDC device.
+        # Keep requesting identity until it has actually been parsed.
+        if self._connected and not self._device_info_received:
+            self._write_line("HCD_GET_INFO")
 
     @Slot()
     def _read_available(self) -> None:
@@ -345,6 +351,7 @@ class HcdDeviceManager(QObject):
             elif isinstance(message, DeviceEvent):
                 self.event_received.emit(message)
             elif isinstance(message, DeviceInfo):
+                self._device_info_received = True
                 if message.model_identifier == "HCD-PRO" and message.icon_signatures:
                     self._pro_icon_signatures = {
                         str(index): signature or None
@@ -487,6 +494,7 @@ class HcdDeviceManager(QObject):
         self._probe_timer.stop()
         was_connected = self._connected
         self._connected = False
+        self._device_info_received = False
         self._transport = ""
         if self._heartbeat_active:
             self._heartbeat_active = False

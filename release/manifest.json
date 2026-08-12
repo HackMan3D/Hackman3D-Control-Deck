@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.15",
+  "latest_version": "1.4.16",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Windows display synchronization now recovers automatically after an interrupted transfer. HCD Pro firmware 1.2.45 adds an autonomous safety timeout.",
+  "release_notes": "HCD BASE identification now recovers automatically on Windows, the firmware window updates live, and bootloader selection is more reliable.",
   "roadmap": {
     "progress": 4.0
   }

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from hackman_control_deck.device import HcdDeviceManager
+from hackman_control_deck.protocol import DeviceInfo
 
 
 def test_pro_layout_is_paced_and_not_duplicated_during_upload() -> None:
     manager = HcdDeviceManager()
     manager._connected = True
+    manager._running = True
     manager._transport = "wifi"
     written: list[str] = []
     manager._write_line = written.append  # type: ignore[method-assign]
@@ -81,3 +83,29 @@ def test_pro_upload_waits_for_network_backpressure(monkeypatch) -> None:
 
     assert written == []
     assert list(manager._pro_upload_queue) == ["HCD_PRO_SYNC_END"]
+
+
+def test_identity_is_requested_until_info_reply(monkeypatch) -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    manager._running = True
+    manager._transport = "serial"
+    manager._last_pong = __import__("time").monotonic()
+    written: list[str] = []
+    received: list[DeviceInfo] = []
+    monkeypatch.setattr(manager, "_transport_open", lambda: True)
+    monkeypatch.setattr(manager, "_write_line", written.append)
+    manager.info_received.connect(received.append)
+
+    manager._heartbeat()
+    assert written == ["HCD_PING", "HCD_GET_INFO"]
+
+    manager._consume_data(
+        b"HCD_INFO|HackMan3D Control Deck|HCD-BASE|1.7.0|9\n",
+        manager._buffer,
+        "serial",
+    )
+    manager._heartbeat()
+
+    assert received and received[0].model_identifier == "HCD-BASE"
+    assert written[-1] == "HCD_PING"

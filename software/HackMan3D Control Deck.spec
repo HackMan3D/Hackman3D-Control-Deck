@@ -56,8 +56,8 @@ app = BUNDLE(
     icon='src/hackman_control_deck/assets/hcd_app_icon.icns',
     bundle_identifier='com.hackman3d.control-deck',
     info_plist={
-        'CFBundleShortVersionString': '1.4.15',
-        'CFBundleVersion': '1.4.15',
+        'CFBundleShortVersionString': '1.4.16',
+        'CFBundleVersion': '1.4.16',
         'LSMinimumSystemVersion': '12.0',
         'NSLocalNetworkUsageDescription': 'HackMan3D Control Deck uses the local network to discover and control HCD Pro devices.',
         'NSLocationWhenInUseUsageDescription': 'HackMan3D Control Deck uses location permission only to list nearby Wi-Fi network names during HCD Pro setup.',
