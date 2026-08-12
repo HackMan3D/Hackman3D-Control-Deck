@@ -96,6 +96,28 @@ actions, test the command and save it to the current HCD-BASE profile.
 The complete electronics, printed-parts and screw list is available in the
 [HCD-BASE bill of materials](docs/WIRING.md#bill-of-materials).
 
+### Estimated HCD-BASE component cost
+
+When every part is priced only for the quantity actually used, and economical
+MX-compatible switches are selected, the electronics and hardware for one
+HCD-BASE cost approximately **€15**:
+
+| Component | Estimated cost |
+| --- | ---: |
+| Pro Micro USB-C | €5.00 |
+| 9 economical MX-compatible switches | €3.60 |
+| 2 IRLB8721 MOSFETs | €1.20 |
+| Red LED | €0.10 |
+| 5 cm white COB strip | €0.30 |
+| 4 resistors | €0.10 |
+| Complete screw set | €1.20 |
+| Wire and heat-shrink tubing | €0.50 |
+| USB-C data cable | €2.50 |
+| **Estimated total** | **approximately €15** |
+
+This estimate excludes the 3D-printed parts, filament, tools, shipping and
+spare components left over from multipacks.
+
 The connection LED is controlled by the app heartbeat. It turns off about three
 seconds after the app stops responding. The feedback LED remains on while one or
 more of the nine MX keys is held, but only while the desktop app is connected.
@@ -157,6 +179,8 @@ after prototype testing and community feedback.
 
 ### HCD Plus
 
+![HCD Plus development preview](docs/images/HCD_PLUS_Product_Render.png)
+
 The Plus edition expands the physical controls while keeping the same software
 and the same two status lights:
 
@@ -168,6 +192,8 @@ and the same two status lights:
 - configuration and integrated firmware installation from the HCD application.
 
 ### HCD Pro
+
+![HCD Pro development preview](docs/images/HCD_PRO_Product_Render.png)
 
 The Pro edition focuses on direct visual identification and a more compact,
 interactive surface:
