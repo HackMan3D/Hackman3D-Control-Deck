@@ -123,4 +123,28 @@ def test_identity_is_requested_until_info_reply(monkeypatch) -> None:
     manager._heartbeat()
 
     assert received and received[0].model_identifier == "HCD-BASE"
-    assert written[-1] == "HCD_PING"
+    assert written[-2:] == ["HCD_PING", "HCD_GET_INFO"]
+
+
+def test_same_com_port_accepts_a_different_deck_identity() -> None:
+    manager = HcdDeviceManager()
+    received: list[DeviceInfo] = []
+    manager.info_received.connect(received.append)
+
+    manager._consume_data(
+        b"HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.1.1|12|2\n",
+        manager._buffer,
+        "serial",
+    )
+    manager._consume_data(
+        b"HCD_INFO|HackMan3D Control Deck Plus|HCD-PLUS|1.1.1|12|2\n",
+        manager._buffer,
+        "serial",
+    )
+    manager._consume_data(
+        b"HCD_INFO|HackMan3D Control Deck|HCD-BASE|1.7.0|9\n",
+        manager._buffer,
+        "serial",
+    )
+
+    assert [info.model_identifier for info in received] == ["HCD-PLUS", "HCD-BASE"]
