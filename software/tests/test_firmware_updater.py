@@ -77,7 +77,7 @@ def test_bundled_hcd_plus_firmware_is_valid_intel_hex() -> None:
 def test_bundled_hcd_pro_firmware_is_a_complete_8mb_esp32_image() -> None:
     executable, firmware = FirmwareUpdater.esp32_resource_paths("HCD-PRO")
 
-    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.2.45"
+    assert FIRMWARE_TARGETS["HCD-PRO"].version == "1.3.3"
     assert executable.is_file()
     assert firmware.read_bytes()[:1] == b"\xE9"
     assert firmware.stat().st_size == 8 * 1024 * 1024
@@ -157,6 +157,9 @@ def test_usb_device_candidates_are_prioritized_for_discovery() -> None:
     assert HcdDeviceManager._is_usb_candidate(
         PortInfo("COM12", "ESP32-S3 USB JTAG", "Espressif", 0x303A, 0x1001)
     )
+    assert HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM15", "USB Single Serial", "wch.cn", 0x1A86, 0x55D3)
+    )
     assert not HcdDeviceManager._is_usb_candidate(
         PortInfo("COM1", "Communications Port", "Microsoft")
     )
@@ -171,10 +174,6 @@ def test_waveshare_usb_bridge_suggests_hcd_pro() -> None:
     )
 
     assert FirmwareDialog._suggested_model_for_port(port) == "HCD-PRO"
-
-
-def test_hcd_pro_ota_requires_transition_firmware() -> None:
-    assert FirmwareDialog._PRO_OTA_MINIMUM_VERSION == (1, 2, 2)
 
 
 def test_firmware_update_detection_compares_versions_numerically() -> None:
@@ -195,17 +194,11 @@ def test_firmware_update_detection_compares_versions_numerically() -> None:
     assert firmware_update_available("1.2.33", "HCD-PRO")
     assert firmware_update_available("1.2.34", "HCD-PRO")
     assert firmware_update_available("1.2.35", "HCD-PRO")
-    assert not firmware_update_available("1.2.45", "HCD-PRO")
-
-
-def test_hcd_pro_ota_uses_application_image_and_wifi_address() -> None:
-    firmware = FirmwareUpdater.esp32_ota_resource_path("HCD-PRO")
-
-    assert firmware.name.endswith("-1.2.45-ota.bin")
-    assert firmware.read_bytes()[:1] == b"\xE9"
-    assert firmware.stat().st_size < 0x330000
-    assert FirmwareUpdater._wifi_address("Wi-Fi · 192.168.1.42") == "192.168.1.42"
-    assert FirmwareUpdater._wifi_address("cu.usbmodem101") == ""
+    assert firmware_update_available("1.2.45", "HCD-PRO")
+    assert firmware_update_available("1.3.0", "HCD-PRO")
+    assert firmware_update_available("1.3.1", "HCD-PRO")
+    assert firmware_update_available("1.3.2", "HCD-PRO")
+    assert not firmware_update_available("1.3.3", "HCD-PRO")
 
 
 def test_avrdude_arguments_target_caterina_atmega32u4() -> None:

@@ -7,7 +7,6 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from hackman_control_deck.constants import APP_NAME, APP_VERSION, ASSET_DIR, ORGANIZATION_NAME
-from hackman_control_deck.macos_local_network import MacLocalNetworkPermission
 from hackman_control_deck.main_window import MainWindow
 from hackman_control_deck.styles import APP_STYLE
 
@@ -41,7 +40,6 @@ def main() -> int:
     app.setStyleSheet(APP_STYLE)
     icon_name = "hcd_app_icon_rounded.png" if sys.platform == "darwin" else "hcd_logo.png"
     app.setWindowIcon(QIcon(str(ASSET_DIR / icon_name)))
-    local_network_permission = MacLocalNetworkPermission(app)
     window = MainWindow()
     app.applicationStateChanged.connect(window.application_state_changed)
     start_minimized = QSettings().value("macos/startMinimized", False, type=bool)
@@ -50,8 +48,6 @@ def main() -> int:
     else:
         window.show()
         QTimer.singleShot(350, window.show_usage_reminder)
-    QTimer.singleShot(800, local_network_permission.request)
-    app.aboutToQuit.connect(local_network_permission.stop)
     return app.exec()
 
 
