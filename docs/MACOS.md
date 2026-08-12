@@ -4,8 +4,7 @@
 
 - macOS 12 Monterey or newer
 - Python 3.11 or newer for building
-- USB connection for the initial firmware installation
-- Local Wi-Fi access for HCD Pro
+- A data-capable USB connection for every HCD model
 
 ## Build the `.app`
 
@@ -84,9 +83,8 @@ Serial device discovery does not normally require a separate permission. If
 macOS blocks the first launch because the app is locally built, Control-click
 the app, choose **Open**, then confirm once.
 
-The first HCD Pro discovery also displays the standard macOS **Local Network**
-permission prompt. Allow it so the app can find the display over Wi-Fi. This can
-later be changed in **System Settings → Privacy & Security → Local Network**.
+HCD Pro communicates entirely over USB. It does not request macOS Local Network
+permission and does not require Wi-Fi credentials.
 
 Building the application requires the Apple command-line tools license to be
 accepted once. If `lipo` or `install_name_tool` reports a license error, run
@@ -104,7 +102,7 @@ When the Windows installer has already created the release tag, first update
 the local checkout and confirm that `APP_VERSION`, `pyproject.toml`, the
 PyInstaller bundle metadata and `build_dmg.sh` all show the same version.
 
-For version 1.4.17:
+For version 1.5.4:
 
 ```bash
 git switch main
@@ -112,8 +110,8 @@ git pull --ff-only origin main
 cd software
 ./build_macos.sh
 ./build_dmg.sh
-gh release upload v1.4.17 \
-  "dist/HackMan3D-Control-Deck-macOS-1.4.17.dmg" \
+gh release upload v1.5.4 \
+  "dist/HackMan3D-Control-Deck-macOS-1.5.4.dmg" \
   --repo HackMan3D/Hackman3D-Control-Deck --clobber
 ```
 
