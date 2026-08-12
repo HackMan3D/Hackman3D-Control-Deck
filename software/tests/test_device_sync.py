@@ -54,3 +54,30 @@ def test_pro_style_only_sync_is_wrapped_and_refreshed_once() -> None:
     assert manager._pro_upload_queue[-1] == "HCD_PRO_SYNC_END"
     assert "HCD_PRO_CACHE_COMMIT" not in manager._pro_upload_queue
     manager._pro_upload_timer.stop()
+
+
+def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
+    manager = HcdDeviceManager()
+    attempts: list[str] = []
+    monkeypatch.setattr(manager, "_send_discovery", lambda: attempts.append("discovery"))
+
+    manager.start()
+    manager.stop()
+    manager._scan()
+
+    assert attempts == ["discovery"]
+
+
+def test_pro_upload_waits_for_network_backpressure(monkeypatch) -> None:
+    manager = HcdDeviceManager()
+    manager._connected = True
+    manager._transport = "wifi"
+    manager._pro_upload_queue.append("HCD_PRO_SYNC_END")
+    written: list[str] = []
+    monkeypatch.setattr(manager, "_write_line", written.append)
+    monkeypatch.setattr(manager._tcp, "bytesToWrite", lambda: 20_000)
+
+    manager._send_next_pro_upload()
+
+    assert written == []
+    assert list(manager._pro_upload_queue) == ["HCD_PRO_SYNC_END"]

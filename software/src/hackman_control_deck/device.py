@@ -79,6 +79,7 @@ class HcdDeviceManager(QObject):
         self._transport = ""
         self._network_endpoint = ""
         self._network_candidate = ""
+        self._running = False
         self._mdns_lookup_active = False
         self._last_mdns_lookup = 0.0
         self._pro_icon_signatures: dict[str, int | None] = {}
@@ -107,13 +108,18 @@ class HcdDeviceManager(QObject):
         return self._serial.portName() if self._serial.isOpen() else ""
 
     def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
         self._scan_timer.start()
         self._heartbeat_timer.start()
         self._scan()
 
     def stop(self) -> None:
+        self._running = False
         self._scan_timer.stop()
         self._heartbeat_timer.stop()
+        self._probe_timer.stop()
         self._close_connection()
 
     def set_feedback_hold_ms(self, duration_ms: int) -> None:
@@ -221,10 +227,17 @@ class HcdDeviceManager(QObject):
         if not self._pro_upload_queue:
             self._pro_upload_timer.stop()
             return
+        # Do not let a slow ESP32 or Windows network stack accumulate an
+        # unbounded write backlog. Heartbeats and the final SYNC_END command
+        # must remain responsive during large icon transfers.
+        if self._tcp.bytesToWrite() > 16_384:
+            return
         self._write_line(self._pro_upload_queue.popleft())
 
     @Slot()
     def _scan(self) -> None:
+        if not self._running:
+            return
         self._send_discovery()
         self._start_mdns_lookup()
         if self._connected or self._serial.isOpen() or self._tcp.state() != QTcpSocket.UnconnectedState:
@@ -272,6 +285,8 @@ class HcdDeviceManager(QObject):
 
     @Slot()
     def _probe_timed_out(self) -> None:
+        if not self._running:
+            return
         if self._connected:
             return
         self._close_connection()
@@ -279,6 +294,8 @@ class HcdDeviceManager(QObject):
 
     @Slot()
     def _heartbeat(self) -> None:
+        if not self._running:
+            return
         if not self._transport_open():
             return
 
@@ -318,6 +335,10 @@ class HcdDeviceManager(QObject):
                     endpoint = self.port_name
                     self.connection_changed.emit(True, endpoint)
                     self.status_changed.emit(f"Connected on {endpoint}")
+                    # Recover a Pro whose previous Windows synchronization was
+                    # interrupted after showing the display-update overlay.
+                    # Other HCD models safely ignore this command.
+                    self._write_line("HCD_PRO_SYNC_END")
                     self._write_line("HCD_GET_INFO")
             elif message == "HCD_READY":
                 self._write_line("HCD_PING")
@@ -388,7 +409,11 @@ class HcdDeviceManager(QObject):
     @Slot(QHostInfo)
     def _mdns_resolved(self, host: QHostInfo) -> None:
         self._mdns_lookup_active = False
-        if self._connected or self._tcp.state() != QTcpSocket.UnconnectedState:
+        if (
+            not self._running
+            or self._connected
+            or self._tcp.state() != QTcpSocket.UnconnectedState
+        ):
             return
         for address in host.addresses():
             if (
@@ -402,6 +427,8 @@ class HcdDeviceManager(QObject):
     def _read_discovery_datagrams(self) -> None:
         while self._udp.hasPendingDatagrams():
             datagram = self._udp.receiveDatagram()
+            if not self._running:
+                continue
             line = bytes(datagram.data()).decode("utf-8", errors="replace").strip()
             parts = line.split("|")
             if len(parts) != 7 or parts[0] != "HCD_HERE" or parts[2] != "HCD-PRO":
@@ -416,7 +443,7 @@ class HcdDeviceManager(QObject):
             self._try_network(address, tcp_port)
 
     def _try_network(self, address: str, port: int) -> None:
-        if self._tcp.state() != QTcpSocket.UnconnectedState:
+        if not self._running or self._tcp.state() != QTcpSocket.UnconnectedState:
             return
         if self._serial.isOpen() and not self._connected:
             self._serial.close()
@@ -429,6 +456,9 @@ class HcdDeviceManager(QObject):
 
     @Slot()
     def _network_connected(self) -> None:
+        if not self._running:
+            self._tcp.abort()
+            return
         self._network_buffer.clear()
         self._write_line("HCD_PING")
         self._probe_timer.start()
@@ -437,7 +467,8 @@ class HcdDeviceManager(QObject):
     def _network_disconnected(self) -> None:
         if self._transport == "wifi":
             self._close_connection()
-            QTimer.singleShot(100, self._scan)
+            if self._running:
+                QTimer.singleShot(100, self._scan)
 
     @Slot(QAbstractSocket.SocketError)
     def _network_error(self, error: QAbstractSocket.SocketError) -> None:

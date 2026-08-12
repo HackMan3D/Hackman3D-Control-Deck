@@ -248,6 +248,41 @@ class _FaviconTask(QRunnable):
         )
 
 
+class _SystemLevelSignals(QObject):
+    finished = Signal(str, object)
+
+
+class _SystemLevelTask(QRunnable):
+    """Read a host level without blocking Qt's interface thread."""
+
+    def __init__(self, mode: str) -> None:
+        super().__init__()
+        self.mode = mode
+        self.signals = _SystemLevelSignals()
+
+    def run(self) -> None:
+        com_initialized = False
+        if sys.platform == "win32":
+            try:
+                import comtypes
+
+                comtypes.CoInitialize()
+                com_initialized = True
+            except (ImportError, OSError):
+                pass
+        try:
+            value = ActionRunner().continuous_value(self.mode)
+            self.signals.finished.emit(self.mode, value)
+        finally:
+            if com_initialized:
+                try:
+                    import comtypes
+
+                    comtypes.CoUninitialize()
+                except (ImportError, OSError):
+                    pass
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -362,6 +397,9 @@ class MainWindow(QMainWindow):
         self._favicon_pool = QThreadPool(self)
         self._favicon_pool.setMaxThreadCount(3)
         self._favicon_pending: set[tuple[str, str, str]] = set()
+        self._system_level_pool = QThreadPool(self)
+        self._system_level_pool.setMaxThreadCount(1)
+        self._system_level_reads_pending: set[str] = set()
         self._favicon_refresh_timer = QTimer(self)
         self._favicon_refresh_timer.setInterval(6 * 60 * 60 * 1000)
         self._favicon_refresh_timer.timeout.connect(self._refresh_website_icons)
@@ -2157,14 +2195,9 @@ class MainWindow(QMainWindow):
                         / "Programs"
                     )
             applications.update(self._windows_start_menu_applications(roots))
-            shortcuts = [
-                Path(path)
-                for path in applications.values()
-                if Path(path).suffix.casefold() == ".lnk"
-            ]
-            self._application_icon_sources.update(
-                self._windows_shortcut_icon_sources(shortcuts)
-            )
+            # Resolve a .lnk only when the user actually selects it. Asking
+            # PowerShell for every Start Menu icon here can freeze Windows for
+            # several seconds on machines with many installed applications.
         self._application_choices = sorted(
             ((Path(path).stem, path) for path in applications.values()),
             key=lambda item: item[0].casefold(),
@@ -2578,21 +2611,40 @@ $result | ConvertTo-Json -Compress
 
     def _sync_pro_slider_from_system(self) -> None:
         info = self._device_info_data
-        if info is None or info.model_identifier != "HCD-PRO":
+        if (
+            info is None
+            or info.model_identifier != "HCD-PRO"
+            or self._firmware_updater.is_busy
+            or self._device.pro_sync_busy
+        ):
             return
         now = time.monotonic()
         if self._pro_slider_mode != "off" and now - self._last_slider_input_at >= 0.7:
-            value = self._runner.continuous_value(self._pro_slider_mode)
-            if value is not None:
-                self._pending_slider_value = value
-                self._device_preview.set_pro_slider_value(value)
-                self._device.set_pro_slider_value(value, 1)
+            self._start_system_level_read(self._pro_slider_mode)
         if self._pro_second_fader and now - self._last_microphone_input_at >= 0.7:
-            microphone_value = self._runner.continuous_value("microphone")
-            if microphone_value is not None:
-                self._pending_microphone_value = microphone_value
-                self._device_preview.set_pro_microphone_value(microphone_value)
-                self._device.set_pro_slider_value(microphone_value, 2)
+            self._start_system_level_read("microphone")
+
+    def _start_system_level_read(self, mode: str) -> None:
+        if mode in self._system_level_reads_pending:
+            return
+        self._system_level_reads_pending.add(mode)
+        task = _SystemLevelTask(mode)
+        task.signals.finished.connect(self._system_level_read)
+        self._system_level_pool.start(task)
+
+    def _system_level_read(self, mode: str, value: object) -> None:
+        self._system_level_reads_pending.discard(mode)
+        if self._firmware_updater.is_busy or value is None:
+            return
+        normalized = max(0, min(100, int(value)))
+        if mode == self._pro_slider_mode:
+            self._pending_slider_value = normalized
+            self._device_preview.set_pro_slider_value(normalized)
+            self._device.set_pro_slider_value(normalized, 1)
+        if mode == "microphone" and self._pro_second_fader:
+            self._pending_microphone_value = normalized
+            self._device_preview.set_pro_microphone_value(normalized)
+            self._device.set_pro_slider_value(normalized, 2)
 
     def _set_statistics_enabled(self, enabled: bool) -> None:
         self._statistics_enabled = enabled
@@ -2859,9 +2911,15 @@ $result | ConvertTo-Json -Compress
             self._firmware_dialog.set_busy(True)
         wifi_ota = model_identifier == "HCD-PRO" and port.startswith("Wi-Fi")
         if not wifi_ota:
+            # Suspend every background operation before handing the USB port
+            # to avrdude/esptool. In particular, delayed Windows scan callbacks
+            # must not reopen the COM port between the 1200-baud reset and the
+            # bootloader upload.
+            self._pro_sync_timer.stop()
+            self._system_level_timer.stop()
             self._device.stop()
         QTimer.singleShot(
-            180,
+            650 if sys.platform == "win32" and not wifi_ota else 250,
             lambda: self._firmware_updater.start(
                 port,
                 model_identifier,
@@ -2902,6 +2960,8 @@ $result | ConvertTo-Json -Compress
     def _firmware_finished(self, successful: bool, message: str) -> None:
         if self._firmware_dialog is not None:
             self._firmware_dialog.finish(successful, message)
+        if not self._system_level_timer.isActive():
+            self._system_level_timer.start()
         QTimer.singleShot(1800, self._device.start)
 
     def _device_event(self, event: DeviceEvent) -> None:

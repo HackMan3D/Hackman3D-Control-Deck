@@ -40,7 +40,7 @@ build_firmware() {
 build_pro_firmware() {
   local sketch_name="HackMan3DControlDeckPro"
   local model="HCD-PRO"
-  local version="1.2.44"
+  local version="1.2.45"
   local firmware_dir="$PROJECT_DIR/firmware/$sketch_name"
   local build_dir="$BUILD_ROOT/$model"
   local output_dir="$OUTPUT_ROOT/$model"
