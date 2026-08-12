@@ -16,6 +16,9 @@
   returns to `COM9` after a verified flash.
 - Keeps requesting device identity after USB reconnection until the Base replies
   with `HCD-BASE`, firmware `1.7.0` and its 9-control layout.
+- Immediately returns to detection when a Deck is unplugged, clears the central
+  Deck image while no controller is identified, and accepts a different Base or
+  Plus connected without restarting the application.
 - Ignores delayed HCD Pro Wi-Fi discovery replies while a Base or Plus USB port
   is being probed.
 - Bundles AVRDUDE for Base/Plus and a standalone esptool 4.12.0 executable for

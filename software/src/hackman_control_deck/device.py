@@ -526,12 +526,16 @@ class HcdDeviceManager(QObject):
             QSerialPort.DeviceNotFoundError,
         }:
             self._close_connection()
+            if self._running:
+                QTimer.singleShot(100, self._scan)
 
     def _close_connection(self) -> None:
         self._probe_timer.stop()
         was_connected = self._connected
         self._connected = False
         self._device_info_received = False
+        self._candidate_ports.clear()
+        self._candidate_index = 0
         self._transport = ""
         if self._heartbeat_active:
             self._heartbeat_active = False

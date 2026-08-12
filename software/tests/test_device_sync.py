@@ -74,6 +74,17 @@ def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
     assert attempts == ["discovery"]
 
 
+def test_disconnect_resets_usb_candidates_for_immediate_rescan() -> None:
+    manager = HcdDeviceManager()
+    manager._candidate_ports = ["COM9"]
+    manager._candidate_index = 1
+
+    manager._close_connection()
+
+    assert manager._candidate_ports == []
+    assert manager._candidate_index == 0
+
+
 def test_pro_upload_waits_for_network_backpressure(monkeypatch) -> None:
     manager = HcdDeviceManager()
     manager._connected = True
