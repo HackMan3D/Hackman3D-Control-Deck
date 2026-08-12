@@ -47,14 +47,30 @@ maintain the heartbeat and execute the configured actions.
 > optional. The build instructions later in this README are only needed to
 > modify or contribute to the project.
 
-## Interface
+## HCD-BASE gallery
 
-![HackMan3D Control Deck main interface](docs/screenshots/main-window.jpg)
+The screenshots below show the **HCD-BASE only**: nine physical MX keys in a
+3 × 3 layout, the connection indicator and the white key-feedback bar. HCD Plus
+and HCD Pro are not shown because their hardware guides are still in
+development.
+
+### HCD-BASE desktop application
+
+![HCD-BASE main application interface](docs/screenshots/main-window.jpg)
+
+The central preview reproduces the nine controls of the BASE model. Profiles
+are managed on the left and the selected key is configured on the right.
+
+### HCD-BASE key editor
+
+![HCD-BASE key editor with the first MX key selected](docs/screenshots/key-editor.jpg)
 
 Select any key on the 3D preview to configure its short-press and long-press
-actions from the editor.
+actions, test the command and save it to the current HCD-BASE profile.
 
-![HackMan3D Control Deck key editor](docs/screenshots/key-editor.jpg)
+### HCD-BASE hardware preview
+
+![HCD-BASE hardware with nine MX keys](software/src/hackman_control_deck/assets/hcd_device_render_off.png)
 
 ## How it works
 
