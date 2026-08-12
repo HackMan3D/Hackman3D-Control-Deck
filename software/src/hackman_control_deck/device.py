@@ -77,6 +77,7 @@ class HcdDeviceManager(QObject):
         self._last_pong = 0.0
         self._heartbeat_active = False
         self._device_info_received = False
+        self._last_device_info: DeviceInfo | None = None
         self._transport = ""
         self._network_endpoint = ""
         self._network_candidate = ""
@@ -239,6 +240,15 @@ class HcdDeviceManager(QObject):
     def _scan(self) -> None:
         if not self._running:
             return
+        if self._connected and self._transport == "serial":
+            available_names = {
+                port.portName() for port in QSerialPortInfo.availablePorts()
+            }
+            if self._serial.portName() not in available_names:
+                self._close_connection()
+                self.status_changed.emit("Device disconnected")
+            else:
+                return
         if self._connected or self._serial.isOpen() or self._tcp.state() != QTcpSocket.UnconnectedState:
             return
 
@@ -299,6 +309,9 @@ class HcdDeviceManager(QObject):
         self._serial.setPortName(name)
         if not self._serial.open(QSerialPort.ReadWrite):
             return
+        # Arduino CDC firmware only transmits while the host asserts DTR.
+        # pySerial does this by default, while QSerialPort does not on Windows.
+        self._serial.setDataTerminalReady(True)
         self._serial.clear()
         self._buffer.clear()
         self._last_pong = time.monotonic()
@@ -345,7 +358,7 @@ class HcdDeviceManager(QObject):
         # A lit connection LED proves PING/PONG works, but the first INFO reply
         # can still be lost while Windows finishes enumerating the CDC device.
         # Keep requesting identity until it has actually been parsed.
-        if self._connected and not self._device_info_received:
+        if self._connected:
             self._write_line("HCD_GET_INFO")
 
     @Slot()
@@ -387,6 +400,9 @@ class HcdDeviceManager(QObject):
                 self.event_received.emit(message)
             elif isinstance(message, DeviceInfo):
                 self._device_info_received = True
+                if message == self._last_device_info:
+                    continue
+                self._last_device_info = message
                 if message.model_identifier == "HCD-PRO" and message.icon_signatures:
                     self._pro_icon_signatures = {
                         str(index): signature or None
@@ -534,6 +550,7 @@ class HcdDeviceManager(QObject):
         was_connected = self._connected
         self._connected = False
         self._device_info_received = False
+        self._last_device_info = None
         self._candidate_ports.clear()
         self._candidate_index = 0
         self._transport = ""

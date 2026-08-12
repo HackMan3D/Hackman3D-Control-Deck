@@ -10,6 +10,11 @@
 
 ## Windows fixes
 
+- Explicitly asserts DTR when Qt opens an Arduino serial port. This fixes the
+  confirmed case where Windows listed the HCD Plus on COM9 and flashing worked,
+  but the running app received no reply from the firmware.
+- Re-requests identity while connected and ignores identical replies, allowing
+  Windows to reuse the same COM number when swapping between Base and Plus.
 - Replaces the unreliable Qt-only 1200-baud reset with the native pySerial
   sequence used by Arduino tooling. On the validated HCD Base, Windows moves
   from `Arduino Leonardo (COM9)` to `Arduino Micro bootloader (COM3)`, then
