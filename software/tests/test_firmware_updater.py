@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from hackman_control_deck.device import HcdDeviceManager
+from hackman_control_deck.firmware_dialog import FirmwareDialog
 from hackman_control_deck.firmware_updater import (
     BUNDLED_FIRMWARE_VERSION,
     BUNDLED_MODEL_IDENTIFIER,
@@ -7,7 +9,6 @@ from hackman_control_deck.firmware_updater import (
     FirmwareUpdater,
     firmware_update_available,
 )
-from hackman_control_deck.firmware_dialog import FirmwareDialog
 
 
 class PortInfo:
@@ -111,6 +112,18 @@ def test_esp32_connection_failures_offer_manual_bootloader_retry() -> None:
 def test_esp32_usb_port_is_offered_for_firmware() -> None:
     assert FirmwareUpdater.is_compatible_port(
         PortInfo("cu.usbmodem1101", "ESP32-S3 USB JTAG", "Espressif", 0x303A)
+    )
+
+
+def test_usb_device_candidates_are_prioritized_for_discovery() -> None:
+    assert HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM9", "Arduino Leonardo", "Arduino", 0x2341, 0x8036)
+    )
+    assert HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM12", "ESP32-S3 USB JTAG", "Espressif", 0x303A, 0x1001)
+    )
+    assert not HcdDeviceManager._is_usb_candidate(
+        PortInfo("COM1", "Communications Port", "Microsoft")
     )
 
 
