@@ -20,7 +20,7 @@ lv_obj_t* keyImages[HcdConfig::KEY_COUNT] = {};
 lv_image_dsc_t keyImageDescriptors[HcdConfig::KEY_COUNT] = {};
 uint8_t* keyImageData[HcdConfig::KEY_COUNT] = {};
 lv_obj_t* connectionDot = nullptr;
-lv_obj_t* networkLabel = nullptr;
+lv_obj_t* usbLabel = nullptr;
 lv_obj_t* titleLabel = nullptr;
 lv_obj_t* keybed = nullptr;
 lv_obj_t* levelSlider = nullptr;
@@ -93,8 +93,8 @@ void applyTheme() {
   if (titleLabel != nullptr) {
     lv_obj_set_style_text_color(titleLabel, lv_color_hex(headerColor), 0);
   }
-  if (networkLabel != nullptr) {
-    lv_obj_set_style_text_color(networkLabel, lv_color_hex(headerColor), 0);
+  if (usbLabel != nullptr) {
+    lv_obj_set_style_text_color(usbLabel, lv_color_hex(headerColor), 0);
   }
   if (connectionDot != nullptr) {
     lv_obj_set_style_bg_color(
@@ -212,10 +212,10 @@ void buildInterface() {
   lv_obj_set_style_bg_color(connectionDot, lv_color_hex(0x3A3A3A), 0);
   lv_obj_align(connectionDot, LV_ALIGN_TOP_RIGHT, -30, 15);
 
-  networkLabel = lv_label_create(screen);
-  lv_label_set_text(networkLabel, "Wi-Fi starting…");
-  lv_obj_set_style_text_color(networkLabel, lv_color_hex(0xA0A0A0), 0);
-  lv_obj_align(networkLabel, LV_ALIGN_TOP_RIGHT, -62, 18);
+  usbLabel = lv_label_create(screen);
+  lv_label_set_text(usbLabel, "USB waiting...");
+  lv_obj_set_style_text_color(usbLabel, lv_color_hex(0xA0A0A0), 0);
+  lv_obj_align(usbLabel, LV_ALIGN_TOP_RIGHT, -62, 18);
 
   constexpr int columns = 7;
   constexpr int rows = 4;
@@ -407,7 +407,14 @@ void buildInterface() {
   lv_obj_set_style_text_align(overlayHelp, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_text_color(overlayHelp, lv_color_hex(0xB0B0B0), 0);
   lv_obj_align(overlayHelp, LV_ALIGN_CENTER, 0, 48);
-  lv_obj_add_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(overlayMessage, "WAITING FOR USB SYNC");
+  lv_label_set_text(
+      overlayHelp,
+      "Connect the desktop application.\nYour layout will appear when synchronization is complete.");
+  // Keep the blank key grid hidden until the desktop has delivered a complete
+  // snapshot and explicitly closes the synchronization transaction.
+  lv_obj_remove_flag(firmwareOverlay, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(firmwareOverlay);
 }
 
 }  // namespace
@@ -428,7 +435,7 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
   }
   // Use one scan-out framebuffer and a small internal-RAM render buffer.
   // Continuous full-frame swaps make this ESP32-S3 panel sensitive to PSRAM
-  // contention while Wi-Fi and icon decoding are active. Partial copies are
+  // contention while icon decoding and USB transfers are active. Partial copies are
   // bounded and leave the RGB engine with a single stable scan-out buffer.
   lcd->configFrameBufferNumber(1);
   if (lcd->getBus()->getBasicAttributes().type == ESP_PANEL_BUS_TYPE_RGB) {
@@ -438,7 +445,7 @@ bool begin(KeyEventCallback callback, SliderEventCallback sliderCallback) {
     // active but displaying only its white idle state.
     rgb->configRGB_FreqHz(16000000);
     // Twenty lines are the last configuration validated without persistent
-    // drift on this panel while Wi-Fi traffic is active. The
+    // drift on this panel while icon transfers are active. The
     // height divides 480 into an even number of blocks, as
     // required by the ESP32-S3 RGB driver.
     rgb->configRGB_BounceBufferSize(HcdConfig::DISPLAY_WIDTH * 20);
@@ -490,14 +497,11 @@ void setColors(
   }
 }
 
-void setWifiStatus(bool connected, bool configured, const IPAddress& address) {
-  if (networkLabel == nullptr || !HcdLvglAdapter::lock(50)) {
+void setUsbStatus(bool connected) {
+  if (usbLabel == nullptr || !HcdLvglAdapter::lock(50)) {
     return;
   }
-  const String message = connected
-      ? "Wi-Fi  " + address.toString()
-      : (configured ? "Wi-Fi connecting..." : "Wi-Fi setup required");
-  lv_label_set_text(networkLabel, message.c_str());
+  lv_label_set_text(usbLabel, connected ? "USB connected" : "USB waiting...");
   HcdLvglAdapter::unlock();
 }
 

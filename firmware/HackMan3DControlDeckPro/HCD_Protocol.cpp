@@ -13,7 +13,7 @@
 #include "HCD_FlashCache.h"
 #include "HCD_LvglAdapter.h"
 #include "HCD_Storage.h"
-#include "HCD_Wifi.h"
+#include "HCD_Usb.h"
 
 namespace {
 
@@ -22,7 +22,6 @@ unsigned long lastHeartbeatAt = 0;
 bool appConnected = false;
 uint8_t pressedKeyCount = 0;
 bool physicalLedsEnabled = false;
-bool lastWifiState = false;
 std::unique_ptr<uint8_t[]> iconUpload;
 uint8_t iconUploadKey = 0;
 size_t iconUploadExpected = 0;
@@ -52,7 +51,7 @@ void dispatchKeyEvent(const PendingKeyEvent& event) {
   if (physicalLedsEnabled) {
     digitalWrite(HcdConfig::FEEDBACK_LED_PIN, pressedKeyCount > 0 ? HIGH : LOW);
   }
-  HcdWifi::sendLine(
+  HcdUsb::sendLine(
       "HCD_KEY|" + String(event.keyId) + (event.pressed ? "|DOWN" : "|UP"));
 }
 
@@ -166,6 +165,7 @@ void setAppConnected(bool connected) {
     }
   }
   HcdDisplay::setAppConnected(connected);
+  HcdDisplay::setUsbStatus(connected);
 }
 
 void sendInfo(Print& reply) {
@@ -305,9 +305,6 @@ void loadCachedIcons() {
 }
 
 void handleCommand(const String& line, Print& reply) {
-  if (&reply == &Serial || &reply == &Serial0) {
-    return;
-  }
   if (line == "HCD_PING") {
     lastHeartbeatAt = millis();
     setAppConnected(true);
@@ -384,24 +381,17 @@ void begin() {
   keyEventQueue = xQueueCreate(48, sizeof(PendingKeyEvent));
   labelPreferences.begin("hcd_labels", false);
   loadAppearance();
-  HcdWifi::begin();
-  physicalLedsEnabled = HcdWifi::hasSavedCredentials();
-  if (physicalLedsEnabled) {
-    Serial0.end();
-    pinMode(HcdConfig::CONNECTION_LED_PIN, OUTPUT);
-    pinMode(HcdConfig::FEEDBACK_LED_PIN, OUTPUT);
-    digitalWrite(HcdConfig::CONNECTION_LED_PIN, LOW);
-    digitalWrite(HcdConfig::FEEDBACK_LED_PIN, LOW);
-  }
-  lastWifiState = HcdWifi::isConnected();
-  HcdDisplay::setWifiStatus(
-      lastWifiState, HcdWifi::hasSavedCredentials(), HcdWifi::localAddress());
+  HcdUsb::begin();
+  // GPIO 43/44 carry UART0 to the board's USB-C serial bridge. They must
+  // remain under Serial0 control; the Pro uses its on-screen indicators.
+  physicalLedsEnabled = false;
+  HcdDisplay::setUsbStatus(false);
 }
 
 void update() {
-  HcdWifi::update(handleCommand);
-  // Network writes never run inside LVGL's drawing task. Drain a small number
-  // at a time so a burst of taps cannot starve the RGB display DMA.
+  HcdUsb::update(handleCommand);
+  // Drain touch events outside LVGL's drawing task so USB transfers never
+  // block the display refresh.
   if (keyEventQueue != nullptr &&
       millis() - lastKeyEventSentAt >= HcdConfig::KEY_EVENT_SEND_INTERVAL_MS) {
     PendingKeyEvent event = {};
@@ -409,12 +399,6 @@ void update() {
       lastKeyEventSentAt = millis();
       dispatchKeyEvent(event);
     }
-  }
-  const bool wifiState = HcdWifi::isConnected();
-  if (wifiState != lastWifiState) {
-    lastWifiState = wifiState;
-    HcdDisplay::setWifiStatus(
-        wifiState, HcdWifi::hasSavedCredentials(), HcdWifi::localAddress());
   }
   if (appConnected && millis() - lastHeartbeatAt > HcdConfig::HEARTBEAT_TIMEOUT_MS) {
     setAppConnected(false);
@@ -445,7 +429,7 @@ void sendSliderEvent(uint8_t sliderId, uint16_t value) {
   if (!appConnected) {
     return;
   }
-  HcdWifi::sendLine(
+  HcdUsb::sendLine(
       "HCD_SLIDER|" + String(sliderId) + "|" +
       String(min(value, static_cast<uint16_t>(1023))));
 }

@@ -10,12 +10,12 @@ HackMan3D Control Deck supports 64-bit Windows 10 and Windows 11.
 4. Run `software\build_windows.ps1`.
 
 The finished installer is written to
-`software\dist\HackMan3D-Control-Deck-Windows-1.4.17-Setup.exe`.
+`software\dist\HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe`.
 
 ## Device detection
 
-Detection is USB-first for HCD Base and HCD Plus. Wi-Fi discovery for HCD Pro
-starts only when no compatible USB Deck is found.
+Detection is USB-only for HCD Base, HCD Plus and HCD Pro. The Pro is detected
+through its ESP32-S3 USB serial bridge and no firewall permission is required.
 
 On Windows, the app explicitly asserts DTR after opening an Arduino serial
 port. The Base and Plus firmware requires DTR before it transmits `HCD_PONG`,
@@ -31,8 +31,9 @@ until the newly connected model has identified itself.
 
 - Base and Plus use bundled AVRDUDE and a pySerial 1200-baud reset to enter the
   Caterina bootloader.
-- Pro uses the bundled standalone esptool 4.12.0 for USB recovery and initial
-  provisioning. Normal Pro discovery remains available over Wi-Fi.
+- Pro uses the bundled standalone esptool for installation and recovery over
+  USB. The same USB cable then carries heartbeat, touch events, settings and
+  icon synchronization during normal operation.
 
 The packaged application does not require Arduino IDE or a separate Python
 installation.
@@ -51,6 +52,6 @@ Actions page. It builds on a real Windows runner and publishes the installer as
 a downloadable workflow artifact. It bundles the AVR and Espressif flashing
 tools.
 
-Windows Firewall may ask for local-network access the first time HCD Pro is
-discovered. Allow access on private networks; public-network access is not
-needed.
+The generated installer contains the current Base, Plus and Pro firmware. It
+does not need Arduino IDE, Python, Wi-Fi provisioning or a separate flashing
+utility on the user's computer.

@@ -31,7 +31,11 @@ def test_pro_layout_is_paced_and_not_duplicated_during_upload() -> None:
     assert sum(
         command.startswith("HCD_PRO_ICON_CHUNK|")
         for command in manager._pro_upload_queue
-    ) == 25
+    ) == 50
+    assert sum(
+        command.startswith("HCD_PRO_ICON_BEGIN|1|")
+        for command in manager._pro_upload_queue
+    ) == 2
     assert manager._pro_upload_queue[-1] == "HCD_PRO_SYNC_END"
     assert "HCD_PRO_CACHE_COMMIT" not in manager._pro_upload_queue
     initial_queue = tuple(manager._pro_upload_queue)
@@ -65,13 +69,13 @@ def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
         "hackman_control_deck.device.QSerialPortInfo.availablePorts",
         lambda: [],
     )
-    monkeypatch.setattr(manager, "_send_discovery", lambda: attempts.append("discovery"))
+    monkeypatch.setattr(manager, "_try_port", attempts.append)
 
     manager.start()
     manager.stop()
     manager._scan()
 
-    assert attempts == ["discovery"]
+    assert not manager._running
 
 
 def test_disconnect_resets_usb_candidates_for_immediate_rescan() -> None:
@@ -85,14 +89,14 @@ def test_disconnect_resets_usb_candidates_for_immediate_rescan() -> None:
     assert manager._candidate_index == 0
 
 
-def test_pro_upload_waits_for_network_backpressure(monkeypatch) -> None:
+def test_pro_upload_waits_for_usb_backpressure(monkeypatch) -> None:
     manager = HcdDeviceManager()
     manager._connected = True
-    manager._transport = "wifi"
+    manager._transport = "serial"
     manager._pro_upload_queue.append("HCD_PRO_SYNC_END")
     written: list[str] = []
     monkeypatch.setattr(manager, "_write_line", written.append)
-    monkeypatch.setattr(manager._tcp, "bytesToWrite", lambda: 20_000)
+    monkeypatch.setattr(manager._serial, "bytesToWrite", lambda: 20_000)
 
     manager._send_next_pro_upload()
 

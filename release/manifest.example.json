@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.17",
+  "latest_version": "1.5.4",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Windows display synchronization now recovers automatically after an interrupted transfer. HCD Pro firmware 1.2.45 adds an autonomous safety timeout.",
+  "release_notes": "Windows and macOS share USB-only HCD Pro support and protected display synchronization.",
   "roadmap": {
     "progress": 0
   }

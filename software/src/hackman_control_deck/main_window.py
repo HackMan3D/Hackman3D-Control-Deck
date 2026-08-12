@@ -929,7 +929,6 @@ class MainWindow(QMainWindow):
         self._firmware_updater.esp32_bootloader_required.connect(
             self._show_esp32_bootloader_assistant
         )
-        self._firmware_updater.ota_arm_requested.connect(self._device.arm_pro_ota)
         self._release_feed.loaded.connect(self._release_feed_loaded)
         self._release_feed.failed.connect(self._release_feed_failed)
 
@@ -2849,21 +2848,17 @@ $result | ConvertTo-Json -Compress
             self,
         )
         dialog.update_requested.connect(
-            lambda port, model, ssid, password: self._confirm_firmware_install(
+            lambda port, model: self._confirm_firmware_install(
                 port,
                 model,
                 new_device=False,
-                wifi_ssid=ssid,
-                wifi_password=password,
             )
         )
         dialog.install_requested.connect(
-            lambda port, model, ssid, password: self._confirm_firmware_install(
+            lambda port, model: self._confirm_firmware_install(
                 port,
                 model,
                 new_device=True,
-                wifi_ssid=ssid,
-                wifi_password=password,
             )
         )
         dialog.finished.connect(lambda result: self._firmware_dialog_closed(result))
@@ -2880,8 +2875,6 @@ $result | ConvertTo-Json -Compress
         port: str,
         model_identifier: str,
         new_device: bool,
-        wifi_ssid: str,
-        wifi_password: str,
     ) -> None:
         message = QMessageBox(self)
         message.setWindowTitle(self._text("firmware_manager"))
@@ -2905,8 +2898,6 @@ $result | ConvertTo-Json -Compress
                 port,
                 model_identifier,
                 new_device,
-                wifi_ssid,
-                wifi_password,
             )
 
     def _begin_firmware_install(
@@ -2914,28 +2905,20 @@ $result | ConvertTo-Json -Compress
         port: str,
         model_identifier: str,
         new_device: bool,
-        wifi_ssid: str,
-        wifi_password: str,
     ) -> None:
         if self._firmware_dialog is not None:
             self._firmware_dialog.set_busy(True)
-        wifi_ota = model_identifier == "HCD-PRO" and port.startswith("Wi-Fi")
-        if not wifi_ota:
-            # Suspend every background operation before handing the USB port
-            # to avrdude/esptool. In particular, delayed Windows scan callbacks
-            # must not reopen the COM port between the 1200-baud reset and the
-            # bootloader upload.
-            self._pro_sync_timer.stop()
-            self._system_level_timer.stop()
-            self._device.stop()
+        # Suspend every background operation before handing the USB port to
+        # avrdude/esptool.
+        self._pro_sync_timer.stop()
+        self._system_level_timer.stop()
+        self._device.stop()
         QTimer.singleShot(
-            650 if sys.platform == "win32" and not wifi_ota else 250,
+            650 if sys.platform == "win32" else 250,
             lambda: self._firmware_updater.start(
                 port,
                 model_identifier,
                 allow_existing_bootloader=new_device,
-                wifi_ssid=wifi_ssid,
-                wifi_password=wifi_password,
             ),
         )
 

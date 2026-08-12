@@ -273,7 +273,7 @@ class DevicePreview(QWidget):
         painter.drawText(
             screen.adjusted(18, 8, -18, -8),
             Qt.AlignTop | Qt.AlignLeft,
-            "HCD PRO · WI-FI TOUCH DISPLAY",
+            "HCD PRO · USB TOUCH DISPLAY",
         )
         slider_area = screen.adjusted(round(screen.width() * 0.92), 50, -14, -24)
         rail_x = slider_area.center().x()

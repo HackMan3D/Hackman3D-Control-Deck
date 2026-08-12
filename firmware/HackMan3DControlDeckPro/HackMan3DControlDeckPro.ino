@@ -1,6 +1,6 @@
 /*
  * HackMan3D Control Deck Pro
- * ESP32-S3 7-inch Wi-Fi touch controller
+ * ESP32-S3 7-inch USB touch controller
  *
  * Created, designed and developed by HackMan3D
  */
@@ -28,8 +28,8 @@ void setup() {
   }
   HcdFlashCache::applyPreloadedIcons();
   HcdProtocol::begin();
-  Serial.println(F("HCD_PROVISION_READY"));
-  Serial0.println(F("HCD_PROVISION_READY"));
+  Serial.println(F("HCD_READY|1.3.3"));
+  Serial0.println(F("HCD_READY|1.3.3"));
 }
 
 void loop() {

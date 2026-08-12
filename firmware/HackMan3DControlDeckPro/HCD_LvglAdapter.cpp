@@ -81,7 +81,7 @@ void flushDisplay(lv_display_t* lvDisplay, const lv_area_t* area, uint8_t* pixel
     // observing a frame while it is being modified.
     if (lv_display_flush_is_last(lvDisplay)) {
       // Observe the ISR-owned VSYNC counter directly. Task notifications can
-      // be coalesced or lost while Wi-Fi and RGB DMA are busy; the monotonic
+      // be coalesced or lost while USB transfers and RGB DMA are busy; the monotonic
       // counter cannot, and it also avoids an indefinite wait if a task-level
       // notification never arrives.
       const uint32_t beforeSwitch = vsyncCount;

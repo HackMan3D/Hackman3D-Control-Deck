@@ -1,6 +1,6 @@
 # HackMan3D Control Deck
 
-![Version](https://img.shields.io/badge/Version-1.4.17-0A84FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.5.4-0A84FF?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows-0A84FF?style=flat-square)
 ![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
@@ -8,17 +8,18 @@
 ![Status](https://img.shields.io/badge/Status-Private%20Preview-555555?style=flat-square)
 [![Support](https://img.shields.io/badge/Support-HackMan3D-EA6D2F?style=flat-square&logo=paypal&logoColor=white)](https://paypal.me/Hackman3D)
 
-HackMan3D Control Deck (HCD) is a programmable desktop controller built around an
-Arduino Pro Micro. The repository contains the Windows and macOS configuration
-app, the branded HackMan interface and the device firmware.
+HackMan3D Control Deck (HCD) is a family of programmable desktop controllers.
+HCD-BASE and HCD Plus use an Arduino Pro Micro; HCD Pro uses an ESP32-S3
+touchscreen. This repository contains the shared Windows/macOS configuration
+app, the branded interface and the firmware for all three models.
 
-## Download the app — version 1.4.17
+## Download the app — version 1.5.4
 
 The project is currently private. These downloads are available only to people
 who have access to this repository.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.17/HackMan3D-Control-Deck-macOS-1.4.17.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.17/HackMan3D-Control-Deck-Windows-1.4.17-Setup.exe)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-macOS-1.5.4.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe)
 
 ## Quick start — recommended
 
@@ -29,9 +30,9 @@ working HackMan3D Control Deck.
    [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
    [wiring notes](docs/WIRING.md).
 2. Download and install the HCD application for
-   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.17/HackMan3D-Control-Deck-macOS-1.4.17.dmg)
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-macOS-1.5.4.dmg)
    or
-   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.4.17/HackMan3D-Control-Deck-Windows-1.4.17-Setup.exe).
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.4/HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe).
 3. Connect the compatible Arduino Pro Micro to the computer by USB.
 4. Open **Firmware** in the application, select **HCD-BASE** and click
    **Install firmware**.
@@ -156,7 +157,7 @@ interactive surface:
 - 28 programmable touch buttons with one vertical slider; or
 - 24 programmable touch buttons with two vertical sliders;
 - labels synchronised automatically from the active desktop profile;
-- automatic Wi-Fi discovery and heartbeat on the local network;
+- a direct USB connection for discovery, heartbeat, actions and icon transfer;
 - configurable sliders for functions such as speaker volume, microphone level
   or display brightness;
 - the same connection LED and action-feedback LED as HCD-BASE and HCD Plus;
@@ -170,7 +171,7 @@ needed to explore these Plus and Pro editions.
 ```text
 firmware/HackMan3DControlDeck/       HCD-BASE firmware
 firmware/HackMan3DControlDeckPlus/   HCD Plus firmware
-firmware/HackMan3DControlDeckPro/    HCD Pro ESP32-S3 Wi-Fi firmware
+firmware/HackMan3DControlDeckPro/    HCD Pro ESP32-S3 USB firmware
 software/                            shared PySide6 desktop app
 docs/                                protocol and wiring notes
 ```
@@ -239,9 +240,9 @@ listed.
 - The 3D preview mirrors the red connection LED and the white key-feedback
   light in real time.
 
-The firmware manager includes the required AVRDUDE tools for Windows and macOS.
-It can update an identified deck or, after a warning, program a compatible
-5 V / 16 MHz ATmega32U4 Leonardo or Pro Micro.
+The firmware manager includes AVRDUDE for Base/Plus and esptool for Pro on both
+Windows and macOS. It can update an identified deck or install the selected
+firmware on compatible new hardware without Arduino IDE.
 
 ### Interface and personalisation
 
@@ -313,7 +314,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-1.4.17-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.5.4-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 
@@ -336,5 +337,5 @@ app. It gives each model its own USB product name and sets the manufacturer to
 
 See the [HCD-BASE wiring notes](docs/WIRING.md) or the
 [HCD Plus wiring notes](docs/HCD_PLUS_WIRING.md) before connecting hardware.
-HCD Pro setup and network requirements are documented in
+HCD Pro setup and USB requirements are documented in
 [docs/HCD_PRO.md](docs/HCD_PRO.md).

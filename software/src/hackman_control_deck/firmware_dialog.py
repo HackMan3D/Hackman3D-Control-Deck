@@ -1,10 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-import re
-import subprocess
-import sys
-import threading
 
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtSerialPort import QSerialPortInfo
@@ -15,7 +11,6 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -33,11 +28,8 @@ from .protocol import DeviceInfo
 
 
 class FirmwareDialog(QDialog):
-    update_requested = Signal(str, str, str, str)
-    install_requested = Signal(str, str, str, str)
-    wifi_scan_finished = Signal(object, str)
-    wifi_password_finished = Signal(str, str, str)
-    _PRO_OTA_MINIMUM_VERSION = (1, 2, 2)
+    update_requested = Signal(str, str)
+    install_requested = Signal(str, str)
 
     def __init__(
         self,
@@ -51,7 +43,6 @@ class FirmwareDialog(QDialog):
         self._device_info = device_info
         self._connected_port = connected_port
         self._busy = False
-        self._location_manager = None
         self.setWindowTitle(text("firmware_manager"))
         self.setMinimumWidth(560)
         self.setModal(True)
@@ -111,12 +102,6 @@ class FirmwareDialog(QDialog):
             lambda: self.update_requested.emit(
                 self._connected_update_port(),
                 self._device_info.model_identifier if self._device_info else "",
-                self._wifi_ssid.currentText().strip()
-                if self._device_info and self._device_info.model_identifier == "HCD-PRO"
-                else "",
-                self._wifi_password.text()
-                if self._device_info and self._device_info.model_identifier == "HCD-PRO"
-                else "",
             )
         )
         update_row.addWidget(self._update_button)
@@ -157,33 +142,6 @@ class FirmwareDialog(QDialog):
         self._model_combo.currentIndexChanged.connect(self._model_changed)
         model_row.addWidget(self._model_combo, 1)
         layout.addLayout(model_row)
-
-        self._wifi_frame = QFrame(objectName="firmwareCard")
-        wifi_layout = QGridLayout(self._wifi_frame)
-        wifi_layout.addWidget(QLabel(text("wifi_network")), 0, 0)
-        self._wifi_ssid = QComboBox()
-        self._wifi_ssid.setEditable(True)
-        self._wifi_ssid.setInsertPolicy(QComboBox.NoInsert)
-        self._wifi_ssid.lineEdit().setPlaceholderText(text("wifi_network_placeholder"))
-        self._wifi_ssid.currentTextChanged.connect(self._update_install_enabled)
-        self._wifi_ssid.currentTextChanged.connect(self._start_wifi_password_lookup)
-        wifi_layout.addWidget(self._wifi_ssid, 0, 1)
-        self._wifi_refresh_button = QPushButton(text("refresh_wifi_networks"))
-        self._wifi_refresh_button.clicked.connect(self._start_wifi_scan)
-        wifi_layout.addWidget(self._wifi_refresh_button, 0, 2)
-        wifi_layout.addWidget(QLabel(text("wifi_password")), 1, 0)
-        self._wifi_password = QLineEdit()
-        self._wifi_password.setEchoMode(QLineEdit.Password)
-        wifi_layout.addWidget(self._wifi_password, 1, 1)
-        wifi_help = QLabel(text("wifi_provisioning_help"), objectName="subtitle")
-        wifi_help.setWordWrap(True)
-        wifi_layout.addWidget(wifi_help, 2, 0, 1, 3)
-        self._wifi_scan_status = QLabel(objectName="subtitle")
-        self._wifi_scan_status.setWordWrap(True)
-        wifi_layout.addWidget(self._wifi_scan_status, 3, 0, 1, 3)
-        layout.addWidget(self._wifi_frame)
-        self.wifi_scan_finished.connect(self._wifi_networks_received)
-        self.wifi_password_finished.connect(self._wifi_password_received)
 
         port_row = QHBoxLayout()
         self._port_combo = QComboBox()
@@ -234,7 +192,6 @@ class FirmwareDialog(QDialog):
         layout.addLayout(close_row)
         self.refresh_ports()
         self._model_changed()
-        self._start_wifi_scan()
 
     def update_detected_device(
         self,
@@ -267,20 +224,10 @@ class FirmwareDialog(QDialog):
             return False
         target = firmware_target(self._device_info.model_identifier)
         compatible_product = self._device_info.product.startswith(COMPATIBLE_PRODUCT_NAMES)
-        wifi_ready = bool(
-            target is None
-            or target.architecture != "esp32s3"
-            or self._connected_pro_supports_ota()
-            or (
-                hasattr(self, "_wifi_ssid")
-                and self._wifi_ssid.currentText().strip()
-            )
-        )
         return (
             target is not None
             and compatible_product
             and bool(self._connected_update_port())
-            and wifi_ready
             and self._version_tuple(self._device_info.firmware_version)
             <= self._version_tuple(target.version)
         )
@@ -288,24 +235,7 @@ class FirmwareDialog(QDialog):
     def _connected_update_port(self) -> str:
         if self._device_info is None:
             return ""
-        if not self._connected_port.startswith("Wi-Fi"):
-            return self._connected_port
-        if self._connected_pro_supports_ota():
-            return self._connected_port
-        if not hasattr(self, "_port_combo"):
-            return ""
-        for index in range(self._port_combo.count()):
-            if self._port_combo.itemData(index, Qt.UserRole + 1) == "HCD-PRO":
-                return str(self._port_combo.itemData(index) or "")
-        return ""
-
-    def _connected_pro_supports_ota(self) -> bool:
-        return bool(
-            self._device_info is not None
-            and self._device_info.model_identifier == "HCD-PRO"
-            and self._version_tuple(self._device_info.firmware_version)
-            >= self._PRO_OTA_MINIMUM_VERSION
-        )
+        return self._connected_port
 
     @staticmethod
     def _version_tuple(version: str) -> tuple[int, ...]:
@@ -364,19 +294,12 @@ class FirmwareDialog(QDialog):
         port = str(self._port_combo.currentData() or "")
         model = str(self._model_combo.currentData() or "")
         if port and model:
-            self.install_requested.emit(
-                port,
-                model,
-                self._wifi_ssid.currentText().strip() if model == "HCD-PRO" else "",
-                self._wifi_password.text() if model == "HCD-PRO" else "",
-            )
+            self.install_requested.emit(port, model)
 
     def _model_changed(self, index: int = -1) -> None:
         del index
         model = self._model_combo.currentData()
-        is_pro = model == "HCD-PRO"
         is_development_model = model in {"HCD-PLUS", "HCD-PRO"}
-        self._wifi_frame.setVisible(is_pro)
         self._status.setText(
             self._text("firmware_development_only") if is_development_model else ""
         )
@@ -385,12 +308,9 @@ class FirmwareDialog(QDialog):
     def _update_install_enabled(self, value: str = "") -> None:
         del value
         model = self._model_combo.currentData()
-        is_pro = model == "HCD-PRO"
-        has_wifi = bool(self._wifi_ssid.currentText().strip()) if is_pro else True
         self._install_button.setEnabled(
             self._port_combo.count() > 0
             and not self._busy
-            and has_wifi
         )
         self._update_button.setEnabled(not self._busy and self._can_update_connected_device())
 
@@ -401,9 +321,6 @@ class FirmwareDialog(QDialog):
         self._refresh_button.setEnabled(not busy)
         self._port_combo.setEnabled(not busy)
         self._model_combo.setEnabled(not busy)
-        self._wifi_ssid.setEnabled(not busy)
-        self._wifi_refresh_button.setEnabled(not busy)
-        self._wifi_password.setEnabled(not busy)
         self._close_button.setEnabled(not busy)
         self._progress.setVisible(busy)
         self._progress_label.setVisible(busy)
@@ -412,173 +329,6 @@ class FirmwareDialog(QDialog):
             self._progress_label.setText("0%")
             self._details_button.setVisible(False)
             self._details.setVisible(False)
-
-    def _start_wifi_scan(self) -> None:
-        if self._busy or not self._wifi_frame.isVisible():
-            return
-        self._wifi_refresh_button.setEnabled(False)
-        self._wifi_scan_status.setText(self._text("wifi_loading_saved"))
-        threading.Thread(target=self._scan_wifi_worker, daemon=True).start()
-
-    def _request_macos_location_access(self) -> bool:
-        try:
-            from CoreLocation import CLLocationManager
-        except ImportError:
-            return False
-        if CLLocationManager.authorizationStatus() != 0:
-            return False
-        self._location_manager = CLLocationManager.alloc().init()
-        self._location_manager.requestWhenInUseAuthorization()
-        return True
-
-    def _scan_wifi_worker(self) -> None:
-        networks: list[str] = []
-        error = ""
-        try:
-            if sys.platform == "darwin":
-                from CoreWLAN import CWWiFiClient
-
-                interface = CWWiFiClient.sharedWiFiClient().interface()
-                if interface is not None:
-                    current = interface.ssid()
-                    configuration = interface.configuration()
-                    profiles = configuration.networkProfiles() if configuration else None
-                    if profiles is None:
-                        profile_items = []
-                    elif hasattr(profiles, "array"):
-                        profile_items = list(profiles.array())
-                    elif hasattr(profiles, "count") and hasattr(profiles, "objectAtIndex_"):
-                        profile_items = [
-                            profiles.objectAtIndex_(index)
-                            for index in range(int(profiles.count()))
-                        ]
-                    else:
-                        profile_items = list(profiles)
-                    networks = sorted(
-                        {profile.ssid() for profile in profile_items if profile.ssid()},
-                        key=str.casefold,
-                    )
-                    if current and current not in networks:
-                        networks.insert(0, current)
-            elif sys.platform == "win32":
-                result = subprocess.run(
-                    ["netsh", "wlan", "show", "profiles"],
-                    capture_output=True,
-                    text=True,
-                    timeout=12,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                    check=False,
-                )
-                networks = sorted(
-                    {
-                        match.group(1).strip()
-                        for match in re.finditer(
-                            r"^\s*(?:All User Profile|Profil Tous les utilisateurs)\s*:\s*(.+)$",
-                            result.stdout,
-                            re.MULTILINE,
-                        )
-                        if match.group(1).strip()
-                    },
-                    key=str.casefold,
-                )
-                if result.returncode != 0:
-                    error = result.stderr.strip()
-        except Exception as exception:
-            error = str(exception)
-        self.wifi_scan_finished.emit(networks, error)
-
-    @Slot(object, str)
-    def _wifi_networks_received(self, networks: object, error: str) -> None:
-        current = self._wifi_ssid.currentText().strip()
-        names = [str(name) for name in networks]
-        self._wifi_ssid.blockSignals(True)
-        self._wifi_ssid.clear()
-        self._wifi_ssid.addItems(names)
-        if current:
-            if self._wifi_ssid.findText(current) < 0:
-                self._wifi_ssid.insertItem(0, current)
-            self._wifi_ssid.setCurrentText(current)
-        elif names:
-            self._wifi_ssid.setCurrentIndex(0)
-        self._wifi_ssid.blockSignals(False)
-        if names:
-            self._wifi_scan_status.setText(
-                self._text("wifi_networks_found", count=len(names))
-            )
-        else:
-            self._wifi_scan_status.setText(
-                self._text("wifi_scan_unavailable") if not error else error
-            )
-        self._wifi_refresh_button.setEnabled(not self._busy)
-        self._update_install_enabled()
-        self._start_wifi_password_lookup(self._wifi_ssid.currentText())
-
-    def _start_wifi_password_lookup(self, ssid: str) -> None:
-        network = ssid.strip()
-        if self._busy or not network:
-            return
-        self._wifi_password.clear()
-        threading.Thread(
-            target=self._wifi_password_worker,
-            args=(network,),
-            daemon=True,
-        ).start()
-
-    def _wifi_password_worker(self, ssid: str) -> None:
-        password = ""
-        error = ""
-        try:
-            if sys.platform == "darwin":
-                result = subprocess.run(
-                    [
-                        "security",
-                        "find-generic-password",
-                        "-D",
-                        "AirPort network password",
-                        "-a",
-                        ssid,
-                        "-w",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    password = result.stdout.rstrip("\r\n")
-                else:
-                    error = result.stderr.strip()
-            elif sys.platform == "win32":
-                result = subprocess.run(
-                    ["netsh", "wlan", "show", "profile", f"name={ssid}", "key=clear"],
-                    capture_output=True,
-                    text=True,
-                    timeout=12,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                    check=False,
-                )
-                match = re.search(
-                    r"^\s*(?:Key Content|Contenu de la cl(?:é|e))\s*:\s*(.+)$",
-                    result.stdout,
-                    re.MULTILINE | re.IGNORECASE,
-                )
-                if match:
-                    password = match.group(1).strip()
-                elif result.returncode != 0:
-                    error = result.stderr.strip()
-        except Exception as exception:
-            error = str(exception)
-        self.wifi_password_finished.emit(ssid, password, error)
-
-    @Slot(str, str, str)
-    def _wifi_password_received(self, ssid: str, password: str, error: str) -> None:
-        if ssid != self._wifi_ssid.currentText().strip():
-            return
-        if password:
-            self._wifi_password.setText(password)
-            self._wifi_scan_status.setText(self._text("wifi_password_loaded"))
-        elif error:
-            self._wifi_scan_status.setText(self._text("wifi_password_manual"))
 
     def set_progress(self, value: int) -> None:
         self._progress.setValue(value)
