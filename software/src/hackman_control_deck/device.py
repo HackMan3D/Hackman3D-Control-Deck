@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import base64
-from collections import deque
 import time
 import zlib
+from collections import deque
 
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 from PySide6.QtNetwork import (
@@ -239,19 +239,28 @@ class HcdDeviceManager(QObject):
     def _scan(self) -> None:
         if not self._running:
             return
-        self._send_discovery()
-        self._start_mdns_lookup()
         if self._connected or self._serial.isOpen() or self._tcp.state() != QTcpSocket.UnconnectedState:
             return
 
-        port_infos = sorted(QSerialPortInfo.availablePorts(), key=self._port_priority)
+        port_infos = sorted(
+            (
+                port
+                for port in QSerialPortInfo.availablePorts()
+                if self._is_usb_candidate(port)
+            ),
+            key=self._port_priority,
+        )
         ports = [port.portName() for port in port_infos]
         if ports != self._candidate_ports:
             self._candidate_ports = ports
             self._candidate_index = 0
 
         if not self._candidate_ports:
-            self.status_changed.emit("Waiting for HackMan3D Control Deck")
+            # Base and Plus are USB-first devices. Only look for a Pro over the
+            # network when no compatible USB controller is present.
+            self._send_discovery()
+            self._start_mdns_lookup()
+            self.status_changed.emit("Waiting for USB Control Deck or Wi-Fi HCD Pro")
             return
 
         if self._candidate_index >= len(self._candidate_ports):
@@ -260,6 +269,30 @@ class HcdDeviceManager(QObject):
         name = self._candidate_ports[self._candidate_index]
         self._candidate_index += 1
         self._try_port(name)
+
+    @staticmethod
+    def _is_usb_candidate(port: QSerialPortInfo) -> bool:
+        identity = (
+            f"{port.portName()} {port.description()} {port.manufacturer()}"
+        ).casefold()
+        vendor = port.vendorIdentifier() if port.hasVendorIdentifier() else 0
+        return vendor in {0x2341, 0x2A03, 0x1B4F, 0x303A} or any(
+            marker in identity
+            for marker in (
+                "usbmodem",
+                "usbserial",
+                "arduino",
+                "leonardo",
+                "caterina",
+                "32u4",
+                "pro micro",
+                "sparkfun",
+                "hackman control deck",
+                "esp32",
+                "espressif",
+                "usb jtag",
+            )
+        )
 
     def _try_port(self, name: str) -> None:
         self._transport = "serial"
@@ -274,7 +307,9 @@ class HcdDeviceManager(QObject):
 
     @staticmethod
     def _port_priority(port: QSerialPortInfo) -> int:
-        identity = " ".join((port.portName(), port.description(), port.manufacturer())).casefold()
+        identity = (
+            f"{port.portName()} {port.description()} {port.manufacturer()}"
+        ).casefold()
         if any(
             marker in identity
             for marker in ("usbmodem", "arduino", "leonardo", "pro micro", "atmega32u4")
@@ -418,6 +453,8 @@ class HcdDeviceManager(QObject):
         self._mdns_lookup_active = False
         if (
             not self._running
+            or self._candidate_ports
+            or self._serial.isOpen()
             or self._connected
             or self._tcp.state() != QTcpSocket.UnconnectedState
         ):
@@ -434,7 +471,7 @@ class HcdDeviceManager(QObject):
     def _read_discovery_datagrams(self) -> None:
         while self._udp.hasPendingDatagrams():
             datagram = self._udp.receiveDatagram()
-            if not self._running:
+            if not self._running or self._candidate_ports or self._serial.isOpen():
                 continue
             line = bytes(datagram.data()).decode("utf-8", errors="replace").strip()
             parts = line.split("|")
