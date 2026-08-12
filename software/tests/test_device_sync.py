@@ -61,6 +61,10 @@ def test_pro_style_only_sync_is_wrapped_and_refreshed_once() -> None:
 def test_stopped_manager_ignores_delayed_scans(monkeypatch) -> None:
     manager = HcdDeviceManager()
     attempts: list[str] = []
+    monkeypatch.setattr(
+        "hackman_control_deck.device.QSerialPortInfo.availablePorts",
+        lambda: [],
+    )
     monkeypatch.setattr(manager, "_send_discovery", lambda: attempts.append("discovery"))
 
     manager.start()

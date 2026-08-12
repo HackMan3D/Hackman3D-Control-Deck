@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import re
-import sys
 import base64
 import http.client
+import re
 import secrets
+import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Signal, Slot
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 
 from .constants import ASSET_DIR
+
 
 @dataclass(frozen=True, slots=True)
 class FirmwareTarget:

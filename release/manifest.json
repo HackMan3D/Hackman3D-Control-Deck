@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "latest_version": "1.4.16",
+  "latest_version": "1.4.17",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "HCD BASE identification now recovers automatically on Windows, the firmware window updates live, and bootloader selection is more reliable.",
+  "release_notes": "Windows prioritizes USB for HCD Base and Plus, reliably enters the Arduino Caterina bootloader, and bundles ESP32-S3 flashing support for HCD Pro.",
   "roadmap": {
     "progress": 4.0
   }

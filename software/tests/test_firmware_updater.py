@@ -1,6 +1,8 @@
+import sys
 from pathlib import Path
 from types import SimpleNamespace
-import sys
+
+import pytest
 
 from hackman_control_deck.device import HcdDeviceManager
 from hackman_control_deck.firmware_dialog import FirmwareDialog
@@ -343,7 +345,7 @@ def test_avr_retry_restarts_returned_application_port(monkeypatch) -> None:
 
 def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
     events: list[object] = []
-    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "win32")
+    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "linux")
 
     class FakeSerial:
         ReadWrite = object()
@@ -381,7 +383,7 @@ def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
 
 
 def test_macos_1200_baud_touch_uses_native_open_and_close(monkeypatch) -> None:
-    import fcntl
+    fcntl = pytest.importorskip("fcntl")
     import os
     import termios
 

@@ -1,3 +1,3 @@
 """HackMan3D Control Deck desktop application."""
 
-__version__ = "1.4.16"
+__version__ = "1.4.17"
