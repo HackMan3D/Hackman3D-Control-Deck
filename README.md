@@ -251,6 +251,15 @@ python -m pip install -e .
 hackman3d-control-deck
 ```
 
+**CachyOS or other Linux with fish Shell**
+```fish
+cd software
+python3 -m venv .venv
+source .venv/bin/activate.fish
+python -m pip install -e .
+hackman3d-control-deck
+```
+
 ### Profiles and actions
 
 - Create, rename, duplicate and delete profiles.
