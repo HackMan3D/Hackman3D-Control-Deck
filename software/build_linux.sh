@@ -69,6 +69,14 @@ python -m PyInstaller \
   --workpath build/linux-main \
   run.py
 
+PACKAGED_TOOLS="dist/linux/$APP_NAME/_internal/hackman_control_deck/assets/tools/linux"
+for required in avrdude avrdude.conf esptool; do
+  if [[ ! -f "$PACKAGED_TOOLS/$required" ]]; then
+    echo "Missing packaged Linux firmware tool: $required" >&2
+    exit 1
+  fi
+done
+
 mkdir -p "AppDir/usr/lib/hackman3d-control-deck" "AppDir/usr/bin"
 cp -a "dist/linux/$APP_NAME/." "AppDir/usr/lib/hackman3d-control-deck/"
 cp linux/AppRun AppDir/AppRun
@@ -76,10 +84,11 @@ chmod +x AppDir/AppRun
 cat > AppDir/usr/bin/hackman3d-control-deck <<'EOF'
 #!/bin/sh
 APP_LIB="$(dirname "$0")/../lib/hackman3d-control-deck"
-export LD_LIBRARY_PATH="$APP_LIB/hackman_control_deck/assets/tools/linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export HCD_AVRDUDE="$APP_LIB/hackman_control_deck/assets/tools/linux/avrdude"
-export HCD_AVRDUDE_CONF="$APP_LIB/hackman_control_deck/assets/tools/linux/avrdude.conf"
-export HCD_ESPTOOL="$APP_LIB/hackman_control_deck/assets/tools/linux/esptool"
+TOOL_ROOT="$APP_LIB/_internal/hackman_control_deck/assets/tools/linux"
+export LD_LIBRARY_PATH="$TOOL_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export HCD_AVRDUDE="$TOOL_ROOT/avrdude"
+export HCD_AVRDUDE_CONF="$TOOL_ROOT/avrdude.conf"
+export HCD_ESPTOOL="$TOOL_ROOT/esptool"
 exec "$APP_LIB/HackMan3D Control Deck" "$@"
 EOF
 chmod +x AppDir/usr/bin/hackman3d-control-deck
@@ -93,15 +102,24 @@ ARCH="$LINUX_ARCH" "$APPIMAGETOOL" AppDir "dist/$APP_SLUG.AppImage"
 DEB_ROOT="package/linux/hackman3d-control-deck"
 mkdir -p "$DEB_ROOT/DEBIAN" "$DEB_ROOT/usr/lib/hackman3d-control-deck" \
   "$DEB_ROOT/usr/bin" "$DEB_ROOT/usr/share/applications" \
-  "$DEB_ROOT/usr/share/icons/hicolor/512x512/apps"
+  "$DEB_ROOT/usr/share/icons/hicolor/512x512/apps" \
+  "$DEB_ROOT/usr/lib/udev/rules.d"
 cp -a "dist/linux/$APP_NAME/." "$DEB_ROOT/usr/lib/hackman3d-control-deck/"
 cp AppDir/usr/bin/hackman3d-control-deck "$DEB_ROOT/usr/bin/"
 cp linux/hackman3d-control-deck.desktop "$DEB_ROOT/usr/share/applications/"
 cp src/hackman_control_deck/assets/hcd_app_icon_rounded.png \
   "$DEB_ROOT/usr/share/icons/hicolor/512x512/apps/hackman3d-control-deck.png"
+cat > "$DEB_ROOT/usr/lib/udev/rules.d/60-hackman3d-control-deck.rules" <<'EOF'
+# Arduino, SparkFun, Espressif and WCH USB serial devices used by HCD models.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", TAG+="uaccess", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2a03", TAG+="uaccess", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1b4f", TAG+="uaccess", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", TAG+="uaccess", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", TAG+="uaccess", GROUP="dialout", MODE="0660"
+EOF
 cat > "$DEB_ROOT/DEBIAN/control" <<EOF
 Package: hackman3d-control-deck
-Version: $VERSION
+Version: $VERSION-2
 Section: utils
 Priority: optional
 Architecture: $DEB_ARCH
@@ -110,6 +128,14 @@ Depends: libegl1, libxcb-cursor0, libxkbcommon-x11-0
 Description: HackMan3D Control Deck desktop application
  Configure profiles, actions, diagnostics and integrated firmware updates.
 EOF
+cat > "$DEB_ROOT/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --subsystem-match=tty 2>/dev/null || true
+exit 0
+EOF
+chmod 755 "$DEB_ROOT/DEBIAN/postinst"
 dpkg-deb --build --root-owner-group "$DEB_ROOT" "dist/$APP_SLUG.deb"
 
 echo "Linux packages created:"
