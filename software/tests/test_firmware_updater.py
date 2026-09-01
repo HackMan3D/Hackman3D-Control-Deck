@@ -379,31 +379,29 @@ def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
     ]
 
 
-def test_linux_vm_can_try_bootloader_on_unchanged_tty_name(monkeypatch) -> None:
+def test_linux_vm_does_not_flash_unchanged_application_port(monkeypatch) -> None:
     updater = FirmwareUpdater()
     updater._busy = True
     updater._original_port = "ttyACM0"
     updater._baseline_ports = {"ttyACM0"}
-    updater._poll_ticks = updater._LINUX_SAME_PORT_FALLBACK_TICKS - 1
+    updater._poll_ticks = updater._VM_GUIDANCE_TICKS - 1
     port = PortInfo("ttyACM0", "HackMan3D Control Deck", "HackMan3D", 0x2341)
     started: list[str] = []
+    statuses: list[str] = []
 
     monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "linux")
     monkeypatch.setattr(
         "hackman_control_deck.firmware_updater.QSerialPortInfo.availablePorts",
         lambda: [port],
     )
-    monkeypatch.setattr(updater._poll_timer, "stop", lambda: None)
-    monkeypatch.setattr(
-        "hackman_control_deck.firmware_updater.QTimer.singleShot",
-        lambda _delay, callback: callback(),
-    )
     monkeypatch.setattr(updater, "_start_avrdude", started.append)
+    updater.status_changed.connect(statuses.append)
 
     updater._poll_bootloader()
 
-    assert started == ["/dev/ttyACM0"]
-    assert updater._bootloader_port == "/dev/ttyACM0"
+    assert started == []
+    assert updater._bootloader_port == ""
+    assert statuses and "Caterina" in statuses[-1]
 
 
 def test_macos_1200_baud_touch_uses_native_open_and_close(monkeypatch) -> None:
