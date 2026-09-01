@@ -76,7 +76,11 @@ class FirmwareUpdater(QObject):
     esp32_bootloader_required = Signal()
 
     _POLL_INTERVAL_MS = 80
-    _BOOTLOADER_TIMEOUT_TICKS = 150
+    # Caterina normally re-enumerates in under two seconds. Virtual machines
+    # may need considerably longer to reattach the bootloader USB identity to
+    # the Linux guest, so keep the discovery window open for 30 seconds.
+    _BOOTLOADER_TIMEOUT_TICKS = 375
+    _LINUX_SAME_PORT_FALLBACK_TICKS = 16
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -428,11 +432,41 @@ class FirmwareUpdater(QObject):
                 QTimer.singleShot(300, lambda: self._start_avrdude(candidate))
                 return
 
+        # Some VM USB layers preserve /dev/ttyACM0 across the Caterina reset
+        # and hide the brief disappearance from QSerialPortInfo. In that case
+        # try the same Linux device after it has had time to enter bootloader
+        # mode. A non-bootloader port simply fails safely in avrdude and uses
+        # the existing retry path.
+        if (
+            sys.platform.startswith("linux")
+            and self._poll_ticks >= self._LINUX_SAME_PORT_FALLBACK_TICKS
+        ):
+            original = next(
+                (info for info in infos if info.portName() == self._original_port),
+                None,
+            )
+            if original is not None:
+                port = original.systemLocation() or original.portName()
+                self._poll_timer.stop()
+                self._bootloader_port = port
+                self.status_changed.emit(
+                    f"Trying the bootloader on {port} through the Linux USB connection…"
+                )
+                QTimer.singleShot(300, lambda: self._start_avrdude(port))
+                return
+
         if self._poll_ticks >= self._BOOTLOADER_TIMEOUT_TICKS:
-            self._fail(
+            message = (
                 "The automatic USB restart did not expose a bootloader port. Close Arduino IDE "
                 "and other serial applications, reconnect the controller, then try again."
             )
+            if sys.platform.startswith("linux"):
+                message = (
+                    "The bootloader USB device was not attached to Linux. In a virtual machine, "
+                    "enable automatic USB sharing for Arduino/Caterina (or attach it from the "
+                    "VM USB menu during the restart), then try again."
+                )
+            self._fail(message)
 
     def _select_bootloader_port(self, infos: list[QSerialPortInfo]) -> str:
         ranked: list[tuple[int, str]] = []
