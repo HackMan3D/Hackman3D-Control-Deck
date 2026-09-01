@@ -303,36 +303,6 @@ def test_verification_mismatch_is_never_successful() -> None:
     assert not FirmwareUpdater._flash_was_verified(output)
 
 
-def test_linux_vm_exit_bootloader_disconnect_after_write_is_successful() -> None:
-    output = """
-    Writing | ################################################## | 100% 0.15 s
-    14118 bytes of flash written
-    avrdude butterfly_vfy_cmd_sent() error: programmer did not respond to command: exit bootloader
-    """
-
-    assert FirmwareUpdater._flash_completed_before_vm_exit_disconnect(output)
-
-
-def test_exit_bootloader_error_without_completed_write_is_not_successful() -> None:
-    output = """
-    Error: butterfly_recv(pgm, &c, 1) failed
-    Error: initialization failed
-    avrdude butterfly_vfy_cmd_sent() error: programmer did not respond to command: exit bootloader
-    """
-
-    assert not FirmwareUpdater._flash_completed_before_vm_exit_disconnect(output)
-
-
-def test_verification_error_still_fails_after_completed_write() -> None:
-    output = """
-    14118 bytes of flash written
-    verification mismatch
-    avrdude butterfly_vfy_cmd_sent() error: programmer did not respond to command: exit bootloader
-    """
-
-    assert not FirmwareUpdater._flash_completed_before_vm_exit_disconnect(output)
-
-
 def test_failure_summary_ignores_generic_avrdude_goodbye() -> None:
     output = """
     avrdude error: programmer is not responding

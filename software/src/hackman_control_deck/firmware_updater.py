@@ -592,13 +592,7 @@ class FirmwareUpdater(QObject):
             self._fail(f"Firmware installation failed: {suffix}")
             return
         flash_verified = self._flash_was_verified(self._attempt_output)
-        vm_exit_disconnect = (
-            sys.platform.startswith("linux")
-            and self._flash_completed_before_vm_exit_disconnect(self._attempt_output)
-        )
-        if exit_status == QProcess.NormalExit and (
-            exit_code == 0 or flash_verified or vm_exit_disconnect
-        ):
+        if exit_status == QProcess.NormalExit and (exit_code == 0 or flash_verified):
             self._finish_success()
             return
         if self._attempt_count < 2 and self._is_retryable_failure(self._attempt_output):
@@ -666,39 +660,6 @@ class FirmwareUpdater(QObject):
             )
         )
         return verified and not verification_failed
-
-    @staticmethod
-    def _flash_completed_before_vm_exit_disconnect(output: str) -> bool:
-        """Accept only the harmless AVR109 shutdown race seen through Linux VMs.
-
-        Parallels can hand the rebooted application USB device back to Linux as
-        soon as Caterina receives the final exit command. AVRDUDE then reports
-        that the acknowledgement to *exit bootloader* was lost even though the
-        flash write has already completed. Do not accept any earlier transport,
-        write, or verification failure.
-        """
-        normalized = output.casefold()
-        exit_error = "programmer did not respond to command: exit bootloader"
-        if exit_error not in normalized:
-            return False
-        completed_write = bool(
-            re.search(r"\d+\s+bytes?\s+of\s+flash\s+written", normalized)
-        ) or (
-            "writing" in normalized
-            and bool(re.search(r"writing[^\n]*100\s*%", normalized))
-        )
-        if not completed_write:
-            return False
-        fatal_before_exit = (
-            "verification mismatch",
-            "failed verification",
-            "verification error",
-            "write error",
-            "failed to write",
-            "not in sync",
-            "initialization failed",
-        )
-        return not any(marker in normalized for marker in fatal_before_exit)
 
     @staticmethod
     def _failure_summary(output: str, exit_code: int) -> str:

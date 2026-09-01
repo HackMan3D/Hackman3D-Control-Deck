@@ -119,7 +119,7 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", TAG+="uaccess", GROUP="dialout", MODE
 EOF
 cat > "$DEB_ROOT/DEBIAN/control" <<EOF
 Package: hackman3d-control-deck
-Version: $VERSION-4
+Version: $VERSION-3
 Section: utils
 Priority: optional
 Architecture: $DEB_ARCH
