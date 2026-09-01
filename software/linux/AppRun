@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+APP_ROOT="${APPDIR:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
+export PATH="$APP_ROOT/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$APP_ROOT/usr/lib/hackman3d-control-deck/hackman_control_deck/assets/tools/linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export HCD_AVRDUDE="$APP_ROOT/usr/lib/hackman3d-control-deck/hackman_control_deck/assets/tools/linux/avrdude"
+export HCD_AVRDUDE_CONF="$APP_ROOT/usr/lib/hackman3d-control-deck/hackman_control_deck/assets/tools/linux/avrdude.conf"
+export HCD_ESPTOOL="$APP_ROOT/usr/lib/hackman3d-control-deck/hackman_control_deck/assets/tools/linux/esptool"
+
+exec "$APP_ROOT/usr/lib/hackman3d-control-deck/HackMan3D Control Deck" "$@"

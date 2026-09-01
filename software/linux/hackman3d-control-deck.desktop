@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HackMan3D Control Deck
+Comment=Configure and update the HackMan3D Control Deck
+Exec=hackman3d-control-deck
+Icon=hackman3d-control-deck
+Terminal=false
+Categories=Utility;Settings;
+StartupWMClass=HackMan3D Control Deck

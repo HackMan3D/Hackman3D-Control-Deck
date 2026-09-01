@@ -210,21 +210,21 @@ SYSTEM_ICON_FILES = {
 }
 
 SYSTEM_COMMANDS = (
-    ("command_volume_up", "volume_up", {"darwin", "win32"}),
-    ("command_volume_down", "volume_down", {"darwin", "win32"}),
-    ("command_volume_mute", "volume_mute", {"darwin", "win32"}),
-    ("command_microphone_mute", "microphone_mute", {"darwin", "win32"}),
-    ("command_microphone_up", "microphone_up", {"darwin", "win32"}),
-    ("command_microphone_down", "microphone_down", {"darwin", "win32"}),
-    ("command_play_pause", "media_play_pause", {"darwin", "win32"}),
-    ("command_next_track", "media_next", {"darwin", "win32"}),
-    ("command_previous_track", "media_previous", {"darwin", "win32"}),
-    ("command_brightness_up", "brightness_up", {"darwin", "win32"}),
-    ("command_brightness_down", "brightness_down", {"darwin", "win32"}),
-    ("command_lock", "lock", {"darwin", "win32"}),
-    ("command_sleep", "sleep", {"darwin", "win32"}),
-    ("command_restart", "restart", {"darwin", "win32"}),
-    ("command_shutdown", "shutdown", {"darwin", "win32"}),
+    ("command_volume_up", "volume_up", {"darwin", "win32", "linux"}),
+    ("command_volume_down", "volume_down", {"darwin", "win32", "linux"}),
+    ("command_volume_mute", "volume_mute", {"darwin", "win32", "linux"}),
+    ("command_microphone_mute", "microphone_mute", {"darwin", "win32", "linux"}),
+    ("command_microphone_up", "microphone_up", {"darwin", "win32", "linux"}),
+    ("command_microphone_down", "microphone_down", {"darwin", "win32", "linux"}),
+    ("command_play_pause", "media_play_pause", {"darwin", "win32", "linux"}),
+    ("command_next_track", "media_next", {"darwin", "win32", "linux"}),
+    ("command_previous_track", "media_previous", {"darwin", "win32", "linux"}),
+    ("command_brightness_up", "brightness_up", {"darwin", "win32", "linux"}),
+    ("command_brightness_down", "brightness_down", {"darwin", "win32", "linux"}),
+    ("command_lock", "lock", {"darwin", "win32", "linux"}),
+    ("command_sleep", "sleep", {"darwin", "win32", "linux"}),
+    ("command_restart", "restart", {"darwin", "win32", "linux"}),
+    ("command_shutdown", "shutdown", {"darwin", "win32", "linux"}),
 )
 
 
@@ -1919,6 +1919,7 @@ class MainWindow(QMainWindow):
         application = Path(path)
         is_application = application.suffix.lower() in {
             ".app",
+            ".desktop",
             ".exe",
             ".bat",
             ".cmd",
@@ -1958,8 +1959,25 @@ class MainWindow(QMainWindow):
             icon = self._file_icon_provider.icon(QFileInfo(str(path)))
         if sys.platform == "win32":
             icon = self._trimmed_icon(icon)
+        elif sys.platform.startswith("linux") and path.suffix.casefold() == ".desktop":
+            icon = self._linux_desktop_icon(path) or icon
         self._application_icon_cache[value] = icon
         return icon
+
+    @staticmethod
+    def _linux_desktop_icon(path: Path) -> QIcon | None:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return None
+        icon_name = next(
+            (line.partition("=")[2].strip() for line in lines if line.startswith("Icon=")),
+            "",
+        )
+        if not icon_name:
+            return None
+        icon = QIcon(icon_name) if Path(icon_name).is_file() else QIcon.fromTheme(icon_name)
+        return None if icon.isNull() else icon
 
     @staticmethod
     def _trimmed_icon(icon: QIcon) -> QIcon:
@@ -2232,11 +2250,43 @@ class MainWindow(QMainWindow):
             # Resolve a .lnk only when the user actually selects it. Asking
             # PowerShell for every Start Menu icon here can freeze Windows for
             # several seconds on machines with many installed applications.
+        elif sys.platform.startswith("linux"):
+            roots = (
+                Path.home() / ".local" / "share" / "applications",
+                Path("/usr/local/share/applications"),
+                Path("/usr/share/applications"),
+            )
+            applications.update(self._linux_desktop_applications(roots))
         self._application_choices = sorted(
             ((Path(path).stem, path) for path in applications.values()),
             key=lambda item: item[0].casefold(),
         )
         return self._application_choices
+
+    @staticmethod
+    def _linux_desktop_applications(roots: tuple[Path, ...]) -> dict[str, str]:
+        applications: dict[str, str] = {}
+        for root in roots:
+            if not root.is_dir():
+                continue
+            for path in root.rglob("*.desktop"):
+                try:
+                    lines = path.read_text(
+                        encoding="utf-8", errors="replace"
+                    ).splitlines()
+                except OSError:
+                    continue
+                name = next(
+                    (line.partition("=")[2].strip() for line in lines if line.startswith("Name=")),
+                    "",
+                )
+                hidden = any(
+                    line.strip().casefold() in {"nodisplay=true", "hidden=true"}
+                    for line in lines
+                )
+                if name and not hidden:
+                    applications.setdefault(name.casefold(), str(path))
+        return applications
 
     @staticmethod
     def _windows_start_menu_applications(roots: list[Path]) -> dict[str, str]:

@@ -44,7 +44,10 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
     downloads = document.get("downloads", {})
     if not isinstance(downloads, dict):
         downloads = {}
-    platform_key = "macos" if sys.platform == "darwin" else "windows"
+    platform_key = {
+        "darwin": "macos",
+        "win32": "windows",
+    }.get(sys.platform, "linux")
     download_url = str(downloads.get(platform_key, downloads.get("website", ""))).strip()
 
     roadmap = document.get("roadmap", {})

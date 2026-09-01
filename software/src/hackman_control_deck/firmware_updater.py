@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import os
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -114,7 +116,7 @@ class FirmwareUpdater(QObject):
     ) -> None:
         if self._busy:
             return
-        if sys.platform not in {"darwin", "win32"}:
+        if sys.platform not in {"darwin", "win32", "linux"}:
             self.finished.emit(False, "Firmware installation is not available here yet.")
             return
         if not port_name:
@@ -167,12 +169,39 @@ class FirmwareUpdater(QObject):
         target = firmware_target(model_identifier)
         if target is None:
             raise ValueError(f"Unsupported hardware model: {model_identifier}")
-        platform_directory = "windows" if sys.platform == "win32" else "macos"
+        platform_directory = {
+            "win32": "windows",
+            "darwin": "macos",
+        }.get(sys.platform, "linux")
         executable_name = "avrdude.exe" if sys.platform == "win32" else "avrdude"
         tool_directory = ASSET_DIR / "tools" / platform_directory
+        executable = tool_directory / executable_name
+        configuration = tool_directory / "avrdude.conf"
+        if sys.platform.startswith("linux"):
+            executable = Path(
+                os.environ.get("HCD_AVRDUDE", "")
+                or (str(executable) if executable.is_file() else "")
+                or shutil.which("avrdude")
+                or executable
+            )
+            configured = os.environ.get("HCD_AVRDUDE_CONF", "")
+            if configured:
+                configuration = Path(configured)
+            elif not configuration.is_file():
+                configuration = next(
+                    (
+                        candidate
+                        for candidate in (
+                            Path("/etc/avrdude.conf"),
+                            Path("/etc/avrdude/avrdude.conf"),
+                        )
+                        if candidate.is_file()
+                    ),
+                    configuration,
+                )
         return (
-            tool_directory / executable_name,
-            tool_directory / "avrdude.conf",
+            executable,
+            configuration,
             ASSET_DIR / "firmware" / target.filename,
         )
 
@@ -181,10 +210,21 @@ class FirmwareUpdater(QObject):
         target = firmware_target(model_identifier)
         if target is None or target.architecture != "esp32s3":
             raise ValueError(f"Unsupported ESP32 model: {model_identifier}")
-        platform_directory = "windows" if sys.platform == "win32" else "macos"
+        platform_directory = {
+            "win32": "windows",
+            "darwin": "macos",
+        }.get(sys.platform, "linux")
         executable_name = "esptool.exe" if sys.platform == "win32" else "esptool"
+        executable = ASSET_DIR / "tools" / platform_directory / executable_name
+        if sys.platform.startswith("linux"):
+            executable = Path(
+                os.environ.get("HCD_ESPTOOL", "")
+                or (str(executable) if executable.is_file() else "")
+                or shutil.which("esptool")
+                or executable
+            )
         return (
-            ASSET_DIR / "tools" / platform_directory / executable_name,
+            executable,
             ASSET_DIR / "firmware" / target.filename,
         )
 
@@ -287,7 +327,7 @@ class FirmwareUpdater(QObject):
 
     @staticmethod
     def _serial_location(port_name: str) -> str:
-        if sys.platform == "darwin" and not port_name.startswith("/dev/"):
+        if sys.platform in {"darwin", "linux"} and not port_name.startswith("/dev/"):
             return f"/dev/{port_name}"
         return port_name
 
@@ -447,6 +487,8 @@ class FirmwareUpdater(QObject):
             marker in identity
             for marker in (
                 "usbmodem",
+                "ttyacm",
+                "ttyusb",
                 "leonardo",
                 "caterina",
                 "32u4",

@@ -40,5 +40,18 @@ def test_release_feed_defaults_invalid_percentages_to_zero() -> None:
     assert not data.update_available
 
 
+def test_release_feed_selects_linux_download(monkeypatch) -> None:
+    monkeypatch.setattr("hackman_control_deck.release_feed.sys.platform", "linux")
+    payload = json.dumps(
+        {
+            "schema": 1,
+            "latest_version": "1.5.5",
+            "downloads": {"linux": "https://example.com/linux"},
+        }
+    ).encode()
+
+    assert parse_release_feed(payload).download_url == "https://example.com/linux"
+
+
 def test_versions_are_compared_numerically() -> None:
     assert version_key("0.20.0") > version_key("0.9.9")
