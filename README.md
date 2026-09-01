@@ -1,7 +1,7 @@
 # HackMan3D Control Deck
 
 ![Version](https://img.shields.io/badge/Version-1.5.5-0A84FF?style=flat-square)
-![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows-0A84FF?style=flat-square)
+![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-0A84FF?style=flat-square)
 ![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
 ![Controls](https://img.shields.io/badge/Controls-9%20MX%20Keys-7B61FF?style=flat-square)
@@ -10,8 +10,8 @@
 
 HackMan3D Control Deck (HCD) is a family of programmable desktop controllers.
 HCD-BASE and HCD Plus use an Arduino Pro Micro; HCD Pro uses an ESP32-S3
-touchscreen. This repository contains the shared Windows/macOS configuration
-app, the branded interface and the firmware for all three models.
+touchscreen. This repository contains the shared Windows/macOS/Linux
+configuration app, the branded interface and the firmware for all three models.
 
 ## Download the app — version 1.5.5
 
@@ -20,6 +20,8 @@ who have access to this repository.
 
 - [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
 - [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe)
+- [Download for Linux (.AppImage)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage)
+- [Download for Ubuntu, Debian or Linux Mint (.deb)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
 
 ## Quick start — recommended
 
@@ -33,6 +35,10 @@ working HackMan3D Control Deck.
    [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
    or
    [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe).
+   Linux users can install the
+   [.deb package](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
+   or run the portable
+   [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage).
 3. Connect the compatible Arduino Pro Micro to the computer by USB.
 4. Open **Firmware** in the application, select **HCD-BASE** and click
    **Install firmware**.
@@ -83,8 +89,8 @@ actions, test the command and save it to the current HCD-BASE profile.
    preview.
 5. Assign a shortcut, system command, text, website or application to the short
    press and, optionally, a different action to the long press.
-6. Minimize the application to the macOS menu bar or Windows notification area;
-   profiles and actions continue to work in the background.
+6. Minimize the application to the macOS menu bar or the Windows/Linux
+   notification area; profiles and actions continue to work in the background.
 
 ## HCD-BASE hardware
 
@@ -223,9 +229,9 @@ docs/                                protocol and wiring notes
 
 ## Desktop app
 
-The same PySide6 application runs on Windows and macOS. It detects the connected
-Control Deck, keeps its heartbeat active and provides one place to manage
-profiles, actions, diagnostics and firmware.
+The same PySide6 application runs on Windows, macOS and Linux. It detects the
+connected Control Deck, keeps its heartbeat active and provides one place to
+manage profiles, actions, diagnostics and firmware.
 
 ### Run from source
 
@@ -251,6 +257,16 @@ python -m pip install -e .
 hackman3d-control-deck
 ```
 
+**Linux**
+
+```bash
+cd software
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+hackman3d-control-deck
+```
+
 ### Profiles and actions
 
 - Create, rename, duplicate and delete profiles.
@@ -265,7 +281,7 @@ hackman3d-control-deck
   native icon are added automatically.
 - Reset all key assignments in the current profile with one confirmation.
 
-The shortcut catalogue adapts to Windows or macOS and shows the purpose of each
+The shortcut catalogue adapts to Windows, macOS or Linux and shows the purpose of each
 combination. Custom key combinations remain available when a preset is not
 listed.
 
@@ -285,8 +301,8 @@ listed.
 - The 3D preview mirrors the red connection LED and the white key-feedback
   light in real time.
 
-The firmware manager includes AVRDUDE for Base/Plus and esptool for Pro on both
-Windows and macOS. It can update an identified deck or install the selected
+The firmware manager includes AVRDUDE for Base/Plus and esptool for Pro on
+Windows, macOS and Linux. It can update an identified deck or install the selected
 firmware on compatible new hardware without Arduino IDE.
 
 ### Interface and personalisation
@@ -317,6 +333,10 @@ application.
 a blank Dock window. The menu-bar icon restores the existing interface.
 **Keep in Dock**, **Start with Mac** and **Start minimized in menu bar** can be
 configured independently.
+
+**Linux:** minimizing to the notification area keeps the heartbeat and actions
+active. The application supports X11 and Wayland desktops with a compatible
+system tray. See [the Linux guide](docs/LINUX.md) for USB permission details.
 
 Native macOS volume controls do not require Accessibility permission. Keyboard
 injection, brightness and media-key actions do; the built-in permissions
@@ -362,6 +382,19 @@ the portable application and creates
 `software\dist\HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
+
+### Linux application
+
+On a 64-bit Linux computer, run the Linux build on Linux itself:
+
+```bash
+cd software
+./build_linux.sh
+```
+
+It creates a portable `.AppImage` and a graphical `.deb` installer for Ubuntu,
+Debian and Linux Mint. End users do not need Python or Arduino IDE. Complete
+installation and USB permission notes are in [docs/LINUX.md](docs/LINUX.md).
 
 ## Firmware
 

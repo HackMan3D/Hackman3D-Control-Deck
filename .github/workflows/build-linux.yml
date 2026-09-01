@@ -1,0 +1,57 @@
+name: Build Linux application
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the Linux packages
+        required: false
+        default: v1.5.5
+
+permissions:
+  contents: write
+
+jobs:
+  linux-packages:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends avrdude libxcb-cursor0 libxkbcommon-x11-0
+          curl -L --fail --output appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool software/build_linux.sh
+
+      - name: Build AppImage and Debian package
+        env:
+          APPIMAGETOOL: ${{ github.workspace }}/appimagetool
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: software/build_linux.sh
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: HackMan3D-Control-Deck-Linux-1.5.5
+          path: |
+            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage
+            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb
+          if-no-files-found: error
+
+      - name: Add packages to the GitHub release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" \
+            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage \
+            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb \
+            --clobber

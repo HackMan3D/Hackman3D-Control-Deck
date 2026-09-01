@@ -98,9 +98,17 @@ def test_system_presets_include_power_and_microphone_commands() -> None:
 
 
 def test_system_presets_hide_commands_unsupported_by_platform(monkeypatch) -> None:
-    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "linux")
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "freebsd")
 
     assert MainWindow._system_command_presets() == ()
+
+
+def test_linux_system_presets_include_desktop_commands(monkeypatch) -> None:
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "linux")
+
+    commands = {command for _, command in MainWindow._system_command_presets()}
+
+    assert {"volume_up", "microphone_mute", "lock", "shutdown"} <= commands
 
 
 def test_unknown_system_command_is_rejected() -> None:
@@ -144,6 +152,38 @@ def test_windows_start_menu_apps_are_discovered(tmp_path: Path) -> None:
     applications = MainWindow._windows_start_menu_applications([programs])
 
     assert set(applications) == {"example app", "web tool"}
+
+
+def test_linux_desktop_apps_are_discovered(tmp_path: Path) -> None:
+    visible = tmp_path / "example.desktop"
+    visible.write_text("[Desktop Entry]\nName=Example App\nExec=example\n")
+    hidden = tmp_path / "hidden.desktop"
+    hidden.write_text("[Desktop Entry]\nName=Hidden App\nNoDisplay=true\n")
+
+    applications = MainWindow._linux_desktop_applications((tmp_path,))
+
+    assert applications == {"example app": str(visible)}
+
+
+def test_linux_volume_uses_wpctl(monkeypatch) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.shutil.which",
+        lambda name: "/usr/bin/wpctl" if name == "wpctl" else None,
+    )
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.subprocess.run",
+        lambda arguments, **kwargs: calls.append(arguments)
+        or SimpleNamespace(returncode=0, stdout="Volume: 0.42", stderr=""),
+    )
+
+    assert ActionRunner._linux_audio_level("sink") == 42
+    ActionRunner._linux_set_audio_level("sink", 55)
+
+    assert calls == [
+        ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"],
+        ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "55%"],
+    ]
 
 
 class EditorValue:

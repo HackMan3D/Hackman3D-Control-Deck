@@ -4,6 +4,7 @@
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
+    "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
   "release_notes": "Independent LED brightness per HCD model, updated bundled firmware and reliable acknowledged HCD Pro icon synchronization.",

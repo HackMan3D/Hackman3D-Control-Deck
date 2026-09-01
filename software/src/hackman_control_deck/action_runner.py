@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 import ctypes
+import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
@@ -80,6 +83,9 @@ class ActionRunner(QObject):
                 None,
             )
             return
+        if sys.platform.startswith("linux"):
+            ActionRunner._linux_set_audio_level("sink", level)
+            return
         raise OSError("Absolute volume control is not available on this platform yet")
 
     @staticmethod
@@ -96,6 +102,8 @@ class ActionRunner(QObject):
         if sys.platform == "win32":
             scalar = ActionRunner._windows_endpoint_volume().GetMasterVolumeLevelScalar()
             return max(0, min(100, round(float(scalar) * 100)))
+        if sys.platform.startswith("linux"):
+            return ActionRunner._linux_audio_level("sink")
         raise OSError("Volume level is unavailable on this platform")
 
     @staticmethod
@@ -117,6 +125,9 @@ class ActionRunner(QObject):
                 None,
             )
             return
+        if sys.platform.startswith("linux"):
+            ActionRunner._linux_set_audio_level("source", level)
+            return
         raise OSError("Microphone level is unavailable on this platform")
 
     @staticmethod
@@ -133,6 +144,8 @@ class ActionRunner(QObject):
         if sys.platform == "win32":
             scalar = ActionRunner._windows_microphone_endpoint().GetMasterVolumeLevelScalar()
             return max(0, min(100, round(float(scalar) * 100)))
+        if sys.platform.startswith("linux"):
+            return ActionRunner._linux_audio_level("source")
         raise OSError("Microphone level is unavailable on this platform")
 
     @staticmethod
@@ -178,6 +191,17 @@ class ActionRunner(QObject):
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             return
+        if sys.platform.startswith("linux"):
+            result = subprocess.run(
+                ["brightnessctl", "set", f"{level}%"],
+                check=False,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or "Could not set display brightness")
+            return
         raise OSError("Brightness control is unavailable on this platform")
 
     @staticmethod
@@ -209,6 +233,18 @@ class ActionRunner(QObject):
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             return max(0, min(100, round(float(result.stdout.strip()))))
+        if sys.platform.startswith("linux"):
+            result = subprocess.run(
+                ["brightnessctl", "-m"],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            matches = re.findall(r"(\d+)%", result.stdout)
+            if not matches:
+                raise RuntimeError("Could not read display brightness")
+            return max(0, min(100, int(matches[-1])))
         raise OSError("Brightness level is unavailable on this platform")
 
     @staticmethod
@@ -289,6 +325,10 @@ class ActionRunner(QObject):
             self._macos_system_key(key_type)
             return
 
+        if sys.platform.startswith("linux"):
+            self._linux_system(value)
+            return
+
         from pynput.keyboard import Key
 
         media_keys = {
@@ -351,6 +391,101 @@ class ActionRunner(QObject):
 
         interface = device.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
         return cast(interface, POINTER(IAudioEndpointVolume))
+
+    @staticmethod
+    def _linux_audio_target(kind: str) -> tuple[str, str]:
+        if kind == "source":
+            return "@DEFAULT_AUDIO_SOURCE@", "@DEFAULT_SOURCE@"
+        return "@DEFAULT_AUDIO_SINK@", "@DEFAULT_SINK@"
+
+    @staticmethod
+    def _linux_audio_level(kind: str) -> int:
+        wpctl_target, pactl_target = ActionRunner._linux_audio_target(kind)
+        if shutil.which("wpctl"):
+            result = subprocess.run(
+                ["wpctl", "get-volume", wpctl_target],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            match = re.search(r"([0-9]+(?:\.[0-9]+)?)", result.stdout)
+            if match:
+                return max(0, min(100, round(float(match.group(1)) * 100)))
+        if shutil.which("pactl"):
+            command = "get-source-volume" if kind == "source" else "get-sink-volume"
+            result = subprocess.run(
+                ["pactl", command, pactl_target],
+                check=True,
+                close_fds=True,
+                capture_output=True,
+                text=True,
+            )
+            match = re.search(r"(\d+)%", result.stdout)
+            if match:
+                return max(0, min(100, int(match.group(1))))
+        raise OSError("Install wpctl or pactl to control audio on Linux")
+
+    @staticmethod
+    def _linux_set_audio_level(kind: str, level: int) -> None:
+        wpctl_target, pactl_target = ActionRunner._linux_audio_target(kind)
+        if shutil.which("wpctl"):
+            arguments = ["wpctl", "set-volume", wpctl_target, f"{level}%"]
+        elif shutil.which("pactl"):
+            action = "set-source-volume" if kind == "source" else "set-sink-volume"
+            arguments = ["pactl", action, pactl_target, f"{level}%"]
+        else:
+            raise OSError("Install wpctl or pactl to control audio on Linux")
+        subprocess.run(arguments, check=True, close_fds=True)
+
+    @staticmethod
+    def _linux_system(command: str) -> None:
+        audio = {
+            "volume_up": ("sink", 5),
+            "volume_down": ("sink", -5),
+            "microphone_up": ("source", 5),
+            "microphone_down": ("source", -5),
+        }
+        if command in audio:
+            kind, delta = audio[command]
+            current = ActionRunner._linux_audio_level(kind)
+            ActionRunner._linux_set_audio_level(kind, max(0, min(100, current + delta)))
+            return
+        if command in {"volume_mute", "microphone_mute"}:
+            kind = "source" if command == "microphone_mute" else "sink"
+            wpctl_target, pactl_target = ActionRunner._linux_audio_target(kind)
+            if shutil.which("wpctl"):
+                arguments = ["wpctl", "set-mute", wpctl_target, "toggle"]
+            elif shutil.which("pactl"):
+                action = "set-source-mute" if kind == "source" else "set-sink-mute"
+                arguments = ["pactl", action, pactl_target, "toggle"]
+            else:
+                raise OSError("Install wpctl or pactl to control audio on Linux")
+            subprocess.run(arguments, check=True, close_fds=True)
+            return
+        media = {
+            "media_play_pause": "play-pause",
+            "media_next": "next",
+            "media_previous": "previous",
+        }
+        if command in media:
+            if not shutil.which("playerctl"):
+                raise OSError("Install playerctl to control media playback on Linux")
+            subprocess.run(["playerctl", media[command]], check=True, close_fds=True)
+            return
+        if command in {"brightness_up", "brightness_down"}:
+            ActionRunner._change_brightness(command == "brightness_up")
+            return
+        power = {
+            "lock": ["loginctl", "lock-session"],
+            "sleep": ["systemctl", "suspend"],
+            "restart": ["systemctl", "reboot"],
+            "shutdown": ["systemctl", "poweroff"],
+        }
+        if command in power:
+            subprocess.run(power[command], check=True, close_fds=True)
+            return
+        raise ValueError(f"Unknown system command: {command}")
 
     @staticmethod
     def _macos_power(command: str) -> None:
@@ -490,6 +625,14 @@ class ActionRunner(QObject):
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
             return
+        if sys.platform.startswith("linux"):
+            direction = "+5%" if increase else "5%-"
+            subprocess.run(
+                ["brightnessctl", "set", direction],
+                check=True,
+                close_fds=True,
+            )
+            return
         raise OSError("Brightness control is unavailable on this platform")
 
     def _open_url(self, value: str) -> None:
@@ -504,5 +647,13 @@ class ActionRunner(QObject):
             return
         if sys.platform == "win32":
             os.startfile(value)  # type: ignore[attr-defined]  # noqa: S606
+            return
+        if sys.platform.startswith("linux") and value.casefold().endswith(".desktop"):
+            if shutil.which("gio"):
+                subprocess.Popen(["gio", "launch", value], close_fds=True)  # noqa: S603
+            else:
+                subprocess.Popen(  # noqa: S603
+                    ["gtk-launch", Path(value).stem], close_fds=True
+                )
             return
         subprocess.Popen([value], close_fds=True)  # noqa: S603

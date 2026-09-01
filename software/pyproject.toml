@@ -42,6 +42,8 @@ hackman_control_deck = [
     "assets/firmware/*.bin",
     "assets/tools/macos/*",
     "assets/tools/windows/*",
+    "assets/tools/linux/*",
+    "assets/tools/linux/lib/*",
 ]
 
 [tool.ruff]
