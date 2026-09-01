@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import sys
 import time
 import zlib
 from collections import deque
@@ -379,7 +380,25 @@ class HcdDeviceManager(QObject):
         self._buffer.clear()
         self._last_pong = time.monotonic()
         self._write_line("HCD_PING")
+        # USB passthrough in virtual machines can make the first write arrive
+        # before the guest CDC device is fully ready. Retry the lightweight
+        # handshake while the probe is still open instead of discarding an
+        # otherwise valid ttyACM device after a single packet.
+        if sys.platform.startswith("linux"):
+            QTimer.singleShot(180, self._retry_probe_handshake)
+            QTimer.singleShot(520, self._retry_probe_handshake)
         self._probe_timer.start()
+
+    @Slot()
+    def _retry_probe_handshake(self) -> None:
+        if (
+            self._running
+            and self._serial.isOpen()
+            and not self._connected
+            and self._transport == "serial"
+        ):
+            self._write_line("HCD_PING")
+            self._write_line("HCD_GET_INFO")
 
     @staticmethod
     def _port_priority(port: QSerialPortInfo) -> int:
