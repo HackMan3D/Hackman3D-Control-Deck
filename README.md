@@ -20,8 +20,8 @@ who have access to this repository.
 
 - [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
 - [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe)
-- [Download for Linux (.AppImage)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage)
-- [Download for Ubuntu, Debian or Linux Mint (.deb)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
+- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
+- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5.deb)
 
 ## Quick start — recommended
 
@@ -35,10 +35,9 @@ working HackMan3D Control Deck.
    [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
    or
    [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe).
-   Linux users can install the
-   [.deb package](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
-   or run the portable
-   [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage).
+   Linux users can choose the `.deb` or AppImage matching their x86_64 or ARM64
+   computer from the links above. Apple Silicon virtual machines normally need
+   the **ARM64/aarch64** package.
 3. Connect the compatible Arduino Pro Micro to the computer by USB.
 4. Open **Firmware** in the application, select **HCD-BASE** and click
    **Install firmware**.
