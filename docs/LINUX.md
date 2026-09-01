@@ -42,9 +42,13 @@ to the application menu automatically, but is not required.
 
 ## USB access
 
-Most distributions grant serial-device access to members of `dialout`. If the
-deck is visible but cannot be opened, add the current user to this group, sign
-out and sign back in:
+The `.deb` installer adds a limited USB-access rule for the Arduino, SparkFun,
+Espressif and WCH serial devices used by HCD models. After installing or
+updating the package, unplug and reconnect the Control Deck once.
+
+AppImage users may still need membership of the `dialout` group. If the deck is
+listed as `ttyACM0` or `ttyUSB0` but is not detected, run the command below,
+then sign out and sign back in:
 
 ```bash
 sudo usermod -aG dialout "$USER"
