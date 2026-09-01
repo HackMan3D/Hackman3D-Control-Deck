@@ -1,19 +1,31 @@
 # Linux application
 
-HackMan3D Control Deck supports 64-bit Linux desktops through two packages.
+HackMan3D Control Deck supports x86_64 and ARM64 Linux desktops through two
+packages for each architecture.
+
+## Choose the correct architecture
+
+Open a terminal and run `uname -m`:
+
+- `x86_64` means that the filename must contain **x86_64**;
+- `aarch64` or `arm64` means that the filename must contain **aarch64**.
+
+Ubuntu virtual machines running on an Apple Silicon Mac normally use the
+**aarch64** package. Ubuntu's App Center may silently refuse an x86_64 package
+on such a VM.
 
 ## Easy installation
 
 ### Ubuntu, Debian and Linux Mint
 
-Download `HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb` from the latest GitHub
-release, double-click it and choose **Install**. The application then appears in
-the desktop application menu.
+Download the `.deb` matching the computer from the latest GitHub release,
+double-click it and choose **Install**. The application then appears in the
+desktop application menu.
 
 It can also be installed from a terminal:
 
 ```bash
-sudo apt install ./HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb
+sudo apt install ./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5.deb
 ```
 
 ### Other Linux distributions
@@ -21,8 +33,8 @@ sudo apt install ./HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb
 Download the `.AppImage`, make it executable and launch it:
 
 ```bash
-chmod +x HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage
-./HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage
+chmod +x HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5.AppImage
+./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5.AppImage
 ```
 
 The AppImage is portable and can be moved anywhere. AppImageLauncher can add it

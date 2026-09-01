@@ -7,7 +7,21 @@ cd "$SCRIPT_DIR"
 VERSION=$(python3 -c 'import pathlib,re; text=pathlib.Path("src/hackman_control_deck/constants.py").read_text(); print(re.search(r"APP_VERSION = \"([^\"]+)", text).group(1))')
 PYTHON_COMMAND=${HCD_PYTHON:-python3}
 APP_NAME="HackMan3D Control Deck"
-APP_SLUG="HackMan3D-Control-Deck-Linux-x86_64-$VERSION"
+case "$(uname -m)" in
+  x86_64|amd64)
+    LINUX_ARCH="x86_64"
+    DEB_ARCH="amd64"
+    ;;
+  aarch64|arm64)
+    LINUX_ARCH="aarch64"
+    DEB_ARCH="arm64"
+    ;;
+  *)
+    echo "Unsupported Linux architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+APP_SLUG="HackMan3D-Control-Deck-Linux-$LINUX_ARCH-$VERSION"
 TOOLS_DIR="src/hackman_control_deck/assets/tools/linux"
 
 if [[ ! -d .venv-linux ]]; then
@@ -74,7 +88,7 @@ cp src/hackman_control_deck/assets/hcd_app_icon_rounded.png AppDir/hackman3d-con
 ln -s hackman3d-control-deck.png AppDir/.DirIcon
 
 APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
-ARCH=x86_64 "$APPIMAGETOOL" AppDir "dist/$APP_SLUG.AppImage"
+ARCH="$LINUX_ARCH" "$APPIMAGETOOL" AppDir "dist/$APP_SLUG.AppImage"
 
 DEB_ROOT="package/linux/hackman3d-control-deck"
 mkdir -p "$DEB_ROOT/DEBIAN" "$DEB_ROOT/usr/lib/hackman3d-control-deck" \
@@ -90,9 +104,9 @@ Package: hackman3d-control-deck
 Version: $VERSION
 Section: utils
 Priority: optional
-Architecture: amd64
+Architecture: $DEB_ARCH
 Maintainer: HackMan3D <hackman3d.pro@gmail.com>
-Depends: libxcb-cursor0, libxkbcommon-x11-0
+Depends: libegl1, libxcb-cursor0, libxkbcommon-x11-0
 Description: HackMan3D Control Deck desktop application
  Configure profiles, actions, diagnostics and integrated firmware updates.
 EOF

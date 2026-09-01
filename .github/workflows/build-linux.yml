@@ -13,7 +13,17 @@ permissions:
 
 jobs:
   linux-packages:
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            architecture: x86_64
+            appimagetool_architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+            appimagetool_architecture: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out project
         uses: actions/checkout@v4
@@ -26,9 +36,9 @@ jobs:
       - name: Install Linux build tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends avrdude libxcb-cursor0 libxkbcommon-x11-0
+          sudo apt-get install --yes --no-install-recommends avrdude libegl1 libxcb-cursor0 libxkbcommon-x11-0
           curl -L --fail --output appimagetool \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${{ matrix.appimagetool_architecture }}.AppImage
           chmod +x appimagetool software/build_linux.sh
 
       - name: Build AppImage and Debian package
@@ -53,10 +63,10 @@ jobs:
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: HackMan3D-Control-Deck-Linux-1.5.5
+          name: HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5
           path: |
-            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage
-            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5.AppImage
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5.deb
           if-no-files-found: error
 
       - name: Add packages to the GitHub release
@@ -65,6 +75,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ inputs.release_tag }}" \
-            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage \
-            software/dist/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb \
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5.AppImage \
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5.deb \
             --clobber
