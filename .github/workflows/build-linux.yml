@@ -37,6 +37,19 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: software/build_linux.sh
 
+      - name: Smoke-test the packaged application
+        run: |
+          set +e
+          timeout 10s env QT_QPA_PLATFORM=offscreen \
+            "software/dist/linux/HackMan3D Control Deck/HackMan3D Control Deck" \
+            --background
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "The packaged Linux application exited unexpectedly ($status)." >&2
+            exit "$status"
+          fi
+
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
