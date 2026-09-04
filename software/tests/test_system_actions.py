@@ -5,6 +5,8 @@ from pynput.keyboard import Key
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 _ = Key
 
 
@@ -163,6 +165,69 @@ def test_linux_desktop_apps_are_discovered(tmp_path: Path) -> None:
     applications = MainWindow._linux_desktop_applications((tmp_path,))
 
     assert applications == {"example app": str(visible)}
+
+
+def test_linux_application_launch_restores_system_library_path(monkeypatch) -> None:
+    launches: list[tuple[list[str], dict[str, str]]] = []
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "linux")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/pyinstaller-runtime")
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/local/lib")
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.shutil.which",
+        lambda name: f"/usr/bin/{name}" if name == "gio" else None,
+    )
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.subprocess.run",
+        lambda arguments, **kwargs: launches.append((arguments, kwargs["env"]))
+        or SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    ActionRunner._launch("/usr/share/applications/example.desktop")
+
+    assert launches[0][0] == [
+        "gio",
+        "launch",
+        "/usr/share/applications/example.desktop",
+    ]
+    assert launches[0][1]["LD_LIBRARY_PATH"] == "/usr/local/lib"
+    assert "LD_LIBRARY_PATH_ORIG" not in launches[0][1]
+
+
+def test_linux_application_launch_removes_injected_library_path(monkeypatch) -> None:
+    launches: list[dict[str, str]] = []
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "linux")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/tmp/pyinstaller-runtime")
+    monkeypatch.delenv("LD_LIBRARY_PATH_ORIG", raising=False)
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.shutil.which",
+        lambda name: f"/usr/bin/{name}" if name == "gio" else None,
+    )
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.subprocess.run",
+        lambda _arguments, **kwargs: launches.append(kwargs["env"])
+        or SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    ActionRunner._launch("/usr/share/applications/example.desktop")
+
+    assert "LD_LIBRARY_PATH" not in launches[0]
+
+
+def test_linux_application_launch_reports_desktop_launcher_failure(monkeypatch) -> None:
+    monkeypatch.setattr("hackman_control_deck.action_runner.sys.platform", "linux")
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.shutil.which",
+        lambda name: f"/usr/bin/{name}" if name == "gio" else None,
+    )
+    monkeypatch.setattr(
+        "hackman_control_deck.action_runner.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1, stdout="", stderr="Application not found"
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="Application not found"):
+        ActionRunner._launch("/usr/share/applications/missing.desktop")
 
 
 def test_linux_volume_uses_wpctl(monkeypatch) -> None:

@@ -7,7 +7,7 @@ cd "$SCRIPT_DIR"
 VERSION=$(python3 -c 'import pathlib,re; text=pathlib.Path("src/hackman_control_deck/constants.py").read_text(); print(re.search(r"APP_VERSION = \"([^\"]+)", text).group(1))')
 PYTHON_COMMAND=${HCD_PYTHON:-python3}
 APP_NAME="HackMan3D Control Deck"
-DEB_REVISION="6"
+DEB_REVISION="7"
 case "$(uname -m)" in
   x86_64|amd64)
     LINUX_ARCH="x86_64"

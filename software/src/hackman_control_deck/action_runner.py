@@ -648,12 +648,55 @@ class ActionRunner(QObject):
         if sys.platform == "win32":
             os.startfile(value)  # type: ignore[attr-defined]  # noqa: S606
             return
-        if sys.platform.startswith("linux") and value.casefold().endswith(".desktop"):
-            if shutil.which("gio"):
-                subprocess.Popen(["gio", "launch", value], close_fds=True)  # noqa: S603
-            else:
-                subprocess.Popen(  # noqa: S603
-                    ["gtk-launch", Path(value).stem], close_fds=True
-                )
+        if sys.platform.startswith("linux"):
+            environment = ActionRunner._linux_process_environment()
+            if value.casefold().endswith(".desktop"):
+                ActionRunner._launch_linux_desktop(value, environment)
+                return
+            subprocess.Popen([value], close_fds=True, env=environment)  # noqa: S603
             return
         subprocess.Popen([value], close_fds=True)  # noqa: S603
+
+    @staticmethod
+    def _linux_process_environment() -> dict[str, str]:
+        """Return the host environment instead of PyInstaller's private runtime."""
+        environment = os.environ.copy()
+        original_library_path = environment.pop("LD_LIBRARY_PATH_ORIG", None)
+        if original_library_path is None:
+            environment.pop("LD_LIBRARY_PATH", None)
+        else:
+            environment["LD_LIBRARY_PATH"] = original_library_path
+        return environment
+
+    @staticmethod
+    def _launch_linux_desktop(value: str, environment: dict[str, str]) -> None:
+        launchers: list[list[str]] = []
+        if shutil.which("gio"):
+            launchers.append(["gio", "launch", value])
+        if shutil.which("gtk-launch"):
+            launchers.append(["gtk-launch", Path(value).stem])
+        if shutil.which("xdg-open"):
+            launchers.append(["xdg-open", value])
+        if not launchers:
+            raise RuntimeError("No Linux application launcher is installed.")
+
+        failures: list[str] = []
+        for arguments in launchers:
+            try:
+                result = subprocess.run(  # noqa: S603
+                    arguments,
+                    check=False,
+                    close_fds=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=8,
+                    env=environment,
+                )
+            except (OSError, subprocess.SubprocessError) as error:
+                failures.append(str(error))
+                continue
+            if result.returncode == 0:
+                return
+            failures.append(result.stderr.strip() or result.stdout.strip())
+        detail = next((message for message in reversed(failures) if message), "unknown error")
+        raise RuntimeError(f"Could not launch {Path(value).stem}: {detail}")
