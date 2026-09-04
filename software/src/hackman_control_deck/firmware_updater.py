@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Signal, Slot
-from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
+from PySide6.QtSerialPort import QSerialPortInfo
 
 from .constants import ASSET_DIR
 
@@ -352,31 +352,19 @@ class FirmwareUpdater(QObject):
     def _touch_1200_baud(port_name: str) -> bool:
         if sys.platform == "darwin":
             return FirmwareUpdater._touch_macos_1200_baud(port_name)
-        if sys.platform == "win32":
-            return FirmwareUpdater._touch_windows_1200_baud(port_name)
-
-        serial = QSerialPort()
-        serial.setPortName(port_name)
-        serial.setBaudRate(1200)
-        if not serial.open(QSerialPort.ReadWrite):
-            return False
-        serial.setDataTerminalReady(True)
-        QThread.msleep(40)
-        serial.setDataTerminalReady(False)
-        QThread.msleep(40)
-        serial.close()
-        return True
+        if sys.platform == "win32" or sys.platform.startswith("linux"):
+            return FirmwareUpdater._touch_pyserial_1200_baud(port_name)
+        return False
 
     @staticmethod
-    def _touch_windows_1200_baud(port_name: str) -> bool:
-        # QtSerialPort can open the Leonardo CDC port on Windows without
-        # causing the 1200-baud touch reset. pySerial performs the same native
-        # DTR/close sequence as Arduino's uploader and reliably exposes the
-        # Caterina bootloader on a new COM port.
+    def _touch_pyserial_1200_baud(port_name: str) -> bool:
+        # QtSerialPort does not consistently trigger the ATmega32U4 1200-baud
+        # reset on Windows or Linux. pySerial uses the native CDC sequence used
+        # by Arduino's uploader and reliably exposes the Caterina bootloader.
         try:
             import serial
 
-            port = serial.Serial(port_name, 1200, timeout=0)
+            port = serial.Serial(FirmwareUpdater._serial_location(port_name), 1200, timeout=0)
             port.dtr = False
             QThread.msleep(100)
             port.close()
@@ -419,9 +407,11 @@ class FirmwareUpdater(QObject):
         if self._original_port not in names:
             self._saw_original_disappear = True
 
-        if self._saw_original_disappear or (
-            self._allow_existing_bootloader and self._poll_ticks >= 4
-        ):
+        # Some Linux kernels re-enumerate Caterina under the same ttyACM name
+        # so quickly that the polling timer never observes the disappearance.
+        # Selection still rejects an unchanged application port unless its USB
+        # identity explicitly identifies a bootloader.
+        if self._saw_original_disappear or self._poll_ticks >= 4:
             candidate = self._select_bootloader_port(infos)
             if candidate:
                 self._poll_timer.stop()
@@ -437,8 +427,7 @@ class FirmwareUpdater(QObject):
             and self._poll_ticks == self._VM_GUIDANCE_TICKS
         ):
             self.status_changed.emit(
-                "Waiting for the Arduino/Caterina bootloader USB device… In a virtual "
-                "machine, connect the newly detected USB device to Ubuntu."
+                "Waiting for the Arduino/Caterina bootloader USB device…"
             )
 
         if self._poll_ticks >= self._BOOTLOADER_TIMEOUT_TICKS:
@@ -448,9 +437,8 @@ class FirmwareUpdater(QObject):
             )
             if sys.platform.startswith("linux"):
                 message = (
-                    "The bootloader USB device was not attached to Linux. In a virtual machine, "
-                    "enable automatic USB sharing for Arduino/Caterina (or attach it from the "
-                    "VM USB menu during the restart), then try again."
+                    "The Arduino/Caterina bootloader did not appear in Linux. Close Arduino IDE "
+                    "and other serial applications, reconnect the controller, then try again."
                 )
             self._fail(message)
 

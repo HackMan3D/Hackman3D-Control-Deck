@@ -103,7 +103,13 @@ def test_manual_esp32_flash_does_not_reset_the_bootloader() -> None:
     assert arguments[arguments.index("--before") + 1] == "no-reset"
 
 
-def test_windows_1200_baud_touch_uses_pyserial(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    ("platform", "port_name", "opened_name"),
+    [("win32", "COM9", "COM9"), ("linux", "ttyACM0", "/dev/ttyACM0")],
+)
+def test_windows_and_linux_1200_baud_touch_use_pyserial(
+    monkeypatch, platform: str, port_name: str, opened_name: str
+) -> None:
     calls: list[tuple[str, object]] = []
 
     class FakePort:
@@ -123,12 +129,12 @@ def test_windows_1200_baud_touch_uses_pyserial(monkeypatch) -> None:
 
     fake_serial = SimpleNamespace(Serial=FakePort, SerialException=OSError)
     monkeypatch.setitem(sys.modules, "serial", fake_serial)
-    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "win32")
+    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", platform)
     monkeypatch.setattr("hackman_control_deck.firmware_updater.QThread.msleep", lambda _ms: None)
 
-    assert FirmwareUpdater._touch_1200_baud("COM9")
+    assert FirmwareUpdater._touch_1200_baud(port_name)
     assert calls == [
-        ("open", ("COM9", 1200, 0)),
+        ("open", (opened_name, 1200, 0)),
         ("dtr", False),
         ("close", None),
     ]
@@ -338,45 +344,6 @@ def test_avr_retry_restarts_returned_application_port(monkeypatch) -> None:
 
     assert touched == ["COM8", "poll"]
     assert updater._bootloader_port == ""
-
-
-def test_1200_baud_touch_creates_dtr_falling_edge(monkeypatch) -> None:
-    events: list[object] = []
-    monkeypatch.setattr("hackman_control_deck.firmware_updater.sys.platform", "linux")
-
-    class FakeSerial:
-        ReadWrite = object()
-
-        def setPortName(self, name: str) -> None:
-            events.append(("port", name))
-
-        def setBaudRate(self, baud_rate: int) -> None:
-            events.append(("baud", baud_rate))
-
-        def open(self, mode: object) -> bool:
-            events.append(("open", mode))
-            return True
-
-        def setDataTerminalReady(self, enabled: bool) -> None:
-            events.append(("dtr", enabled))
-
-        def close(self) -> None:
-            events.append("close")
-
-    monkeypatch.setattr("hackman_control_deck.firmware_updater.QSerialPort", FakeSerial)
-    monkeypatch.setattr(
-        "hackman_control_deck.firmware_updater.QThread.msleep",
-        lambda delay: events.append(("wait", delay)),
-    )
-
-    assert FirmwareUpdater._touch_1200_baud("cu.usbmodem101")
-    assert events[-5:] == [
-        ("dtr", True),
-        ("wait", 40),
-        ("dtr", False),
-        ("wait", 40),
-        "close",
-    ]
 
 
 def test_linux_vm_does_not_flash_unchanged_application_port(monkeypatch) -> None:

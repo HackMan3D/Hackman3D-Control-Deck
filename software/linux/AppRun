@@ -4,7 +4,6 @@ set -eu
 APP_ROOT="${APPDIR:-$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)}"
 export PATH="$APP_ROOT/usr/bin:$PATH"
 TOOL_ROOT="$APP_ROOT/usr/lib/hackman3d-control-deck/_internal/hackman_control_deck/assets/tools/linux"
-export LD_LIBRARY_PATH="$TOOL_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export HCD_AVRDUDE="$TOOL_ROOT/avrdude"
 export HCD_AVRDUDE_CONF="$TOOL_ROOT/avrdude.conf"
 export HCD_ESPTOOL="$TOOL_ROOT/esptool"

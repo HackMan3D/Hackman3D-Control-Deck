@@ -11,7 +11,7 @@ dependencies = [
     "PySide6>=6.7,<7",
     "pynput>=1.7.7,<2",
     "pycaw>=20240210,<20270000; sys_platform == 'win32'",
-    "pyserial>=3.5,<4; sys_platform == 'win32'",
+    "pyserial>=3.5,<4; sys_platform == 'win32' or sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
