@@ -7,7 +7,7 @@ cd "$SCRIPT_DIR"
 VERSION=$(python3 -c 'import pathlib,re; text=pathlib.Path("src/hackman_control_deck/constants.py").read_text(); print(re.search(r"APP_VERSION = \"([^\"]+)", text).group(1))')
 PYTHON_COMMAND=${HCD_PYTHON:-python3}
 APP_NAME="HackMan3D Control Deck"
-DEB_REVISION="5"
+DEB_REVISION="6"
 case "$(uname -m)" in
   x86_64|amd64)
     LINUX_ARCH="x86_64"
@@ -154,12 +154,23 @@ EOF
 cat > "$DEB_ROOT/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
+# Remove core runtime files left behind by Linux packages older than r5. They
+# must never override Ubuntu's own glibc when the desktop application starts.
+TOOL_LIB=/usr/lib/hackman3d-control-deck/_internal/hackman_control_deck/assets/tools/linux/lib
+rm -f "$TOOL_LIB"/libc.so.* "$TOOL_LIB"/ld-linux*.so.* "$TOOL_LIB"/ld-*.so \
+  "$TOOL_LIB"/libpthread.so.* "$TOOL_LIB"/libdl.so.* "$TOOL_LIB"/librt.so.* \
+  "$TOOL_LIB"/libm.so.* "$TOOL_LIB"/libresolv.so.*
 udevadm control --reload-rules 2>/dev/null || true
 udevadm trigger --subsystem-match=tty 2>/dev/null || true
 exit 0
 EOF
 chmod 755 "$DEB_ROOT/DEBIAN/postinst"
 dpkg-deb --build --root-owner-group "$DEB_ROOT" "dist/$APP_SLUG.deb"
+
+if dpkg-deb --contents "dist/$APP_SLUG.deb" | grep -Eq '/(libc\.so\.|ld-linux|libpthread\.so\.|libdl\.so\.|librt\.so\.|libm\.so\.|libresolv\.so\.)'; then
+  echo "The final Debian package contains a forbidden core system library" >&2
+  exit 1
+fi
 
 echo "Linux packages created:"
 echo "  dist/$APP_SLUG.AppImage"
