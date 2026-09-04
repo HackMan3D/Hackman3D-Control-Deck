@@ -63,10 +63,10 @@ jobs:
       - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
-          name: HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r6
+          name: HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r7
           path: |
-            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r6.AppImage
-            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r6.deb
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r7.AppImage
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r7.deb
           if-no-files-found: error
 
       - name: Add packages to the GitHub release
@@ -75,6 +75,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ inputs.release_tag }}" \
-            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r6.AppImage \
-            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r6.deb \
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r7.AppImage \
+            software/dist/HackMan3D-Control-Deck-Linux-${{ matrix.architecture }}-1.5.5-r7.deb \
             --clobber

@@ -25,7 +25,7 @@ desktop application menu.
 It can also be installed from a terminal:
 
 ```bash
-sudo apt install ./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r6.deb
+sudo apt install ./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r7.deb
 ```
 
 ### Other Linux distributions
@@ -33,8 +33,8 @@ sudo apt install ./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r6.deb
 Download the `.AppImage`, make it executable and launch it:
 
 ```bash
-chmod +x HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r6.AppImage
-./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r6.AppImage
+chmod +x HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r7.AppImage
+./HackMan3D-Control-Deck-Linux-ARCHITECTURE-1.5.5-r7.AppImage
 ```
 
 The AppImage is portable and can be moved anywhere. AppImageLauncher can add it
