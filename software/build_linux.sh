@@ -7,6 +7,7 @@ cd "$SCRIPT_DIR"
 VERSION=$(python3 -c 'import pathlib,re; text=pathlib.Path("src/hackman_control_deck/constants.py").read_text(); print(re.search(r"APP_VERSION = \"([^\"]+)", text).group(1))')
 PYTHON_COMMAND=${HCD_PYTHON:-python3}
 APP_NAME="HackMan3D Control Deck"
+DEB_REVISION="5"
 case "$(uname -m)" in
   x86_64|amd64)
     LINUX_ARCH="x86_64"
@@ -21,7 +22,7 @@ case "$(uname -m)" in
     exit 1
     ;;
 esac
-APP_SLUG="HackMan3D-Control-Deck-Linux-$LINUX_ARCH-$VERSION"
+APP_SLUG="HackMan3D-Control-Deck-Linux-$LINUX_ARCH-$VERSION-r$DEB_REVISION"
 TOOLS_DIR="src/hackman_control_deck/assets/tools/linux"
 
 if [[ ! -d .venv-linux ]]; then
@@ -35,7 +36,7 @@ rm -rf "$TOOLS_DIR" build/linux-tools dist/linux AppDir package/linux
 mkdir -p "$TOOLS_DIR/lib" build/linux-tools dist/linux package/linux
 
 AVRDUDE=$(command -v avrdude)
-cp -L "$AVRDUDE" "$TOOLS_DIR/avrdude"
+cp -L "$AVRDUDE" "$TOOLS_DIR/avrdude-bin"
 AVRDUDE_CONF=""
 for candidate in /etc/avrdude.conf /etc/avrdude/avrdude.conf; do
   if [[ -f "$candidate" ]]; then AVRDUDE_CONF="$candidate"; break; fi
@@ -47,8 +48,26 @@ fi
 cp "$AVRDUDE_CONF" "$TOOLS_DIR/avrdude.conf"
 
 while read -r library; do
+  case "$(basename "$library")" in
+    libc.so.*|ld-linux*.so.*|ld-*.so|libpthread.so.*|libdl.so.*|librt.so.*|libm.so.*|libresolv.so.*)
+      # Core glibc libraries must always come from the user's Linux system.
+      # Bundling them makes the complete Qt application fail before it starts.
+      continue
+      ;;
+  esac
   [[ -f "$library" ]] && cp -Ln "$library" "$TOOLS_DIR/lib/" || true
 done < <(ldd "$AVRDUDE" | awk '/=> \// {print $3} /^\// {print $1}')
+
+cat > "$TOOLS_DIR/avrdude" <<'EOF'
+#!/bin/sh
+set -eu
+TOOL_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# The AVR tool's private libraries are isolated to this child process. They
+# must never be injected into the desktop application itself.
+export LD_LIBRARY_PATH="$TOOL_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$TOOL_ROOT/avrdude-bin" "$@"
+EOF
+chmod +x "$TOOLS_DIR/avrdude" "$TOOLS_DIR/avrdude-bin"
 
 python -m PyInstaller \
   --noconfirm --clean --onefile --console \
@@ -70,12 +89,17 @@ python -m PyInstaller \
   run.py
 
 PACKAGED_TOOLS="dist/linux/$APP_NAME/_internal/hackman_control_deck/assets/tools/linux"
-for required in avrdude avrdude.conf esptool; do
+for required in avrdude avrdude-bin avrdude.conf esptool; do
   if [[ ! -f "$PACKAGED_TOOLS/$required" ]]; then
     echo "Missing packaged Linux firmware tool: $required" >&2
     exit 1
   fi
 done
+chmod +x "$PACKAGED_TOOLS/avrdude" "$PACKAGED_TOOLS/avrdude-bin" "$PACKAGED_TOOLS/esptool"
+if [[ -e "$PACKAGED_TOOLS/lib/libc.so.6" ]]; then
+  echo "The Linux package must not bundle libc.so.6" >&2
+  exit 1
+fi
 
 mkdir -p "AppDir/usr/lib/hackman3d-control-deck" "AppDir/usr/bin"
 cp -a "dist/linux/$APP_NAME/." "AppDir/usr/lib/hackman3d-control-deck/"
@@ -85,7 +109,6 @@ cat > AppDir/usr/bin/hackman3d-control-deck <<'EOF'
 #!/bin/sh
 APP_LIB="$(dirname "$0")/../lib/hackman3d-control-deck"
 TOOL_ROOT="$APP_LIB/_internal/hackman_control_deck/assets/tools/linux"
-export LD_LIBRARY_PATH="$TOOL_ROOT/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export HCD_AVRDUDE="$TOOL_ROOT/avrdude"
 export HCD_AVRDUDE_CONF="$TOOL_ROOT/avrdude.conf"
 export HCD_ESPTOOL="$TOOL_ROOT/esptool"
@@ -119,7 +142,7 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", TAG+="uaccess", GROUP="dialout", MODE
 EOF
 cat > "$DEB_ROOT/DEBIAN/control" <<EOF
 Package: hackman3d-control-deck
-Version: $VERSION-4
+Version: $VERSION-$DEB_REVISION
 Section: utils
 Priority: optional
 Architecture: $DEB_ARCH

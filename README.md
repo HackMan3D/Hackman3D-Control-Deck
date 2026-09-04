@@ -20,8 +20,8 @@ who have access to this repository.
 
 - [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-macOS-1.5.5.dmg)
 - [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe)
-- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5.deb)
-- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5.deb)
+- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5-r5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-x86_64-1.5.5-r5.deb)
+- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5-r5.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.5/HackMan3D-Control-Deck-Linux-aarch64-1.5.5-r5.deb)
 
 ## Quick start — recommended
 
