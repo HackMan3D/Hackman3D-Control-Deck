@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "latest_version": "1.5.5",
+  "latest_version": "1.5.6",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
@@ -8,6 +8,9 @@
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
   "release_notes": "Windows and macOS share USB-only HCD Pro support and protected display synchronization.",
+  "anonymous_usage": {
+    "endpoint": "https://your-private-service.example/v1/usage"
+  },
   "roadmap": {
     "progress": 0
   }

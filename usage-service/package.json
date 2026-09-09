@@ -1,0 +1,11 @@
+{
+  "name": "hackman3d-control-deck-usage",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "schema:remote": "wrangler d1 execute hackman3d-control-deck-usage --remote --file schema.sql"
+  },
+  "devDependencies": { "wrangler": "^4.35.0" }
+}

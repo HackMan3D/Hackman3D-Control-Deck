@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDirectory
-$Version = "1.5.5"
+$Version = "1.5.6"
 
 python -m pip install -e ".[dev]"
 python -m PyInstaller `

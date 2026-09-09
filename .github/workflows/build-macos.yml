@@ -1,0 +1,46 @@
+name: Build macOS application
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the macOS installer
+        required: false
+        default: v1.5.6
+
+permissions:
+  contents: write
+
+jobs:
+  macos-installer:
+    runs-on: macos-15
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build application and installer
+        run: |
+          chmod +x software/build_macos.sh software/build_dmg.sh
+          software/build_macos.sh
+          software/build_dmg.sh
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: HackMan3D-Control-Deck-macOS-1.5.6
+          path: software/dist/HackMan3D-Control-Deck-macOS-1.5.6.dmg
+          if-no-files-found: error
+
+      - name: Add installer to the GitHub release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" \
+            software/dist/HackMan3D-Control-Deck-macOS-1.5.6.dmg \
+            --clobber

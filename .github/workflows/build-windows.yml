@@ -2,6 +2,14 @@ name: Build Windows application
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to receive the Windows installer
+        required: false
+        default: v1.5.6
+
+permissions:
+  contents: write
 
 jobs:
   windows-installer:
@@ -39,6 +47,16 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: HackMan3D-Control-Deck-Windows-1.5.5
-          path: software/dist/HackMan3D-Control-Deck-Windows-1.5.5-Setup.exe
+          name: HackMan3D-Control-Deck-Windows-1.5.6
+          path: software/dist/HackMan3D-Control-Deck-Windows-1.5.6-Setup.exe
           if-no-files-found: error
+
+      - name: Add installer to the GitHub release
+        if: ${{ inputs.release_tag != '' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" `
+            "software/dist/HackMan3D-Control-Deck-Windows-1.5.6-Setup.exe" `
+            --clobber

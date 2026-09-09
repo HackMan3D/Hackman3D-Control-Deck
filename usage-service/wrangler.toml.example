@@ -1,0 +1,11 @@
+name = "hackman3d-control-deck-usage"
+main = "src/index.js"
+compatibility_date = "2026-09-09"
+
+[observability]
+enabled = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hackman3d-control-deck-usage"
+database_id = "REPLACE_WITH_PRIVATE_D1_DATABASE_ID"
