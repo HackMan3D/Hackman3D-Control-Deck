@@ -7,21 +7,23 @@ def test_release_feed_selects_platform_download_and_clamps_progress() -> None:
     payload = json.dumps(
         {
             "schema": 1,
-            "latest_version": "1.5.6",
+            "latest_version": "1.5.7",
             "downloads": {
                 "macos": "https://example.com/mac",
                 "windows": "https://example.com/windows",
             },
             "roadmap": {"progress": 48.4},
+            "anonymous_usage": {"endpoint": "https://usage.example.com/v1/usage"},
         }
     ).encode()
 
     data = parse_release_feed(payload)
 
-    assert data.latest_version == "1.5.6"
+    assert data.latest_version == "1.5.7"
     assert data.roadmap_progress == 48.4
     assert data.download_url.startswith("https://example.com/")
     assert data.update_available
+    assert data.usage_endpoint == "https://usage.example.com/v1/usage"
 
 
 def test_release_feed_defaults_invalid_percentages_to_zero() -> None:

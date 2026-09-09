@@ -1,13 +1,16 @@
 {
   "schema": 1,
-  "latest_version": "1.5.5",
+  "latest_version": "1.5.6",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Independent LED brightness per HCD model, updated bundled firmware and reliable acknowledged HCD Pro icon synchronization.",
+  "release_notes": "Anonymous grouped usage counts, private live statistics support, and the latest macOS, Windows and Linux fixes.",
+  "anonymous_usage": {
+    "endpoint": ""
+  },
   "roadmap": {
     "progress": 4.0
   }

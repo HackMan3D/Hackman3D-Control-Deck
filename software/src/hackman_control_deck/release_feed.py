@@ -21,6 +21,7 @@ class ReleaseFeedData:
     download_url: str
     roadmap_progress: float
     release_notes: str = ""
+    usage_endpoint: str = ""
 
     @property
     def update_available(self) -> bool:
@@ -62,11 +63,18 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
         return max(0.0, min(100.0, normalized))
 
     progress_value = roadmap.get("progress", roadmap.get("pro", 0))
+    anonymous_usage = document.get("anonymous_usage", {})
+    if not isinstance(anonymous_usage, dict):
+        anonymous_usage = {}
+    usage_endpoint = str(anonymous_usage.get("endpoint", "")).strip()
+    if not usage_endpoint.startswith("https://"):
+        usage_endpoint = ""
     return ReleaseFeedData(
         latest_version=latest_version,
         download_url=download_url,
         roadmap_progress=percentage(progress_value),
         release_notes=str(document.get("release_notes", "")).strip(),
+        usage_endpoint=usage_endpoint,
     )
 
 

@@ -18,3 +18,7 @@ result.json
 software/profiles/*.json
 !software/profiles/default.json
 release/roadmap.private.json
+.private/
+usage-service/wrangler.toml
+usage-service/.wrangler/
+usage-service/node_modules/

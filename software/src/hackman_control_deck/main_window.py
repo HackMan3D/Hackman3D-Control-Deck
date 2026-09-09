@@ -69,6 +69,7 @@ from PySide6.QtWidgets import (
 )
 
 from .action_runner import ActionRunner
+from .anonymous_usage import AnonymousUsageReporter
 from .constants import (
     APP_NAME,
     APP_VERSION,
@@ -104,8 +105,6 @@ from .profile_store import ProfileStore
 from .permissions_dialog import MacPermissionsDialog
 from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
-from .statistics import StatisticsStore
-from .statistics_dialog import StatisticsDialog
 from .translations import LANGUAGES, translate
 
 
@@ -304,8 +303,6 @@ class MainWindow(QMainWindow):
         self._firmware_update_message: QMessageBox | None = None
         self._firmware_update_prompted_for: tuple[str, str] | None = None
         self._diagnostics_dialog: DiagnosticsDialog | None = None
-        self._statistics_dialog: StatisticsDialog | None = None
-        self._statistics = StatisticsStore()
         self._background_mode_active = False
         self._ignore_dock_activation_until = 0.0
         self._allow_exit = False
@@ -322,7 +319,14 @@ class MainWindow(QMainWindow):
         if self._language not in LANGUAGES:
             self._language = "en"
         self._start_minimized = self._settings.value("macos/startMinimized", False, type=bool)
-        self._statistics_enabled = self._settings.value("statistics/enabled", False, type=bool)
+        self._anonymous_usage_enabled = self._settings.value(
+            "privacy/anonymousUsage", True, type=bool
+        )
+        self._usage_reporter = AnonymousUsageReporter(
+            enabled=self._anonymous_usage_enabled,
+            endpoint=os.environ.get("HCD_USAGE_ENDPOINT", ""),
+            parent=self,
+        )
         self._feedback_hold_ms = max(
             0,
             min(2000, self._settings.value("device/feedbackHoldMs", 120, type=int)),
@@ -746,13 +750,16 @@ class MainWindow(QMainWindow):
             self._permissions_button = QPushButton("macOS permissions…")
             self._permissions_button.clicked.connect(self._open_permissions_assistant)
             layout.addWidget(self._permissions_button)
-        self._statistics_checkbox = QCheckBox("Enable local statistics")
-        self._statistics_checkbox.setChecked(self._statistics_enabled)
-        self._statistics_checkbox.toggled.connect(self._set_statistics_enabled)
-        layout.addWidget(self._statistics_checkbox)
-        self._statistics_button = QPushButton("View statistics…")
-        self._statistics_button.clicked.connect(self._open_statistics)
-        layout.addWidget(self._statistics_button)
+        self._anonymous_usage_checkbox = QCheckBox("Share anonymous usage counts")
+        self._anonymous_usage_checkbox.setChecked(self._anonymous_usage_enabled)
+        self._anonymous_usage_checkbox.toggled.connect(self._set_anonymous_usage_enabled)
+        layout.addWidget(self._anonymous_usage_checkbox)
+        self._anonymous_usage_help = QLabel(
+            "Only a temporary live session and a grouped action count are sent.",
+            objectName="subtitle",
+        )
+        self._anonymous_usage_help.setWordWrap(True)
+        layout.addWidget(self._anonymous_usage_help)
         self._version_label = QLabel(f"Desktop app {APP_VERSION}", objectName="subtitle")
         layout.addWidget(self._version_label)
         layout.addStretch()
@@ -1033,8 +1040,8 @@ class MainWindow(QMainWindow):
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )
         self._deck_settings_button.setText(self._text("deck_settings"))
-        self._statistics_checkbox.setText(self._text("enable_statistics"))
-        self._statistics_button.setText(self._text("view_statistics"))
+        self._anonymous_usage_checkbox.setText(self._text("share_anonymous_usage"))
+        self._anonymous_usage_help.setText(self._text("anonymous_usage_help"))
         self._shortcut_hint.setText(self._text("shortcut_hint"))
         self._version_label.setText(self._text("desktop_app", version=APP_VERSION))
         self._credit_label.setText(self._text("credits"))
@@ -1106,6 +1113,7 @@ class MainWindow(QMainWindow):
 
         self._set_roadmap_progress(data.roadmap_progress)
         self._settings.setValue("roadmap/progress", data.roadmap_progress)
+        self._usage_reporter.set_endpoint(data.usage_endpoint)
 
         if not data.update_available:
             self.statusBar().showMessage(self._text("app_up_to_date"), 5_000)
@@ -2816,28 +2824,10 @@ $result | ConvertTo-Json -Compress
             self._device_preview.set_pro_microphone_value(normalized)
             self._device.set_pro_slider_value(normalized, 2)
 
-    def _set_statistics_enabled(self, enabled: bool) -> None:
-        self._statistics_enabled = enabled
-        self._settings.setValue("statistics/enabled", enabled)
-
-    def _open_statistics(self) -> None:
-        if self._statistics_dialog is not None:
-            self._statistics_dialog.raise_()
-            self._statistics_dialog.activateWindow()
-            return
-        dialog = StatisticsDialog(
-            self._statistics,
-            self._profile.name,
-            self._text,
-            self,
-        )
-        dialog.finished.connect(lambda result: self._statistics_closed(result))
-        self._statistics_dialog = dialog
-        dialog.open()
-
-    def _statistics_closed(self, result: int) -> None:
-        del result
-        self._statistics_dialog = None
+    def _set_anonymous_usage_enabled(self, enabled: bool) -> None:
+        self._anonymous_usage_enabled = enabled
+        self._settings.setValue("privacy/anonymousUsage", enabled)
+        self._usage_reporter.set_enabled(enabled)
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.DoubleClick:
@@ -3240,8 +3230,8 @@ $result | ConvertTo-Json -Compress
                     self._run_device_action(identifier, "short", action)
 
     def _run_device_action(self, identifier: str, press_kind: str, action: Action) -> None:
-        if self._statistics_enabled:
-            self._statistics.record(self._profile.name, identifier, press_kind)
+        del identifier, press_kind
+        self._usage_reporter.record_action()
         self._runner.run(action)
 
     @staticmethod
