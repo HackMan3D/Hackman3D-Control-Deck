@@ -9,7 +9,7 @@
   },
   "release_notes": "Anonymous grouped usage counts, private live statistics support, and the latest macOS, Windows and Linux fixes.",
   "anonymous_usage": {
-    "endpoint": ""
+    "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },
   "roadmap": {
     "progress": 4.0
