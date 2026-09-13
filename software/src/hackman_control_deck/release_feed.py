@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
 import sys
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
+import certifi
 from PySide6.QtCore import QByteArray, QObject, QThread, Signal
 
 from .constants import APP_VERSION, RELEASE_MANIFEST_URL
@@ -132,7 +134,11 @@ class _ReleaseFeedWorker(QThread):
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=8) as response:
+            # Frozen macOS and Windows builds do not always inherit a usable
+            # system CA path. Certifi is bundled with the application so the
+            # release feed keeps normal HTTPS certificate verification.
+            context = ssl.create_default_context(cafile=certifi.where())
+            with urllib.request.urlopen(request, timeout=8, context=context) as response:
                 self.received.emit(response.read(256 * 1024))
         except (OSError, urllib.error.URLError) as error:
             self.request_failed.emit(str(error))

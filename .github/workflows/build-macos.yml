@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing release tag to receive the macOS installer
         required: false
-        default: v1.5.6
+        default: v1.5.7
 
 permissions:
   contents: write
@@ -32,8 +32,8 @@ jobs:
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
         with:
-          name: HackMan3D-Control-Deck-macOS-1.5.6
-          path: software/dist/HackMan3D-Control-Deck-macOS-1.5.6.dmg
+          name: HackMan3D-Control-Deck-macOS-1.5.7
+          path: software/dist/HackMan3D-Control-Deck-macOS-1.5.7.dmg
           if-no-files-found: error
 
       - name: Add installer to the GitHub release
@@ -42,5 +42,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ inputs.release_tag }}" \
-            software/dist/HackMan3D-Control-Deck-macOS-1.5.6.dmg \
+            software/dist/HackMan3D-Control-Deck-macOS-1.5.7.dmg \
             --clobber

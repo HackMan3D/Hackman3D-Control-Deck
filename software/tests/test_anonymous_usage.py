@@ -14,3 +14,7 @@ def test_payload_contains_only_anonymous_grouped_fields() -> None:
         "event": "heartbeat",
         "actions": 4,
     }
+
+
+def test_stop_payload_is_supported() -> None:
+    assert usage_payload("temporary-session", "stop", 2)["event"] == "stop"

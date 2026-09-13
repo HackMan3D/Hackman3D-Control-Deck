@@ -1177,9 +1177,6 @@ class MainWindow(QMainWindow):
         message.exec()
 
     def show_usage_reminder(self) -> None:
-        if self._settings.value("ui/hideBackgroundReminder", False, type=bool):
-            return
-
         message = QMessageBox(self)
         message.setWindowTitle(APP_NAME)
         message.setIcon(QMessageBox.Information)
@@ -1187,11 +1184,12 @@ class MainWindow(QMainWindow):
         message.setInformativeText(self._text("reminder_text"))
         message.setStandardButtons(QMessageBox.Ok)
         message.button(QMessageBox.Ok).setText(self._text("ok"))
-        hide_reminder = QCheckBox(self._text("dont_show_again"))
-        message.setCheckBox(hide_reminder)
+        paypal_button = message.addButton(
+            self._text("support_with_paypal"), QMessageBox.ActionRole
+        )
         message.exec()
-        if hide_reminder.isChecked():
-            self._settings.setValue("ui/hideBackgroundReminder", True)
+        if message.clickedButton() is paypal_button:
+            self._open_external_link(PAYPAL_URL)
 
     def _reload_profile_list(self, select: str | None = None) -> None:
         names = self._store.list_profiles()

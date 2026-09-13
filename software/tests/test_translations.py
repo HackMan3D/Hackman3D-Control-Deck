@@ -138,4 +138,4 @@ def test_main_labels_are_available_in_every_language() -> None:
 
 def test_english_is_the_default_fallback() -> None:
     assert translate("unknown", "language") == "Language"
-    assert "must remain open" in translate("en", "reminder_title")
+    assert "support" in translate("en", "reminder_title").lower()

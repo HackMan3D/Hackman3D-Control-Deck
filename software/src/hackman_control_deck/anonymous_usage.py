@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import secrets
+import ssl
+import threading
+import urllib.request
 from urllib.parse import urlparse
 
-from PySide6.QtCore import QByteArray, QObject, QTimer, QUrl
-from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+import certifi
+from PySide6.QtCore import QCoreApplication, QObject, QTimer, Signal
 
 
 def normalized_usage_endpoint(value: object) -> str:
@@ -17,7 +20,7 @@ def normalized_usage_endpoint(value: object) -> str:
 
 
 def usage_payload(session: str, event: str, actions: int) -> dict[str, object]:
-    if event not in {"start", "heartbeat"}:
+    if event not in {"start", "heartbeat", "stop"}:
         raise ValueError("Unsupported anonymous usage event")
     return {
         "schema": 1,
@@ -29,6 +32,8 @@ def usage_payload(session: str, event: str, actions: int) -> dict[str, object]:
 
 class AnonymousUsageReporter(QObject):
     """Sends anonymous, grouped counters without persisting a device identifier."""
+
+    _request_finished = Signal(bool, str, int)
 
     def __init__(
         self,
@@ -44,10 +49,13 @@ class AnonymousUsageReporter(QObject):
         self._pending_actions = 0
         self._started = False
         self._request_in_flight = False
-        self._network = QNetworkAccessManager(self)
+        self._request_finished.connect(self._on_request_finished)
         self._timer = QTimer(self)
         self._timer.setInterval(60_000)
         self._timer.timeout.connect(self.flush)
+        application = QCoreApplication.instance()
+        if application is not None:
+            application.aboutToQuit.connect(self.stop)
         self._update_state()
 
     def set_enabled(self, enabled: bool) -> None:
@@ -69,28 +77,66 @@ class AnonymousUsageReporter(QObject):
         if self._enabled and self._endpoint:
             self._pending_actions += 1
 
+    def stop(self) -> None:
+        """Remove this session immediately when the application exits cleanly."""
+        if not self._enabled or not self._endpoint:
+            return
+        self._timer.stop()
+        payload = usage_payload(self._session, "stop", self._pending_actions)
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        try:
+            self._send(self._endpoint, body, timeout=2)
+        except Exception:
+            # A stale session expires server-side if the computer is offline.
+            pass
+
     def flush(self) -> None:
         if not self._enabled or not self._endpoint or self._request_in_flight:
             return
         event = "heartbeat" if self._started else "start"
         actions = self._pending_actions
         self._pending_actions = 0
-        self._started = True
         payload = usage_payload(self._session, event, actions)
-        request = QNetworkRequest(QUrl(self._endpoint))
-        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
-        request.setRawHeader(b"User-Agent", b"HackMan3D-Control-Deck")
         self._request_in_flight = True
-        reply = self._network.post(
-            request,
-            QByteArray(json.dumps(payload, separators=(",", ":")).encode("utf-8")),
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        endpoint = self._endpoint
+        threading.Thread(
+            target=self._post,
+            args=(endpoint, body, event, actions),
+            daemon=True,
+            name="hcd-anonymous-usage",
+        ).start()
+
+    def _post(self, endpoint: str, body: bytes, event: str, actions: int) -> None:
+        successful = False
+        try:
+            successful = self._send(endpoint, body, timeout=8)
+        except Exception:
+            # Usage sharing must never interrupt or slow down the application.
+            successful = False
+        self._request_finished.emit(successful, event, actions)
+
+    @staticmethod
+    def _send(endpoint: str, body: bytes, *, timeout: int) -> bool:
+        request = urllib.request.Request(
+            endpoint,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "HackMan3D-Control-Deck",
+            },
         )
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+            return 200 <= response.status < 300
 
-        def finished() -> None:
-            self._request_in_flight = False
-            reply.deleteLater()
-
-        reply.finished.connect(finished)
+    def _on_request_finished(self, successful: bool, event: str, actions: int) -> None:
+        self._request_in_flight = False
+        if successful:
+            self._started = True
+        else:
+            self._pending_actions += actions
 
     def _update_state(self) -> None:
         if self._enabled and self._endpoint:

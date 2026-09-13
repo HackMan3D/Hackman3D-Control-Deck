@@ -30,7 +30,7 @@ async function recordUsage(request, env) {
   if (
     payload.schema !== 1 ||
     !/^[A-Za-z0-9_-]{20,64}$/.test(session) ||
-    !["start", "heartbeat"].includes(event) ||
+    !["start", "heartbeat", "stop"].includes(event) ||
     !Number.isInteger(actions) || actions < 0 || actions > 10000
   ) return response({ error: "invalid_payload" }, 400);
 
@@ -38,6 +38,15 @@ async function recordUsage(request, env) {
   const day = new Date().toISOString().slice(0, 10);
   await env.DB.prepare("DELETE FROM active_sessions WHERE last_seen < ?")
     .bind(now - 300).run();
+  if (event === "stop") {
+    await env.DB.prepare("DELETE FROM active_sessions WHERE session = ?")
+      .bind(session).run();
+    if (actions > 0) {
+      await increment(env.DB, "actions:total", actions);
+      await increment(env.DB, `actions:${day}`, actions);
+    }
+    return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+  }
   const inserted = await env.DB.prepare(
     "INSERT OR IGNORE INTO active_sessions(session, started_at, last_seen) VALUES(?, ?, ?)"
   ).bind(session, now, now).run();
