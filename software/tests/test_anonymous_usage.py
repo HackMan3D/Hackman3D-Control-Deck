@@ -18,3 +18,13 @@ def test_payload_contains_only_anonymous_grouped_fields() -> None:
 
 def test_stop_payload_is_supported() -> None:
     assert usage_payload("temporary-session", "stop", 2)["event"] == "stop"
+
+
+def test_installation_identifier_is_persistent(tmp_path) -> None:
+    from PySide6.QtCore import QSettings
+    from hackman_control_deck.anonymous_usage import installation_identifier
+    settings = QSettings(str(tmp_path / "privacy.ini"), QSettings.IniFormat)
+    first = installation_identifier(settings)
+    assert len(first) >= 20
+    assert installation_identifier(QSettings(str(tmp_path / "privacy.ini"), QSettings.IniFormat)) == first
+    assert usage_payload("session", "start", 0, first)["installation"] == first

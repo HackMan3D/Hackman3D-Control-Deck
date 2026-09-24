@@ -8,7 +8,7 @@ import urllib.request
 from urllib.parse import urlparse
 
 import certifi
-from PySide6.QtCore import QCoreApplication, QObject, QTimer, Signal
+from PySide6.QtCore import QCoreApplication, QObject, QSettings, QTimer, Signal
 
 
 def normalized_usage_endpoint(value: object) -> str:
@@ -19,19 +19,32 @@ def normalized_usage_endpoint(value: object) -> str:
     return endpoint
 
 
-def usage_payload(session: str, event: str, actions: int) -> dict[str, object]:
+def usage_payload(session: str, event: str, actions: int, installation: str = "") -> dict[str, object]:
     if event not in {"start", "heartbeat", "stop"}:
         raise ValueError("Unsupported anonymous usage event")
-    return {
+    payload = {
         "schema": 1,
         "session": session,
         "event": event,
         "actions": max(0, int(actions)),
     }
+    if installation:
+        payload["installation"] = installation
+    return payload
+
+
+def installation_identifier(settings: QSettings) -> str:
+    """Random local identifier; never derived from hardware or a user account."""
+    value = settings.value("privacy/installationId", "", type=str)
+    if not value:
+        value = secrets.token_urlsafe(24)
+        settings.setValue("privacy/installationId", value)
+        settings.sync()
+    return value
 
 
 class AnonymousUsageReporter(QObject):
-    """Sends anonymous, grouped counters without persisting a device identifier."""
+    """Sends grouped counters and a random installation identifier when enabled."""
 
     _request_finished = Signal(bool, str, int)
 
@@ -46,6 +59,7 @@ class AnonymousUsageReporter(QObject):
         self._enabled = enabled
         self._endpoint = normalized_usage_endpoint(endpoint)
         self._session = secrets.token_urlsafe(24)
+        self._installation = ""
         self._pending_actions = 0
         self._started = False
         self._request_in_flight = False
@@ -82,7 +96,7 @@ class AnonymousUsageReporter(QObject):
         if not self._enabled or not self._endpoint:
             return
         self._timer.stop()
-        payload = usage_payload(self._session, "stop", self._pending_actions)
+        payload = usage_payload(self._session, "stop", self._pending_actions, self._installation)
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         try:
             self._send(self._endpoint, body, timeout=2)
@@ -96,7 +110,9 @@ class AnonymousUsageReporter(QObject):
         event = "heartbeat" if self._started else "start"
         actions = self._pending_actions
         self._pending_actions = 0
-        payload = usage_payload(self._session, event, actions)
+        if not self._installation:
+            self._installation = installation_identifier(QSettings())
+        payload = usage_payload(self._session, event, actions, self._installation)
         self._request_in_flight = True
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         endpoint = self._endpoint

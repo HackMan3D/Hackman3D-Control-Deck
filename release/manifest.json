@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "latest_version": "1.5.7",
+  "latest_version": "1.5.8",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Reliable secure update checks and accurate anonymous active-session counts, including immediate removal after a clean application exit.",
+  "release_notes": "Adds privacy-preserving unique installation counts using a locally generated random identifier. Historical installations start counting after updating to 1.5.8.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },

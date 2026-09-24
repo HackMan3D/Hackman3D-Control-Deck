@@ -755,7 +755,7 @@ class MainWindow(QMainWindow):
         self._anonymous_usage_checkbox.toggled.connect(self._set_anonymous_usage_enabled)
         layout.addWidget(self._anonymous_usage_checkbox)
         self._anonymous_usage_help = QLabel(
-            "Only a temporary live session and a grouped action count are sent.",
+            "A random installation ID, temporary live session and grouped action count are sent.",
             objectName="subtitle",
         )
         self._anonymous_usage_help.setWordWrap(True)

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "test": "node --test src/index.test.js",
     "deploy": "wrangler deploy",
     "schema:remote": "wrangler d1 execute hackman3d-control-deck-usage --remote --file schema.sql"
   },

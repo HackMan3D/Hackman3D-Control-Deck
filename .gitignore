@@ -19,6 +19,9 @@ software/profiles/*.json
 !software/profiles/default.json
 release/roadmap.private.json
 .private/
+private/hcd-stats/
 usage-service/wrangler.toml
 usage-service/.wrangler/
 usage-service/node_modules/
+.pnpm-store/
+.wrangler/

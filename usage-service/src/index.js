@@ -27,15 +27,25 @@ async function recordUsage(request, env) {
   const session = String(payload.session || "");
   const event = String(payload.event || "");
   const actions = Number(payload.actions);
+  const installation = String(payload.installation || "");
   if (
     payload.schema !== 1 ||
     !/^[A-Za-z0-9_-]{20,64}$/.test(session) ||
     !["start", "heartbeat", "stop"].includes(event) ||
-    !Number.isInteger(actions) || actions < 0 || actions > 10000
+    !Number.isInteger(actions) || actions < 0 || actions > 10000 ||
+    (installation && !/^[A-Za-z0-9_-]{20,64}$/.test(installation))
   ) return response({ error: "invalid_payload" }, 400);
 
   const now = Math.floor(Date.now() / 1000);
   const day = new Date().toISOString().slice(0, 10);
+  if (installation) {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(installation));
+    const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+    await env.DB.prepare(
+      "INSERT INTO installations(installation_hash, first_seen, last_seen) VALUES(?, ?, ?) " +
+      "ON CONFLICT(installation_hash) DO UPDATE SET last_seen = excluded.last_seen"
+    ).bind(hash, now, now).run();
+  }
   await env.DB.prepare("DELETE FROM active_sessions WHERE last_seen < ?")
     .bind(now - 300).run();
   if (event === "stop") {
@@ -75,12 +85,21 @@ async function adminStats(request, env) {
   const active = await env.DB.prepare(
     "SELECT COUNT(*) AS count FROM active_sessions WHERE last_seen >= ?"
   ).bind(now - 120).first();
+  const unique = await env.DB.prepare(
+    "SELECT COUNT(*) AS total, " +
+    "COALESCE(SUM(CASE WHEN first_seen >= ? THEN 1 ELSE 0 END), 0) AS today, " +
+    "COALESCE(SUM(CASE WHEN last_seen >= ? THEN 1 ELSE 0 END), 0) AS month " +
+    "FROM installations"
+  ).bind(Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000), now - 30 * 86400).first();
   const rows = await env.DB.prepare(
     "SELECT name, value FROM counters WHERE name IN (?, ?, ?, ?)"
   ).bind("launches:total", `launches:${day}`, "actions:total", `actions:${day}`).all();
   const counters = Object.fromEntries((rows.results || []).map((row) => [row.name, row.value]));
   return response({
     active_now: Number(active?.count || 0),
+    unique_installations_total: Number(unique?.total || 0),
+    new_installations_today: Number(unique?.today || 0),
+    unique_installations_30d: Number(unique?.month || 0),
     launches_today: Number(counters[`launches:${day}`] || 0),
     launches_total: Number(counters["launches:total"] || 0),
     actions_today: Number(counters[`actions:${day}`] || 0),
