@@ -36,13 +36,23 @@ fi
 "$SCRIPT_DIR/.venv-macos/bin/python" \
   "$SCRIPT_DIR/scripts/create_dmg_layout.py" "$STAGE_DIR" "$VOLUME_NAME"
 
-hdiutil create \
-  -volname "$VOLUME_NAME" \
-  -srcfolder "$STAGE_DIR" \
-  -fs APFS \
-  -format UDZO \
-  -imagekey zlib-level=9 \
-  -ov \
-  "$OUTPUT_PATH" >/dev/null
+for attempt in 1 2 3; do
+  if hdiutil create \
+    -volname "$VOLUME_NAME" \
+    -srcfolder "$STAGE_DIR" \
+    -fs APFS \
+    -format UDZO \
+    -imagekey zlib-level=9 \
+    -ov \
+    "$OUTPUT_PATH" >/dev/null; then
+    break
+  fi
+  if [[ "$attempt" -eq 3 ]]; then
+    echo "Unable to create the DMG after $attempt attempts." >&2
+    exit 1
+  fi
+  rm -f "$OUTPUT_PATH"
+  sleep 3
+done
 
 echo "Installer complete: $OUTPUT_PATH"
