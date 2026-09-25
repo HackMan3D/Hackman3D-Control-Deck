@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import platform
 import ssl
 import sys
 import time
@@ -24,6 +25,7 @@ class ReleaseFeedData:
     roadmap_progress: float
     release_notes: str = ""
     usage_endpoint: str = ""
+    download_sha256: str = ""
 
     @property
     def update_available(self) -> bool:
@@ -51,7 +53,25 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
         "darwin": "macos",
         "win32": "windows",
     }.get(sys.platform, "linux")
-    download_url = str(downloads.get(platform_key, downloads.get("website", ""))).strip()
+    if platform_key == "linux":
+        machine = platform.machine().casefold()
+        architecture = "aarch64" if machine in {"aarch64", "arm64"} else "x86_64"
+        platform_key = f"linux_{architecture}"
+    installers = document.get("installers", {})
+    if not isinstance(installers, dict):
+        installers = {}
+    download = installers.get(
+        platform_key,
+        downloads.get(platform_key, downloads.get("linux", downloads.get("website", ""))),
+    )
+    if isinstance(download, dict):
+        download_url = str(download.get("url", "")).strip()
+        download_sha256 = str(download.get("sha256", "")).strip().lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", download_sha256):
+            download_sha256 = ""
+    else:
+        download_url = str(download).strip()
+        download_sha256 = ""
 
     roadmap = document.get("roadmap", {})
     if not isinstance(roadmap, dict):
@@ -77,6 +97,7 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
         roadmap_progress=percentage(progress_value),
         release_notes=str(document.get("release_notes", "")).strip(),
         usage_endpoint=usage_endpoint,
+        download_sha256=download_sha256,
     )
 
 

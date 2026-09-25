@@ -54,6 +54,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QProgressBar,
+    QProgressDialog,
     QPushButton,
     QScrollArea,
     QSlider,
@@ -69,6 +70,7 @@ from PySide6.QtWidgets import (
 )
 
 from .action_runner import ActionRunner
+from .app_updater import AppUpdateDownloader, start_installer
 from .anonymous_usage import AnonymousUsageReporter
 from .constants import (
     APP_NAME,
@@ -105,6 +107,7 @@ from .profile_store import ProfileStore
 from .permissions_dialog import MacPermissionsDialog
 from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
+from .support_reminder import support_reminder_due
 from .translations import LANGUAGES, translate
 
 
@@ -307,7 +310,19 @@ class MainWindow(QMainWindow):
         self._ignore_dock_activation_until = 0.0
         self._allow_exit = False
         self._settings = QSettings()
+        now = int(time.time())
+        self._support_first_seen = self._settings.value(
+            "support/firstSeen", 0, type=int
+        )
+        if self._support_first_seen <= 0:
+            self._support_first_seen = now
+            self._settings.setValue("support/firstSeen", now)
+        self._support_action_count = max(
+            0, self._settings.value("support/actionCount", 0, type=int)
+        )
         self._release_feed = ReleaseFeedClient(self)
+        self._app_update_downloader = AppUpdateDownloader(self)
+        self._app_update_progress: QProgressDialog | None = None
         self._manual_release_check = False
         self._release_prompted_for = self._settings.value(
             "updates/promptedVersion", "", type=str
@@ -973,6 +988,11 @@ class MainWindow(QMainWindow):
         )
         self._release_feed.loaded.connect(self._release_feed_loaded)
         self._release_feed.failed.connect(self._release_feed_failed)
+        self._app_update_downloader.progress_changed.connect(
+            self._app_update_progress_changed
+        )
+        self._app_update_downloader.downloaded.connect(self._app_update_downloaded)
+        self._app_update_downloader.failed.connect(self._app_update_failed)
 
     def _text(self, key: str, **values: object) -> str:
         return translate(self._language, key, **values)
@@ -1158,7 +1178,67 @@ class MainWindow(QMainWindow):
         message.setDefaultButton(download_button if data.download_url else later_button)
         message.exec()
         if message.clickedButton() is download_button and data.download_url:
-            self._open_external_link(data.download_url)
+            self._download_app_update(data.download_url, data.download_sha256)
+
+    def _download_app_update(self, url: str, checksum: str) -> None:
+        if self._app_update_downloader.is_busy:
+            return
+        progress = QProgressDialog(
+            self._text("downloading_update"),
+            "",
+            0,
+            100,
+            self,
+        )
+        progress.setWindowTitle(self._text("app_updates"))
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.setCancelButton(None)
+        progress.setValue(0)
+        self._app_update_progress = progress
+        self._app_update_downloader.download(url, checksum)
+
+    def _app_update_progress_changed(self, value: int) -> None:
+        if self._app_update_progress is not None:
+            self._app_update_progress.setValue(value)
+
+    def _app_update_downloaded(self, path: str) -> None:
+        progress = self._app_update_progress
+        self._app_update_progress = None
+        if progress is not None:
+            progress.close()
+            progress.deleteLater()
+        if not start_installer(Path(path), os.getpid()):
+            self._app_update_failed(self._text("update_installer_failed"))
+            return
+        QMessageBox.information(
+            self,
+            self._text("app_updates"),
+            self._text("update_installer_started"),
+        )
+        if sys.platform.startswith("linux") and os.environ.get("APPIMAGE"):
+            QApplication.quit()
+
+    def _app_update_failed(self, error: str) -> None:
+        progress = self._app_update_progress
+        self._app_update_progress = None
+        if progress is not None:
+            progress.close()
+            progress.deleteLater()
+        message = QMessageBox(self)
+        message.setWindowTitle(self._text("app_updates"))
+        message.setIcon(QMessageBox.Warning)
+        message.setText(self._text("update_download_failed"))
+        message.setInformativeText(error)
+        open_releases = message.addButton(
+            self._text("open_download_page"), QMessageBox.ActionRole
+        )
+        message.addButton(self._text("ok"), QMessageBox.AcceptRole)
+        message.exec()
+        if message.clickedButton() is open_releases:
+            self._open_external_link(RELEASES_URL)
 
     def _release_feed_failed(self, error: str) -> None:
         manual = self._manual_release_check
@@ -1177,6 +1257,15 @@ class MainWindow(QMainWindow):
         message.exec()
 
     def show_usage_reminder(self) -> None:
+        now = int(time.time())
+        if not support_reminder_due(
+            first_seen=self._support_first_seen,
+            action_count=self._support_action_count,
+            last_shown=self._settings.value("support/lastShown", 0, type=int),
+            disabled=self._settings.value("support/reminderDisabled", False, type=bool),
+            now=now,
+        ):
+            return
         message = QMessageBox(self)
         message.setWindowTitle(APP_NAME)
         message.setIcon(QMessageBox.Information)
@@ -1187,7 +1276,12 @@ class MainWindow(QMainWindow):
         paypal_button = message.addButton(
             self._text("support_with_paypal"), QMessageBox.ActionRole
         )
+        opt_out = QCheckBox(self._text("dont_show_again"))
+        message.setCheckBox(opt_out)
         message.exec()
+        self._settings.setValue("support/lastShown", now)
+        if opt_out.isChecked():
+            self._settings.setValue("support/reminderDisabled", True)
         if message.clickedButton() is paypal_button:
             self._open_external_link(PAYPAL_URL)
 
@@ -3229,6 +3323,8 @@ $result | ConvertTo-Json -Compress
 
     def _run_device_action(self, identifier: str, press_kind: str, action: Action) -> None:
         del identifier, press_kind
+        self._support_action_count += 1
+        self._settings.setValue("support/actionCount", self._support_action_count)
         self._usage_reporter.record_action()
         self._runner.run(action)
 

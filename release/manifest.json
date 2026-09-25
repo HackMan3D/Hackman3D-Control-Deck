@@ -1,13 +1,31 @@
 {
   "schema": 1,
-  "latest_version": "1.5.8",
+  "latest_version": "1.5.9",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Adds privacy-preserving unique installation counts using a locally generated random identifier. Historical installations start counting after updating to 1.5.8.",
+  "installers": {
+    "macos": {
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-macOS-1.5.9.dmg",
+      "sha256": ""
+    },
+    "windows": {
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Windows-1.5.9-Setup.exe",
+      "sha256": ""
+    },
+    "linux_x86_64": {
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-x86_64-1.5.9-r7.AppImage",
+      "sha256": ""
+    },
+    "linux_aarch64": {
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-aarch64-1.5.9-r7.AppImage",
+      "sha256": ""
+    }
+  },
+  "release_notes": "Adds integrated update downloads, integrity verification and a discreet support reminder shown only after real use.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },
