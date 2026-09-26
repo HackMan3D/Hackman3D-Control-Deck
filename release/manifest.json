@@ -10,19 +10,19 @@
   "installers": {
     "macos": {
       "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-macOS-1.5.9.dmg",
-      "sha256": ""
+      "sha256": "f10f8c74d5be4493cb652e2ad7b987c3de17f3098834b0a127452fdca95c75a3"
     },
     "windows": {
       "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Windows-1.5.9-Setup.exe",
-      "sha256": ""
+      "sha256": "82601ce26af486b8569c5a47e6c0725f79d7561b78be9135ad49c99f67d7c764"
     },
     "linux_x86_64": {
       "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-x86_64-1.5.9-r7.AppImage",
-      "sha256": ""
+      "sha256": "be59652b4dfc319c1f2d8d56e22260807664d5bb8ec02a6e2595e9b937da60c9"
     },
     "linux_aarch64": {
       "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-aarch64-1.5.9-r7.AppImage",
-      "sha256": ""
+      "sha256": "f4e2135238e83a6b6871a12559127d25f420224688eccaa95073081494a81e2e"
     }
   },
   "release_notes": "Adds integrated update downloads, integrity verification and a discreet support reminder shown only after real use.",
