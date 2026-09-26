@@ -12,6 +12,9 @@ https://github.com/HackMan3D/Hackman3D-Control-Deck
 
 If the project is useful to you, sharing your build or supporting continued
 development helps fund the HCD Plus and HCD Pro prototypes:
+https://ko-fi.com/hackman3d
+
+One-time PayPal contribution:
 https://paypal.me/Hackman3D
 
 ## Video caption

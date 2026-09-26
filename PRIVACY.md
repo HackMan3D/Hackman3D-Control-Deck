@@ -39,3 +39,18 @@ Because the server never receives an identity or account, it cannot associate a
 stored hash with a named person. Removing the application's local settings also
 removes its random identifier; a later launch will then be counted as a new
 installation.
+
+## Optional HCD Supporter membership
+
+HCD Supporter activation is separate from audience measurement. When a member
+activates the optional monthly Ko-fi membership, Ko-fi sends the payment event
+to the HackMan3D service. The service stores only keyed hashes of the Ko-fi
+email address and transaction ID, the membership tier and its validity date. It
+does not store the payer name, message, amount, application profiles,
+configured actions or hardware identifiers.
+
+The desktop application exchanges the first transaction ID for a random access
+token and stores that token in its local settings. Later monthly payments renew
+the same access automatically. Disconnecting the computer removes its local
+token. PayPal contributions and one-time Ko-fi tips do not create a Supporter
+account or unlock membership features.

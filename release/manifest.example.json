@@ -1,15 +1,18 @@
 {
   "schema": 1,
-  "latest_version": "1.5.9",
+  "latest_version": "1.6.0",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Windows and macOS share USB-only HCD Pro support and protected display synchronization.",
+  "release_notes": "Adds optional HCD Supporter activation through Ko-fi with automatic renewal recognition and privacy-preserving validation.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
+  },
+  "supporter": {
+    "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/supporter"
   },
   "roadmap": {
     "progress": 0

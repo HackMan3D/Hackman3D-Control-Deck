@@ -11,7 +11,9 @@ def test_all_hackman_links_are_configured() -> None:
         "instagram",
         "youtube",
         "email",
+        "kofi",
         "paypal",
     }
     assert links["email"].startswith("mailto:hackman3d.pro@gmail.com")
+    assert links["kofi"] == "https://ko-fi.com/hackman3d"
     assert links["paypal"] == "https://paypal.me/Hackman3D"

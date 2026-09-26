@@ -1,27 +1,28 @@
 # HackMan3D Control Deck
 
-![Version](https://img.shields.io/badge/Version-1.5.9-0A84FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.6.0-0A84FF?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-0A84FF?style=flat-square)
 ![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
 ![Controls](https://img.shields.io/badge/Controls-9%20MX%20Keys-7B61FF?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-Private%20Preview-555555?style=flat-square)
-[![Support](https://img.shields.io/badge/Support-HackMan3D-EA6D2F?style=flat-square&logo=paypal&logoColor=white)](https://paypal.me/Hackman3D)
+[![Support](https://img.shields.io/badge/Support-HackMan3D-29ABE0?style=flat-square&logo=kofi&logoColor=white)](https://ko-fi.com/hackman3d)
+[![PayPal](https://img.shields.io/badge/One--time-PayPal-0070BA?style=flat-square&logo=paypal&logoColor=white)](https://paypal.me/Hackman3D)
 
 HackMan3D Control Deck (HCD) is a family of programmable desktop controllers.
 HCD-BASE and HCD Plus use an Arduino Pro Micro; HCD Pro uses an ESP32-S3
 touchscreen. This repository contains the shared Windows/macOS/Linux
 configuration app, the branded interface and the firmware for all three models.
 
-## Download the app — version 1.5.9
+## Download the app — version 1.6.0
 
 The project and its source code are publicly available. Use the ready-to-install
 downloads below if you simply want to build and use the controller.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-macOS-1.5.9.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Windows-1.5.9-Setup.exe)
-- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-x86_64-1.5.9-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-x86_64-1.5.9-r7.deb)
-- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-aarch64-1.5.9-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Linux-aarch64-1.5.9-r7.deb)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-macOS-1.6.0.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Windows-1.6.0-Setup.exe)
+- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Linux-x86_64-1.6.0-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Linux-x86_64-1.6.0-r7.deb)
+- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Linux-aarch64-1.6.0-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Linux-aarch64-1.6.0-r7.deb)
 
 ## Quick start — recommended
 
@@ -32,9 +33,9 @@ working HackMan3D Control Deck.
    [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
    [wiring notes](docs/WIRING.md).
 2. Download and install the HCD application for
-   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-macOS-1.5.9.dmg)
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-macOS-1.6.0.dmg)
    or
-   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.5.9/HackMan3D-Control-Deck-Windows-1.5.9-Setup.exe).
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.0/HackMan3D-Control-Deck-Windows-1.6.0-Setup.exe).
    Linux users can choose the `.deb` or AppImage matching their x86_64 or ARM64
    computer from the links above. Apple Silicon virtual machines normally need
    the **ARM64/aarch64** package.
@@ -155,7 +156,8 @@ to improve the firmware and the macOS/Windows applications. Feedback and social
 media follows are also important: they help validate ideas and make the project
 visible.
 
-- [Support development with PayPal](https://paypal.me/Hackman3D)
+- [Support development on Ko-fi](https://ko-fi.com/hackman3d)
+- [Make a one-time contribution with PayPal](https://paypal.me/Hackman3D)
 - [Learn how support helps the project](SUPPORT.md)
 - [Send feedback by email](mailto:hackman3d.pro@gmail.com?subject=HackMan3D%20Control%20Deck%20feedback)
 - [Creality Cloud](https://www.crealitycloud.com/user/5221417142)
@@ -163,6 +165,13 @@ visible.
 - [TikTok](https://www.tiktok.com/@hackman3d)
 - [Instagram](https://www.instagram.com/hackman_3dprint/)
 - [YouTube](https://www.youtube.com/@hackman3D)
+
+The optional monthly **HCD Supporter** membership is activated once in the
+desktop app with the transaction ID from the first Ko-fi receipt. Renewals are
+then recognized automatically. Supporter mode hides support reminders and the
+community funding banner. The Control Deck remains fully functional without a
+membership. PayPal and one-time Ko-fi tips remain simple donations and do not
+activate the membership.
 
 ## HCD roadmap
 
@@ -179,8 +188,8 @@ The application displays one community progress bar from 0 to 100%:
   targets are never included in the application, its public feed or the source
   repository.
 
-The application does not collect payments. The support button only opens the
-external HackMan3D PayPal page. The exact feature set will continue to evolve
+The application does not collect payments. Support buttons only open the
+external HackMan3D Ko-fi and PayPal pages. The exact feature set will continue to evolve
 after prototype testing and community feedback.
 
 ### HCD Plus
@@ -384,7 +393,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-1.5.9-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.6.0-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 

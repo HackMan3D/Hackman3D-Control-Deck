@@ -20,6 +20,7 @@ def test_release_feed_selects_platform_download_and_clamps_progress() -> None:
             },
             "roadmap": {"progress": 48.4},
             "anonymous_usage": {"endpoint": "https://usage.example.com/v1/usage"},
+            "supporter": {"endpoint": "https://usage.example.com/v1/supporter"},
         }
     ).encode()
 
@@ -31,6 +32,7 @@ def test_release_feed_selects_platform_download_and_clamps_progress() -> None:
     assert data.download_sha256 == "a" * 64
     assert data.update_available
     assert data.usage_endpoint == "https://usage.example.com/v1/usage"
+    assert data.supporter_endpoint == "https://usage.example.com/v1/supporter"
 
 
 def test_release_feed_defaults_invalid_percentages_to_zero() -> None:

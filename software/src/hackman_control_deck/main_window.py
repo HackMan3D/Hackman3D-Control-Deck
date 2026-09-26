@@ -6,6 +6,7 @@ import time
 import base64
 import json
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -78,6 +79,7 @@ from .constants import (
     ASSET_DIR,
     COMPATIBLE_PRODUCT_NAMES,
     CONTACT_URL,
+    KOFI_URL,
     PAYPAL_URL,
     RELEASE_CHECK_INTERVAL_SECONDS,
     RELEASE_MANIFEST_URL,
@@ -108,6 +110,7 @@ from .permissions_dialog import MacPermissionsDialog
 from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
 from .support_reminder import support_reminder_due
+from .supporter import SupporterClient, SupporterStatus
 from .translations import LANGUAGES, translate
 
 
@@ -342,6 +345,12 @@ class MainWindow(QMainWindow):
             endpoint=os.environ.get("HCD_USAGE_ENDPOINT", ""),
             parent=self,
         )
+        self._supporter_client = SupporterClient(self)
+        self._supporter_token = self._settings.value("supporter/token", "", type=str)
+        self._supporter_active_until = self._settings.value(
+            "supporter/activeUntil", 0, type=int
+        )
+        self._supporter_active = self._supporter_active_until > now
         self._feedback_hold_ms = max(
             0,
             min(2000, self._settings.value("device/feedbackHoldMs", 120, type=int)),
@@ -512,8 +521,10 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(12, 12, 12, 10)
         root_layout.setSpacing(10)
         root_layout.addWidget(self._build_top_bar())
-        root_layout.addWidget(self._build_support_banner())
-        root_layout.addWidget(self._build_roadmap())
+        self._support_banner = self._build_support_banner()
+        root_layout.addWidget(self._support_banner)
+        self._roadmap_banner = self._build_roadmap()
+        root_layout.addWidget(self._roadmap_banner)
 
         self._body_splitter = QSplitter(Qt.Horizontal)
         self._body_splitter.setObjectName("bodySplitter")
@@ -613,7 +624,7 @@ class MainWindow(QMainWindow):
         self._feedback_button.clicked.connect(lambda: self._open_external_link(CONTACT_URL))
         layout.addWidget(self._feedback_button)
         self._support_button = QPushButton(objectName="supportAccent")
-        self._support_button.clicked.connect(lambda: self._open_external_link(PAYPAL_URL))
+        self._support_button.clicked.connect(lambda: self._open_external_link(KOFI_URL))
         layout.addWidget(self._support_button)
         return frame
 
@@ -775,6 +786,9 @@ class MainWindow(QMainWindow):
         )
         self._anonymous_usage_help.setWordWrap(True)
         layout.addWidget(self._anonymous_usage_help)
+        self._supporter_status_button = QPushButton()
+        self._supporter_status_button.clicked.connect(self._open_supporter_manager)
+        layout.addWidget(self._supporter_status_button)
         self._version_label = QLabel(f"Desktop app {APP_VERSION}", objectName="subtitle")
         layout.addWidget(self._version_label)
         layout.addStretch()
@@ -988,6 +1002,8 @@ class MainWindow(QMainWindow):
         )
         self._release_feed.loaded.connect(self._release_feed_loaded)
         self._release_feed.failed.connect(self._release_feed_failed)
+        self._supporter_client.loaded.connect(self._supporter_status_loaded)
+        self._supporter_client.failed.connect(self._supporter_status_failed)
         self._app_update_downloader.progress_changed.connect(
             self._app_update_progress_changed
         )
@@ -1031,6 +1047,11 @@ class MainWindow(QMainWindow):
         self._support_message.setText(self._text("support_message"))
         self._feedback_button.setText(self._text("send_feedback"))
         self._support_button.setText(self._text("support_project"))
+        self._supporter_status_button.setText(
+            self._text("supporter_active")
+            if self._supporter_active
+            else self._text("supporter_manage")
+        )
         self._device_title.setText(self._text("control_deck"))
         self._device_help.setText(self._text("select_control"))
         self._action_title.setText(self._text("action"))
@@ -1071,6 +1092,7 @@ class MainWindow(QMainWindow):
         self._roadmap_progress.setToolTip(
             self._text("hcd_plus_details") + "\n\n" + self._text("hcd_pro_details")
         )
+        self._apply_supporter_state()
 
         if sys.platform == "darwin":
             self._start_at_login_checkbox.setText(self._text("start_with_mac"))
@@ -1134,6 +1156,9 @@ class MainWindow(QMainWindow):
         self._set_roadmap_progress(data.roadmap_progress)
         self._settings.setValue("roadmap/progress", data.roadmap_progress)
         self._usage_reporter.set_endpoint(data.usage_endpoint)
+        self._supporter_client.set_endpoint(data.supporter_endpoint)
+        if self._supporter_token:
+            self._supporter_client.check(self._supporter_token)
 
         if not data.update_available:
             self.statusBar().showMessage(self._text("app_up_to_date"), 5_000)
@@ -1262,7 +1287,10 @@ class MainWindow(QMainWindow):
             first_seen=self._support_first_seen,
             action_count=self._support_action_count,
             last_shown=self._settings.value("support/lastShown", 0, type=int),
-            disabled=self._settings.value("support/reminderDisabled", False, type=bool),
+            disabled=(
+                self._supporter_active
+                or self._settings.value("support/reminderDisabled", False, type=bool)
+            ),
             now=now,
         ):
             return
@@ -1273,6 +1301,9 @@ class MainWindow(QMainWindow):
         message.setInformativeText(self._text("reminder_text"))
         message.setStandardButtons(QMessageBox.Ok)
         message.button(QMessageBox.Ok).setText(self._text("ok"))
+        kofi_button = message.addButton(
+            self._text("support_with_kofi"), QMessageBox.ActionRole
+        )
         paypal_button = message.addButton(
             self._text("support_with_paypal"), QMessageBox.ActionRole
         )
@@ -1282,8 +1313,116 @@ class MainWindow(QMainWindow):
         self._settings.setValue("support/lastShown", now)
         if opt_out.isChecked():
             self._settings.setValue("support/reminderDisabled", True)
-        if message.clickedButton() is paypal_button:
+        if message.clickedButton() is kofi_button:
+            self._open_external_link(KOFI_URL)
+        elif message.clickedButton() is paypal_button:
             self._open_external_link(PAYPAL_URL)
+
+    def _open_supporter_manager(self) -> None:
+        if self._supporter_active:
+            message = QMessageBox(self)
+            message.setWindowTitle(self._text("supporter_title"))
+            message.setIcon(QMessageBox.Information)
+            message.setText(self._text("supporter_active"))
+            message.setInformativeText(
+                self._text("supporter_active_help", date=self._supporter_expiry_label())
+            )
+            manage_button = message.addButton(
+                self._text("supporter_manage_kofi"), QMessageBox.ActionRole
+            )
+            deactivate_button = message.addButton(
+                self._text("supporter_deactivate"), QMessageBox.DestructiveRole
+            )
+            message.setStandardButtons(QMessageBox.Close)
+            message.button(QMessageBox.Close).setText(self._text("close"))
+            message.exec()
+            if message.clickedButton() is manage_button:
+                self._open_external_link(KOFI_URL)
+            elif message.clickedButton() is deactivate_button:
+                self._settings.remove("supporter/token")
+                self._settings.remove("supporter/activeUntil")
+                self._supporter_token = ""
+                self._supporter_active_until = 0
+                self._supporter_active = False
+                self._apply_supporter_state()
+            return
+
+        if not self._supporter_client.endpoint:
+            QMessageBox.information(
+                self,
+                self._text("supporter_title"),
+                self._text("supporter_service_unavailable"),
+            )
+            return
+        transaction_id, accepted = QInputDialog.getText(
+            self,
+            self._text("supporter_title"),
+            self._text("supporter_transaction_prompt"),
+        )
+        transaction_id = transaction_id.strip()
+        if not accepted or not transaction_id:
+            return
+        self._supporter_status_button.setEnabled(False)
+        self.statusBar().showMessage(self._text("supporter_checking"))
+        self._supporter_client.claim(transaction_id)
+
+    @staticmethod
+    def _supporter_timestamp(value: str) -> int:
+        try:
+            return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError):
+            return 0
+
+    def _supporter_expiry_label(self) -> str:
+        if self._supporter_active_until <= 0:
+            return "—"
+        return datetime.fromtimestamp(
+            self._supporter_active_until, timezone.utc
+        ).astimezone().strftime("%Y-%m-%d")
+
+    def _supporter_status_loaded(self, status: SupporterStatus) -> None:
+        self._supporter_status_button.setEnabled(True)
+        if status.token:
+            self._supporter_token = status.token
+            self._settings.setValue("supporter/token", status.token)
+        self._supporter_active_until = self._supporter_timestamp(status.active_until)
+        self._supporter_active = bool(status.active and self._supporter_active_until > time.time())
+        if self._supporter_active:
+            self._settings.setValue("supporter/activeUntil", self._supporter_active_until)
+            self.statusBar().showMessage(self._text("supporter_activated"), 8_000)
+            if status.token:
+                QMessageBox.information(
+                    self,
+                    self._text("supporter_title"),
+                    self._text("supporter_activated"),
+                )
+        else:
+            self._supporter_token = ""
+            self._settings.remove("supporter/token")
+            self._settings.remove("supporter/activeUntil")
+            self.statusBar().showMessage(self._text("supporter_inactive"), 8_000)
+        self._apply_supporter_state()
+
+    def _supporter_status_failed(self, error: str) -> None:
+        self._supporter_status_button.setEnabled(True)
+        if error == "membership_not_found":
+            text = self._text("supporter_not_found")
+        else:
+            text = self._text("supporter_service_unavailable")
+        self.statusBar().showMessage(text, 8_000)
+        QMessageBox.warning(self, self._text("supporter_title"), text)
+
+    def _apply_supporter_state(self) -> None:
+        if hasattr(self, "_support_banner"):
+            self._support_banner.setVisible(not self._supporter_active)
+        if hasattr(self, "_roadmap_banner"):
+            self._roadmap_banner.setVisible(not self._supporter_active)
+        if hasattr(self, "_supporter_status_button"):
+            self._supporter_status_button.setText(
+                self._text("supporter_active")
+                if self._supporter_active
+                else self._text("supporter_manage")
+            )
 
     def _reload_profile_list(self, select: str | None = None) -> None:
         names = self._store.list_profiles()

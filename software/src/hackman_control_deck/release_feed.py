@@ -25,6 +25,7 @@ class ReleaseFeedData:
     roadmap_progress: float
     release_notes: str = ""
     usage_endpoint: str = ""
+    supporter_endpoint: str = ""
     download_sha256: str = ""
 
     @property
@@ -91,12 +92,19 @@ def parse_release_feed(payload: bytes | bytearray | QByteArray) -> ReleaseFeedDa
     usage_endpoint = str(anonymous_usage.get("endpoint", "")).strip()
     if not usage_endpoint.startswith("https://"):
         usage_endpoint = ""
+    supporter = document.get("supporter", {})
+    if not isinstance(supporter, dict):
+        supporter = {}
+    supporter_endpoint = str(supporter.get("endpoint", "")).strip().rstrip("/")
+    if not supporter_endpoint.startswith("https://"):
+        supporter_endpoint = ""
     return ReleaseFeedData(
         latest_version=latest_version,
         download_url=download_url,
         roadmap_progress=percentage(progress_value),
         release_notes=str(document.get("release_notes", "")).strip(),
         usage_endpoint=usage_endpoint,
+        supporter_endpoint=supporter_endpoint,
         download_sha256=download_sha256,
     )
 

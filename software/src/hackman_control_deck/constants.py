@@ -8,7 +8,7 @@ LEGACY_APP_NAME = "HackMan Control Deck"
 COMPATIBLE_PRODUCT_NAMES = (APP_NAME, LEGACY_APP_NAME)
 APP_SHORT_NAME = "HCD"
 ORGANIZATION_NAME = "HackMan3D"
-APP_VERSION = "1.5.9"
+APP_VERSION = "1.6.0"
 RELEASES_URL = "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest"
 RELEASE_MANIFEST_URL = os.environ.get(
     "HCD_RELEASE_MANIFEST_URL",
@@ -18,6 +18,7 @@ RELEASE_CHECK_INTERVAL_SECONDS = 6 * 60 * 60
 
 CONTACT_EMAIL = "hackman3d.pro@gmail.com"
 CONTACT_URL = "mailto:hackman3d.pro@gmail.com?subject=HackMan3D%20Control%20Deck%20feedback"
+KOFI_URL = "https://ko-fi.com/hackman3d"
 PAYPAL_URL = "https://paypal.me/Hackman3D"
 
 SOCIAL_LINKS = (
@@ -36,8 +37,13 @@ SOCIAL_LINKS = (
         CONTACT_URL,
     ),
     (
+        "kofi",
+        "Support HackMan3D on Ko-fi",
+        KOFI_URL,
+    ),
+    (
         "paypal",
-        "Support HackMan3D with PayPal",
+        "Make a one-time contribution with PayPal",
         PAYPAL_URL,
     ),
 )
