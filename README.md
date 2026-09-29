@@ -102,6 +102,36 @@ actions, test the command and save it to the current HCD-BASE profile.
 The complete electronics, printed-parts and screw list is available in the
 [HCD-BASE bill of materials](docs/WIRING.md#bill-of-materials).
 
+### Amazon US component links
+
+**Affiliate disclosure:** As an Amazon Associate I earn from qualifying purchases.
+The links below lead to Amazon.com (US). Check the selected variant and pack
+contents before ordering. These listings were compared with the documented
+requirements; the exact seller products have not been physically validated.
+
+| Component | Quantity needed | Amazon US listing / notes |
+|---|---|---|
+| Pro Micro, ATmega32U4, 5 V / 16 MHz | 1 | [DORHEA USB-C, 1 board](https://www.amazon.com/dp/B0GSZ4QDZW?tag=hackman3d-20&linkCode=ll2&linkId=a19762797fd2ae418446119c611f3b86&language=en_US&ref_=as_li_ss_tl) — Check board dimensions and pinout against the assembly guide. |
+| Mechanical switches | 9 | [BlingKingdom, pack of 10](https://link.amazon/B02E2ec8C) — MX-style blue clicky, 3-pin; check fit in the printed switch support. |
+| IRLB8721 MOSFETs, TO-220 | 2 | [IRLB8721PBF, pack of 5](https://link.amazon/B074mJqXJ) |
+| Red LED, 5 mm | 1 | [OWOFYDR, pack of 100](https://link.amazon/B05HMu4Cu) — Bare LED, 2–2.2 V at 20 mA; use the two series 100 Ω resistors specified in the wiring guide. |
+| 100 Ω resistors | 4 | [BOJACK, 1,000-piece assortment](https://link.amazon/B0byWhsql) — Contains 100 Ω, ¼ W, ±5% resistors; a smaller 100 Ω pack is sufficient for one build. |
+| Hook-up wire | As required | [Fermerry 22 AWG silicone, 6 × 10 ft](https://link.amazon/B08XqEbn6) — Includes 18 heat-shrink pieces. Check routing space in the enclosure. |
+| USB-C data cable | 1 | [ZeroneTeck USB-C to USB-C, 3 ft](https://link.amazon/B075uRWBR) — For a USB-C host; confirm USB-C-to-C operation with your board. A basic USB data cable is sufficient; 20 Gbps / 100 W is not required. |
+| M3 screws | 4 × M3×8 | [Fgruh M3, 1,120-piece assortment](https://link.amazon/B07yC1JMR) — Socket head; check fit against the printed supports. |
+| Extra heat-shrink tubing (optional) | As required | [HUAKAYO, 365 pieces](https://link.amazon/B06use4Lj) — Adhesive-lined, advertised 5:1 shrink ratio. Choose a suitable diameter; the wire kit already includes some tubing. |
+
+#### Items requiring a fit / electrical check before purchase
+
+| Component | Quantity needed | Amazon US listing / notes |
+|---|---|---|
+| White COB LED strip, 5 V | Approximately 5 cm | [ZSLAIFU white, 5 V, 1 m](https://link.amazon/B07N085SS) — Check strip width, cut spacing and built-in current limiting for a cut section used without the supplied USB dimmer. |
+| M2 screws | 7 × M2×10; 2 × M2×4 | [WZHUIDA M2, 660-piece assortment](https://link.amazon/B04AuJdUT) — Lengths are included, but these are countersunk screws: confirm the head shape fits the printed parts before ordering. |
+
+Follow the [complete bill of materials and wiring guide](docs/WIRING.md#bill-of-materials).
+Printed parts and nine MX-compatible keycaps are also required. Multipack
+purchase totals differ from the per-build cost estimate below.
+
 ### Estimated HCD-BASE component cost
 
 When every part is priced only for the quantity actually used, and economical
