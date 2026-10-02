@@ -66,12 +66,15 @@ Pins 14, 15, 16, 18, 19 and 20 are unused in the V1 and reserved for future
 expansion.
 
 Both lights are switched on the low side by separate logic-level N-channel
-MOSFETs. For each channel:
+MOSFETs. The validated wiring is:
 
 1. Connect the Pro Micro output to the MOSFET gate through a 100 Ω resistor.
 2. Connect the MOSFET source to GND.
-3. Connect the MOSFET drain to the LED cathode (negative side).
-4. Connect the LED anode to +5 V through its current-limiting resistor.
+3. Connect the positive side of each light directly to +5 V.
+4. For the bare red LED, connect its negative side through the two series
+   100 Ω resistors (200 Ω total) to the MOSFET drain.
+5. For the ready-made 5 V COB strip, connect its negative side directly to the
+   MOSFET drain, without adding another series resistor.
 
 Each individual bare LED still needs a suitable current-limiting resistor,
 typically 150–330 Ω at 5 V depending on its forward voltage and desired current.

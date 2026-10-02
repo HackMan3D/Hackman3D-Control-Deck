@@ -11,9 +11,13 @@
       .small { font-size: 14px; fill: #555; }
       .tiny { font-size: 12px; fill: #666; }
       .white { fill: #fff; }
+      .gate-pin { fill: #b9a3ff; }
+      .drain-pin { fill: #53c7df; }
       .wire-key { stroke: #ef9800; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .wire-signal { stroke: #e43c55; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .wire-feedback { stroke: #367fc4; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wire-gate { stroke: #8b5cf6; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wire-drain { stroke: #0b84a5; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .wire-vcc { stroke: #ef334d; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .wire-gnd { stroke: #303030; stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .terminal { fill: #fff; stroke: #333; stroke-width: 3; }
@@ -138,58 +142,62 @@
   </g>
 
   <text x="1010" y="205" class="section">2. Status lighting</text>
-  <path d="M952 791 H990 V225 H1530" class="wire-vcc"/>
+  <path d="M952 791 H990 V225 H1455" class="wire-vcc"/>
   <text x="1010" y="218" class="label" fill="#d7263d">+5 V BUS (VCC)</text>
-  <path d="M952 851 H990 V1005 H1530" class="wire-gnd"/>
+  <path d="M952 851 H990 V1005 H1545" class="wire-gnd"/>
   <text x="1390" y="1038" class="label">COMMON GND</text>
 
   <!-- Connection LED card -->
   <rect x="1015" y="255" width="515" height="315" rx="22" class="card"/>
   <text x="1045" y="298" class="section">RED CONNECTION LED</text>
   <text x="1045" y="327" class="small">ON only while the desktop app heartbeat is active</text>
-  <path d="M952 341 H1060" class="wire-signal"/>
+  <path d="M952 341 H1060" class="wire-gate"/>
   <rect x="1060" y="322" width="92" height="38" rx="7" class="component"/>
   <text x="1106" y="347" text-anchor="middle" class="label">100 Ω</text>
-  <path d="M1152 341 H1215" class="wire-signal"/>
+  <path d="M1152 341 H1185 V505 H1233 V480" class="wire-gate"/>
 
   <rect x="1215" y="338" width="145" height="142" rx="9" fill="#333" stroke="#777" stroke-width="2"/>
   <text x="1287" y="375" text-anchor="middle" class="label white">Q1 IRLB8721</text>
   <text x="1287" y="400" text-anchor="middle" class="tiny white">flat face toward you</text>
-  <text x="1228" y="463" class="small white">G</text><text x="1282" y="463" class="small white">D</text><text x="1337" y="463" class="small white">S</text>
-  <path d="M1287 480 V505 H1420 V449" class="wire-signal"/>
-  <path d="M1342 480 V535 H990" class="wire-gnd"/>
+  <text x="1228" y="463" class="small gate-pin">G</text><text x="1282" y="463" class="small drain-pin">D</text><text x="1337" y="463" class="small white">S</text>
+  <!-- Bare LED cathode goes through 2 × 100 ohm to Drain; Source returns to GND. -->
+  <path d="M1455 419 V440" class="wire-drain"/>
+  <rect x="1410" y="440" width="90" height="38" rx="7" class="component"/>
+  <text x="1455" y="465" text-anchor="middle" class="label">2 × 100 Ω</text>
+  <path d="M1455 478 V505 H1287 V480" class="wire-drain"/>
+  <path d="M1342 480 V535 H1545 V1005" class="wire-gnd"/>
+  <text x="1365" y="498" class="tiny">LED − → 200 Ω → D</text>
 
-  <path d="M1455 225 V272" class="wire-vcc"/>
-  <rect x="1410" y="272" width="90" height="38" rx="7" class="component"/>
-  <text x="1455" y="297" text-anchor="middle" class="label">2 × 100 Ω</text>
-  <path d="M1455 310 V360" class="wire-vcc"/>
+  <path d="M1455 225 V360" class="wire-vcc"/>
   <circle cx="1455" cy="395" r="24" fill="#ed3d50" stroke="#9b1523" stroke-width="4"/>
-  <path d="M1455 419 V449 H1420" class="wire-signal"/>
-  <text x="1390" y="438" class="small">5 mm red LED</text>
+  <text x="1378" y="390" class="small">5 mm red LED</text>
 
   <!-- Feedback light card -->
   <rect x="1015" y="600" width="515" height="340" rx="22" class="card"/>
   <text x="1045" y="644" class="section">WHITE KEY-FEEDBACK BAR</text>
   <text x="1045" y="673" class="small">ON while a key is held, but only when the app is connected</text>
-  <path d="M952 721 H1060" class="wire-feedback"/>
+  <path d="M952 721 H1060" class="wire-gate"/>
   <rect x="1060" y="702" width="92" height="38" rx="7" class="component"/>
   <text x="1106" y="727" text-anchor="middle" class="label">100 Ω</text>
-  <path d="M1152 721 H1215" class="wire-feedback"/>
+  <path d="M1152 721 H1185 V885 H1233 V860" class="wire-gate"/>
 
   <rect x="1215" y="718" width="145" height="142" rx="9" fill="#333" stroke="#777" stroke-width="2"/>
   <text x="1287" y="755" text-anchor="middle" class="label white">Q2 IRLB8721</text>
   <text x="1287" y="780" text-anchor="middle" class="tiny white">flat face toward you</text>
-  <text x="1228" y="843" class="small white">G</text><text x="1282" y="843" class="small white">D</text><text x="1337" y="843" class="small white">S</text>
-  <path d="M1287 860 V885 H1420 V830" class="wire-feedback"/>
+  <text x="1228" y="843" class="small gate-pin">G</text><text x="1282" y="843" class="small drain-pin">D</text><text x="1337" y="843" class="small white">S</text>
+  <!-- The 5 V strip includes current limiting: its negative goes directly to Drain. -->
+  <path d="M1390 817 H1420 V885 H1287 V860" class="wire-drain"/>
   <path d="M1342 860 V905 H990" class="wire-gnd"/>
+  <text x="1350" y="878" class="tiny">STRIP − → D • NO EXTRA RESISTOR</text>
 
-  <path d="M1455 225 V700" class="wire-vcc"/>
+  <!-- Independent +5 V branch for the COB strip; it does not touch Q1 or its LED. -->
+  <path d="M990 580 H1490 V680 H1475 V700" class="wire-vcc"/>
+  <text x="1300" y="573" class="tiny" fill="#d7263d">SEPARATE +5 V BRANCH TO STRIP</text>
   <rect x="1390" y="700" width="130" height="130" rx="26" fill="#f8fbff" stroke="#7fa8d4" stroke-width="4"/>
   <text x="1455" y="753" text-anchor="middle" class="label">5 V COB strip</text>
   <text x="1455" y="780" text-anchor="middle" class="small">5 cm • resistor built in</text>
   <text x="1475" y="718" class="label" fill="#d7263d">+</text>
   <text x="1402" y="817" class="label" fill="#367fc4">−</text>
-  <path d="M1390 817 H1420 V830" class="wire-feedback"/>
 
   <!-- Notes -->
   <rect x="75" y="930" width="855" height="100" rx="15" fill="#fff0e8" stroke="#ff9a73" stroke-width="2"/>
@@ -199,5 +207,5 @@
 
   <text x="1025" y="965" class="small">IRLB8721 TO-220, flat printed face toward you:</text>
   <text x="1025" y="993" class="label">Pin 1 = Gate • Pin 2 = Drain • Pin 3 = Source</text>
-  <text x="1025" y="1022" class="tiny">Signal wires: orange = keys • pink = connection • blue = feedback • red = +5 V • black = GND</text>
+  <text x="1025" y="1022" class="tiny">Wire colors: orange = keys • purple = Gate (G) • teal = Drain (D) • red = +5 V • black = Source/GND</text>
 </svg>
