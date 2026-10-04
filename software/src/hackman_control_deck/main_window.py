@@ -101,9 +101,7 @@ from .models import ACTION_TYPES, Action, Profile
 from .macos_integration import (
     MacMenuBarIcon,
     MacWindowMinimizeHandler,
-    is_start_at_login_enabled,
     set_dock_icon_visible,
-    set_start_at_login,
 )
 from .profile_store import ProfileStore
 from .permissions_dialog import MacPermissionsDialog
@@ -111,6 +109,7 @@ from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
 from .support_reminder import support_reminder_due
 from .supporter import SupporterClient, SupporterStatus
+from .startup_integration import is_start_at_login_enabled, set_start_at_login
 from .translations import LANGUAGES, translate
 
 
@@ -735,17 +734,19 @@ class MainWindow(QMainWindow):
         self._language_combo.setCurrentIndex(self._language_combo.findData(self._language))
         self._language_combo.currentIndexChanged.connect(self._change_language)
         layout.addWidget(self._language_combo)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        layout.addWidget(separator)
+        self._startup_title = QLabel("Application", objectName="sectionTitle")
+        layout.addWidget(self._startup_title)
+        self._start_at_login_checkbox = QCheckBox("Start with the computer")
+        start_at_login = is_start_at_login_enabled()
+        self._start_at_login_checkbox.setChecked(start_at_login)
+        self._start_at_login_checkbox.toggled.connect(self._set_start_at_login)
+        layout.addWidget(self._start_at_login_checkbox)
         if sys.platform == "darwin":
-            separator = QFrame()
-            separator.setFrameShape(QFrame.HLine)
-            layout.addWidget(separator)
             self._macos_title = QLabel("macOS", objectName="sectionTitle")
             layout.addWidget(self._macos_title)
-            self._start_at_login_checkbox = QCheckBox("Start with Mac")
-            start_at_login = is_start_at_login_enabled()
-            self._start_at_login_checkbox.setChecked(start_at_login)
-            self._start_at_login_checkbox.toggled.connect(self._set_start_at_login)
-            layout.addWidget(self._start_at_login_checkbox)
             if start_at_login:
                 try:
                     set_start_at_login(True)
@@ -1072,8 +1073,8 @@ class MainWindow(QMainWindow):
         )
         self._apply_supporter_state()
 
+        self._start_at_login_checkbox.setText(self._text("start_with_system"))
         if sys.platform == "darwin":
-            self._start_at_login_checkbox.setText(self._text("start_with_mac"))
             self._start_minimized_checkbox.setText(self._text("start_minimized"))
             self._permissions_button.setText(self._text("macos_permissions"))
         elif self._tray is not None:
@@ -1555,7 +1556,6 @@ class MainWindow(QMainWindow):
         message.exec()
 
     def _select(self, identifier: str) -> None:
-        self._refresh_control_labels()
         self._selection = identifier
         for item, button in self._control_buttons.items():
             button.setProperty("selected", item == identifier)
@@ -2006,13 +2006,10 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                # Resolving every Start Menu shortcut icon can invoke the
-                # Windows shell hundreds of times and freeze Qt's UI thread.
-                # The selected application's icon is loaded on demand.
-                if sys.platform == "win32":
-                    self._preset_combo.addItem(name, path)
-                else:
-                    self._preset_combo.addItem(self._application_icon(path), name, path)
+                # Icons are deliberately omitted from this editor list. On a
+                # well populated computer, resolving all of them on Qt's UI
+                # thread can freeze the application when a key is selected.
+                self._preset_combo.addItem(name, path)
 
         matching_index = self._preset_combo.findData(selected_value)
         self._preset_combo.setCurrentIndex(max(0, matching_index))
@@ -2037,10 +2034,7 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._long_preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                if sys.platform == "win32":
-                    self._long_preset_combo.addItem(name, path)
-                else:
-                    self._long_preset_combo.addItem(self._application_icon(path), name, path)
+                self._long_preset_combo.addItem(name, path)
         matching_index = self._long_preset_combo.findData(selected_value)
         self._long_preset_combo.setCurrentIndex(max(0, matching_index))
         self._long_preset_value = selected_value if matching_index > 0 else ""
