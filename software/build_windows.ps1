@@ -2,7 +2,11 @@ $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDirectory
-$Version = "1.6.0"
+$Constants = Get-Content "src/hackman_control_deck/constants.py" -Raw
+if ($Constants -notmatch 'APP_VERSION = "([^"]+)"') {
+    throw "Unable to read APP_VERSION from constants.py"
+}
+$Version = $Matches[1]
 
 python -m pip install -e ".[dev]"
 python -m PyInstaller `

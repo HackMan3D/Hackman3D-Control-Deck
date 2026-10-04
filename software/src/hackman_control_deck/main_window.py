@@ -314,9 +314,7 @@ class MainWindow(QMainWindow):
         self._allow_exit = False
         self._settings = QSettings()
         now = int(time.time())
-        self._support_first_seen = self._settings.value(
-            "support/firstSeen", 0, type=int
-        )
+        self._support_first_seen = self._settings.value("support/firstSeen", 0, type=int)
         if self._support_first_seen <= 0:
             self._support_first_seen = now
             self._settings.setValue("support/firstSeen", now)
@@ -327,12 +325,8 @@ class MainWindow(QMainWindow):
         self._app_update_downloader = AppUpdateDownloader(self)
         self._app_update_progress: QProgressDialog | None = None
         self._manual_release_check = False
-        self._release_prompted_for = self._settings.value(
-            "updates/promptedVersion", "", type=str
-        )
-        self._roadmap_progress_value = self._settings.value(
-            "roadmap/progress", 0.0, type=float
-        )
+        self._release_prompted_for = self._settings.value("updates/promptedVersion", "", type=str)
+        self._roadmap_progress_value = self._settings.value("roadmap/progress", 0.0, type=float)
         self._language = self._settings.value("ui/language", "en", type=str)
         if self._language not in LANGUAGES:
             self._language = "en"
@@ -347,20 +341,14 @@ class MainWindow(QMainWindow):
         )
         self._supporter_client = SupporterClient(self)
         self._supporter_token = self._settings.value("supporter/token", "", type=str)
-        self._supporter_active_until = self._settings.value(
-            "supporter/activeUntil", 0, type=int
-        )
+        self._supporter_active_until = self._settings.value("supporter/activeUntil", 0, type=int)
         self._supporter_active = self._supporter_active_until > now
         self._feedback_hold_ms = max(
             0,
             min(2000, self._settings.value("device/feedbackHoldMs", 120, type=int)),
         )
-        self._pro_icon_size = max(
-            0, min(3, self._settings.value("pro/iconSize", 1, type=int))
-        )
-        self._pro_icon_shape = self._settings.value(
-            "pro/iconShape", "original", type=str
-        )
+        self._pro_icon_size = max(0, min(3, self._settings.value("pro/iconSize", 1, type=int)))
+        self._pro_icon_shape = self._settings.value("pro/iconShape", "original", type=str)
         if self._pro_icon_shape not in {"original", "macos", "windows"}:
             self._pro_icon_shape = "original"
         # HCD Pro uses icons only. Text labels caused unnecessary full-screen
@@ -378,9 +366,7 @@ class MainWindow(QMainWindow):
         self._pro_slider_mode = self._settings.value("pro/sliderMode", "volume", type=str)
         if self._pro_slider_mode not in {"off", "volume", "brightness"}:
             self._pro_slider_mode = "volume"
-        self._pro_second_fader = self._settings.value(
-            "pro/secondFader", False, type=bool
-        )
+        self._pro_second_fader = self._settings.value("pro/secondFader", False, type=bool)
         self._pro_feedback_brightness = max(
             0,
             min(
@@ -390,17 +376,13 @@ class MainWindow(QMainWindow):
         )
         self._led_brightness: dict[str, dict[str, int]] = {}
         for model in ProfileStore.MODELS:
-            migrated_feedback = (
-                self._pro_feedback_brightness if model == "HCD-PRO" else 100
-            )
+            migrated_feedback = self._pro_feedback_brightness if model == "HCD-PRO" else 100
             self._led_brightness[model] = {
                 "connection": max(
                     0,
                     min(
                         100,
-                        self._settings.value(
-                            f"led/{model}/connectionBrightness", 100, type=int
-                        ),
+                        self._settings.value(f"led/{model}/connectionBrightness", 100, type=int),
                     ),
                 ),
                 "feedback": max(
@@ -864,9 +846,7 @@ class MainWindow(QMainWindow):
         self._encoder_mode_combo.addItem("Output volume", "volume")
         self._encoder_mode_combo.addItem("Microphone volume", "microphone")
         self._encoder_mode_combo.addItem("Screen brightness", "brightness")
-        self._encoder_mode_combo.currentIndexChanged.connect(
-            self._encoder_mode_changed
-        )
+        self._encoder_mode_combo.currentIndexChanged.connect(self._encoder_mode_changed)
         encoder_layout.addWidget(self._encoder_mode_combo)
         self._encoder_mode_help = QLabel(
             "Rotation decreases or increases this setting. Clicking toggles mute for sound or microphone.",
@@ -1004,9 +984,7 @@ class MainWindow(QMainWindow):
         self._release_feed.failed.connect(self._release_feed_failed)
         self._supporter_client.loaded.connect(self._supporter_status_loaded)
         self._supporter_client.failed.connect(self._supporter_status_failed)
-        self._app_update_downloader.progress_changed.connect(
-            self._app_update_progress_changed
-        )
+        self._app_update_downloader.progress_changed.connect(self._app_update_progress_changed)
         self._app_update_downloader.downloaded.connect(self._app_update_downloaded)
         self._app_update_downloader.failed.connect(self._app_update_failed)
 
@@ -1167,9 +1145,7 @@ class MainWindow(QMainWindow):
                 message.setWindowTitle(self._text("app_updates"))
                 message.setIcon(QMessageBox.Information)
                 message.setText(self._text("app_up_to_date"))
-                message.setInformativeText(
-                    self._text("installed_app_version", version=APP_VERSION)
-                )
+                message.setInformativeText(self._text("installed_app_version", version=APP_VERSION))
                 message.setStandardButtons(QMessageBox.Ok)
                 message.button(QMessageBox.Ok).setText(self._text("ok"))
                 message.exec()
@@ -1195,9 +1171,7 @@ class MainWindow(QMainWindow):
         )
         if data.release_notes:
             message.setInformativeText(data.release_notes)
-        download_button = message.addButton(
-            self._text("download_update"), QMessageBox.AcceptRole
-        )
+        download_button = message.addButton(self._text("download_update"), QMessageBox.AcceptRole)
         later_button = message.addButton(self._text("later"), QMessageBox.RejectRole)
         download_button.setEnabled(bool(data.download_url))
         message.setDefaultButton(download_button if data.download_url else later_button)
@@ -1257,9 +1231,7 @@ class MainWindow(QMainWindow):
         message.setIcon(QMessageBox.Warning)
         message.setText(self._text("update_download_failed"))
         message.setInformativeText(error)
-        open_releases = message.addButton(
-            self._text("open_download_page"), QMessageBox.ActionRole
-        )
+        open_releases = message.addButton(self._text("open_download_page"), QMessageBox.ActionRole)
         message.addButton(self._text("ok"), QMessageBox.AcceptRole)
         message.exec()
         if message.clickedButton() is open_releases:
@@ -1301,12 +1273,8 @@ class MainWindow(QMainWindow):
         message.setInformativeText(self._text("reminder_text"))
         message.setStandardButtons(QMessageBox.Ok)
         message.button(QMessageBox.Ok).setText(self._text("ok"))
-        kofi_button = message.addButton(
-            self._text("support_with_kofi"), QMessageBox.ActionRole
-        )
-        paypal_button = message.addButton(
-            self._text("support_with_paypal"), QMessageBox.ActionRole
-        )
+        kofi_button = message.addButton(self._text("support_with_kofi"), QMessageBox.ActionRole)
+        paypal_button = message.addButton(self._text("support_with_paypal"), QMessageBox.ActionRole)
         opt_out = QCheckBox(self._text("dont_show_again"))
         message.setCheckBox(opt_out)
         message.exec()
@@ -1376,9 +1344,11 @@ class MainWindow(QMainWindow):
     def _supporter_expiry_label(self) -> str:
         if self._supporter_active_until <= 0:
             return "—"
-        return datetime.fromtimestamp(
-            self._supporter_active_until, timezone.utc
-        ).astimezone().strftime("%Y-%m-%d")
+        return (
+            datetime.fromtimestamp(self._supporter_active_until, timezone.utc)
+            .astimezone()
+            .strftime("%Y-%m-%d")
+        )
 
     def _supporter_status_loaded(self, status: SupporterStatus) -> None:
         self._supporter_status_button.setEnabled(True)
@@ -2036,7 +2006,13 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                self._preset_combo.addItem(self._application_icon(path), name, path)
+                # Resolving every Start Menu shortcut icon can invoke the
+                # Windows shell hundreds of times and freeze Qt's UI thread.
+                # The selected application's icon is loaded on demand.
+                if sys.platform == "win32":
+                    self._preset_combo.addItem(name, path)
+                else:
+                    self._preset_combo.addItem(self._application_icon(path), name, path)
 
         matching_index = self._preset_combo.findData(selected_value)
         self._preset_combo.setCurrentIndex(max(0, matching_index))
@@ -2061,9 +2037,10 @@ class MainWindow(QMainWindow):
         elif action_type == "launch":
             self._long_preset_combo.addItem(self._text("choose_installed_app"), "")
             for name, path in self._installed_applications():
-                self._long_preset_combo.addItem(
-                    self._application_icon(path), name, path
-                )
+                if sys.platform == "win32":
+                    self._long_preset_combo.addItem(name, path)
+                else:
+                    self._long_preset_combo.addItem(self._application_icon(path), name, path)
         matching_index = self._long_preset_combo.findData(selected_value)
         self._long_preset_combo.setCurrentIndex(max(0, matching_index))
         self._long_preset_value = selected_value if matching_index > 0 else ""
@@ -2184,15 +2161,11 @@ class MainWindow(QMainWindow):
         path = Path(value)
         if not value or not path.exists():
             return QIcon()
+        # QFileIconProvider asks the Windows shell for a shortcut's native
+        # icon without spawning PowerShell.  The previous synchronous .lnk
+        # resolver could block the interface for up to twelve seconds when an
+        # application was assigned to a key.
         icon_path = path
-        if sys.platform == "win32" and path.suffix.casefold() == ".lnk":
-            source = self._application_icon_sources.get(str(path))
-            if source is None:
-                resolved = self._windows_shortcut_icon_sources([path])
-                self._application_icon_sources.update(resolved)
-                source = resolved.get(str(path))
-            if source and Path(source).is_file():
-                icon_path = Path(source)
         icon = self._file_icon_provider.icon(QFileInfo(str(icon_path)))
         if icon.isNull() and icon_path != path:
             icon = self._file_icon_provider.icon(QFileInfo(str(path)))
@@ -2461,30 +2434,20 @@ class MainWindow(QMainWindow):
                     continue
                 for directory, subdirectories, _ in os.walk(root):
                     app_directories = [
-                        name
-                        for name in subdirectories
-                        if name.lower().endswith(".app")
+                        name for name in subdirectories if name.lower().endswith(".app")
                     ]
                     for app_directory in app_directories:
                         path = Path(directory) / app_directory
                         applications.setdefault(path.stem.casefold(), str(path))
                     subdirectories[:] = [
-                        name
-                        for name in subdirectories
-                        if not name.lower().endswith(".app")
+                        name for name in subdirectories if not name.lower().endswith(".app")
                     ]
         elif sys.platform == "win32":
             roots: list[Path] = []
             for variable in ("PROGRAMDATA", "APPDATA"):
                 value = os.environ.get(variable)
                 if value:
-                    roots.append(
-                        Path(value)
-                        / "Microsoft"
-                        / "Windows"
-                        / "Start Menu"
-                        / "Programs"
-                    )
+                    roots.append(Path(value) / "Microsoft" / "Windows" / "Start Menu" / "Programs")
             applications.update(self._windows_start_menu_applications(roots))
             # Resolve a .lnk only when the user actually selects it. Asking
             # PowerShell for every Start Menu icon here can freeze Windows for
@@ -2510,9 +2473,7 @@ class MainWindow(QMainWindow):
                 continue
             for path in root.rglob("*.desktop"):
                 try:
-                    lines = path.read_text(
-                        encoding="utf-8", errors="replace"
-                    ).splitlines()
+                    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
                 except OSError:
                     continue
                 name = next(
@@ -2520,8 +2481,7 @@ class MainWindow(QMainWindow):
                     "",
                 )
                 hidden = any(
-                    line.strip().casefold() in {"nodisplay=true", "hidden=true"}
-                    for line in lines
+                    line.strip().casefold() in {"nodisplay=true", "hidden=true"} for line in lines
                 )
                 if name and not hidden:
                     applications.setdefault(name.casefold(), str(path))
@@ -2789,11 +2749,7 @@ $result | ConvertTo-Json -Compress
         color_preset.addItem(self._text("color_custom"), "custom")
         selected_colors = dict(self._pro_colors)
         selected_preset = next(
-            (
-                name
-                for name, colors in PRO_COLOR_PRESETS.items()
-                if colors == selected_colors
-            ),
+            (name for name, colors in PRO_COLOR_PRESETS.items() if colors == selected_colors),
             "custom",
         )
         color_preset.setCurrentIndex(color_preset.findData(selected_preset))
@@ -2870,9 +2826,7 @@ $result | ConvertTo-Json -Compress
             slider.setValue(initial)
             value_label = QLabel(f"{initial}%")
             value_label.setMinimumWidth(44)
-            slider.valueChanged.connect(
-                lambda value: value_label.setText(f"{value}%")
-            )
+            slider.valueChanged.connect(lambda value: value_label.setText(f"{value}%"))
             row.addWidget(slider, 1)
             row.addWidget(value_label)
             form_layout.addLayout(row)
@@ -2930,9 +2884,7 @@ $result | ConvertTo-Json -Compress
         self._schedule_pro_sync(force=True)
 
     def _set_pro_icon_shape(self, shape: str) -> None:
-        self._pro_icon_shape = (
-            shape if shape in {"original", "macos", "windows"} else "original"
-        )
+        self._pro_icon_shape = shape if shape in {"original", "macos", "windows"} else "original"
         self._settings.setValue("pro/iconShape", self._pro_icon_shape)
         self._refresh_control_labels()
         self._schedule_pro_sync(force=True)
@@ -2956,13 +2908,9 @@ $result | ConvertTo-Json -Compress
 
     def _set_pro_feedback_brightness(self, percentage: int) -> None:
         self._pro_feedback_brightness = max(0, min(100, int(percentage)))
-        self._settings.setValue(
-            "pro/feedbackBrightness", self._pro_feedback_brightness
-        )
+        self._settings.setValue("pro/feedbackBrightness", self._pro_feedback_brightness)
         if self._connected and self._device_model_identifier == "HCD-PRO":
-            self._device.set_pro_feedback_brightness(
-                self._pro_feedback_brightness
-            )
+            self._device.set_pro_feedback_brightness(self._pro_feedback_brightness)
 
     def _set_model_led_brightness(
         self,
@@ -2978,9 +2926,7 @@ $result | ConvertTo-Json -Compress
             "connection": connection,
             "feedback": feedback,
         }
-        self._settings.setValue(
-            f"led/{model}/connectionBrightness", connection
-        )
+        self._settings.setValue(f"led/{model}/connectionBrightness", connection)
         self._settings.setValue(f"led/{model}/feedbackBrightness", feedback)
         if model == "HCD-PRO":
             self._pro_feedback_brightness = feedback
@@ -3094,9 +3040,7 @@ $result | ConvertTo-Json -Compress
 
     def _device_info(self, info: DeviceInfo) -> None:
         profile_model = (
-            info.model_identifier
-            if info.model_identifier in ProfileStore.MODELS
-            else "HCD-BASE"
+            info.model_identifier if info.model_identifier in ProfileStore.MODELS else "HCD-BASE"
         )
         previous_model = self._store.model_identifier
         if previous_model != profile_model:
@@ -3108,9 +3052,7 @@ $result | ConvertTo-Json -Compress
         self._device_model_identifier = info.model_identifier
         brightness = self._led_brightness.get(info.model_identifier)
         if brightness is not None:
-            self._device.set_led_brightness(
-                brightness["connection"], brightness["feedback"]
-            )
+            self._device.set_led_brightness(brightness["connection"], brightness["feedback"])
         self._profile.ensure_controls(info.key_count, info.potentiometer_count)
         self._store.save(self._profile)
         self._device_preview.set_model(
@@ -3354,24 +3296,18 @@ $result | ConvertTo-Json -Compress
                 self._last_microphone_input_at = time.monotonic()
                 self._pending_microphone_value = value
                 self._device_preview.set_pro_microphone_value(value)
-                self._activity_label.setText(
-                    f"{self._text('microphone_volume')}: {value}%"
-                )
+                self._activity_label.setText(f"{self._text('microphone_volume')}: {value}%")
                 self._microphone_action_timer.start()
             else:
                 self._last_slider_input_at = time.monotonic()
                 self._pending_slider_value = value
                 self._device_preview.set_pro_slider_value(value)
-                self._activity_label.setText(
-                    f"{self._text('vertical_fader')}: {value}%"
-                )
+                self._activity_label.setText(f"{self._text('vertical_fader')}: {value}%")
                 self._slider_action_timer.start()
             return
         if event.kind == EventKind.POTENTIOMETER:
             self._has_activity = True
-            self._activity_label.setText(
-                f"Potentiometer {event.control_id}: {event.state}"
-            )
+            self._activity_label.setText(f"Potentiometer {event.control_id}: {event.state}")
             if self._diagnostics_dialog is not None:
                 self._diagnostics_dialog.set_potentiometer_value(
                     event.control_id,
@@ -3408,9 +3344,7 @@ $result | ConvertTo-Json -Compress
         if event.kind not in {EventKind.KEY, EventKind.POTENTIOMETER_BUTTON}:
             return
         identifier = (
-            str(event.control_id)
-            if event.kind == EventKind.KEY
-            else f"P{event.control_id}"
+            str(event.control_id) if event.kind == EventKind.KEY else f"P{event.control_id}"
         )
         should_run = event.state == "DOWN"
 

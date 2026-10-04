@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "latest_version": "1.6.0",
+  "latest_version": "1.6.1",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Adds optional HCD Supporter activation through Ko-fi with automatic renewal recognition and privacy-preserving validation.",
+  "release_notes": "Fixes freezes when assigning Windows applications and improves cross-platform update reliability.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },

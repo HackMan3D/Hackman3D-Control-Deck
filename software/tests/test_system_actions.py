@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from PySide6.QtGui import QIcon
 
 _ = Key
 
@@ -178,8 +179,10 @@ def test_linux_application_launch_restores_system_library_path(monkeypatch) -> N
     )
     monkeypatch.setattr(
         "hackman_control_deck.action_runner.subprocess.run",
-        lambda arguments, **kwargs: launches.append((arguments, kwargs["env"]))
-        or SimpleNamespace(returncode=0, stdout="", stderr=""),
+        lambda arguments, **kwargs: (
+            launches.append((arguments, kwargs["env"]))
+            or SimpleNamespace(returncode=0, stdout="", stderr="")
+        ),
     )
 
     ActionRunner._launch("/usr/share/applications/example.desktop")
@@ -204,8 +207,9 @@ def test_linux_application_launch_removes_injected_library_path(monkeypatch) -> 
     )
     monkeypatch.setattr(
         "hackman_control_deck.action_runner.subprocess.run",
-        lambda _arguments, **kwargs: launches.append(kwargs["env"])
-        or SimpleNamespace(returncode=0, stdout="", stderr=""),
+        lambda _arguments, **kwargs: (
+            launches.append(kwargs["env"]) or SimpleNamespace(returncode=0, stdout="", stderr="")
+        ),
     )
 
     ActionRunner._launch("/usr/share/applications/example.desktop")
@@ -238,8 +242,10 @@ def test_linux_volume_uses_wpctl(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "hackman_control_deck.action_runner.subprocess.run",
-        lambda arguments, **kwargs: calls.append(arguments)
-        or SimpleNamespace(returncode=0, stdout="Volume: 0.42", stderr=""),
+        lambda arguments, **kwargs: (
+            calls.append(arguments)
+            or SimpleNamespace(returncode=0, stdout="Volume: 0.42", stderr="")
+        ),
     )
 
     assert ActionRunner._linux_audio_level("sink") == 42
@@ -288,9 +294,7 @@ def test_system_action_save_keeps_remembered_shutdown_command() -> None:
     assert value == "shutdown"
 
 
-def test_windows_shortcut_uses_embedded_high_resolution_icon(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_windows_shortcut_uses_embedded_high_resolution_icon(monkeypatch, tmp_path: Path) -> None:
     shortcut = tmp_path / "Example App.lnk"
     executable = tmp_path / "Example App.exe"
     shortcut.touch()
@@ -312,6 +316,31 @@ def test_windows_shortcut_uses_embedded_high_resolution_icon(
     assert sources[str(shortcut)] == str(executable)
 
 
+def test_windows_shortcut_icon_does_not_spawn_blocking_resolver(
+    monkeypatch, tmp_path: Path
+) -> None:
+    shortcut = tmp_path / "Example App.lnk"
+    shortcut.touch()
+    provider_calls: list[str] = []
+    window = SimpleNamespace(
+        _application_icon_cache={},
+        _file_icon_provider=SimpleNamespace(
+            icon=lambda info: provider_calls.append(info.filePath()) or QIcon()
+        ),
+        _trimmed_icon=lambda icon: icon,
+    )
+    monkeypatch.setattr("hackman_control_deck.main_window.sys.platform", "win32")
+    monkeypatch.setattr(
+        MainWindow,
+        "_windows_shortcut_icon_sources",
+        staticmethod(lambda _paths: pytest.fail("the synchronous PowerShell resolver ran")),
+    )
+
+    MainWindow._application_icon(window, str(shortcut))  # type: ignore[arg-type]
+
+    assert provider_calls == [str(shortcut)]
+
+
 def test_shutdown_command_is_saved_on_pro_key_28() -> None:
     profile = Profile()
     profile.ensure_controls(28)
@@ -319,9 +348,7 @@ def test_shutdown_command_is_saved_on_pro_key_28() -> None:
     status = SimpleNamespace(showMessage=lambda *args: None)
     window = SimpleNamespace(
         _selection="28",
-        _editor_action=lambda: Action(
-            type="system", value="shutdown", label="Shut down computer"
-        ),
+        _editor_action=lambda: Action(type="system", value="shutdown", label="Shut down computer"),
         _long_editor_action=lambda: Action(),
         _custom_icon_data="",
         _icon_source="",

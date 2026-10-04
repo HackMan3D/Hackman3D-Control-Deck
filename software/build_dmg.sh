@@ -3,9 +3,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="${0:A:h}"
+cd "$SCRIPT_DIR"
+VERSION=$(python3 -c 'import pathlib,re; text=pathlib.Path("src/hackman_control_deck/constants.py").read_text(); print(re.search(r"APP_VERSION = \"([^\"]+)", text).group(1))')
 APP_PATH="$SCRIPT_DIR/dist/HackMan3D Control Deck.app"
-OUTPUT_PATH="$SCRIPT_DIR/dist/HackMan3D-Control-Deck-macOS-1.6.0.dmg"
-VOLUME_NAME="HackMan3D Control Deck 1.6.0"
+OUTPUT_PATH="$SCRIPT_DIR/dist/HackMan3D-Control-Deck-macOS-$VERSION.dmg"
+VOLUME_NAME="HackMan3D Control Deck $VERSION"
 
 if [[ ! -d "$APP_PATH" ]]; then
   "$SCRIPT_DIR/build_macos.sh"
