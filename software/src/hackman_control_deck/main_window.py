@@ -233,14 +233,15 @@ SYSTEM_COMMANDS = (
 
 
 class _FaviconSignals(QObject):
-    finished = Signal(str, str, str, bytes)
+    finished = Signal(str, str, str, str, bytes)
 
 
 class _FaviconTask(QRunnable):
-    def __init__(self, profile: str, identifier: str, url: str) -> None:
+    def __init__(self, profile: str, identifier: str, press: str, url: str) -> None:
         super().__init__()
         self.profile = profile
         self.identifier = identifier
+        self.press = press
         self.url = url
         self.signals = _FaviconSignals()
 
@@ -248,6 +249,7 @@ class _FaviconTask(QRunnable):
         self.signals.finished.emit(
             self.profile,
             self.identifier,
+            self.press,
             self.url,
             download_favicon(self.url),
         )
@@ -438,9 +440,11 @@ class MainWindow(QMainWindow):
         self._pro_sync_timer.timeout.connect(self._sync_pro_labels)
         self._custom_icon_data = ""
         self._icon_source = ""
+        self._long_icon_data = ""
+        self._long_icon_source = ""
         self._favicon_pool = QThreadPool(self)
         self._favicon_pool.setMaxThreadCount(3)
-        self._favicon_pending: set[tuple[str, str, str]] = set()
+        self._favicon_pending: set[tuple[str, str, str, str]] = set()
         self._system_level_pool = QThreadPool(self)
         self._system_level_pool.setMaxThreadCount(1)
         self._system_level_reads_pending: set[str] = set()
@@ -1620,6 +1624,8 @@ class MainWindow(QMainWindow):
             self._long_press_delay.setValue(action.long_press_ms)
             self._custom_icon_data = action.icon_data
             self._icon_source = action.icon_source
+            self._long_icon_data = action.long_icon_data
+            self._long_icon_source = action.long_icon_source
             self._update_value_hint()
             self._update_long_value_hint()
         finally:
@@ -1642,6 +1648,8 @@ class MainWindow(QMainWindow):
             self._long_label_edit.clear()
             self._long_value_edit.clear()
             self._long_preset_value = ""
+            self._long_icon_data = ""
+            self._long_icon_source = ""
         self._update_long_value_hint()
         self._schedule_action_save()
 
@@ -1709,6 +1717,11 @@ class MainWindow(QMainWindow):
         if primary.type == "open_url" and icon_source != "custom":
             icon_data = self._favicon_data(primary.value)
             icon_source = "auto" if icon_data else ""
+        long_icon_data = getattr(self, "_long_icon_data", "")
+        long_icon_source = getattr(self, "_long_icon_source", "")
+        if long_primary.type == "open_url" and long_icon_source != "custom":
+            long_icon_data = self._favicon_data(long_primary.value)
+            long_icon_source = "auto" if long_icon_data else ""
         action = Action(
             type=primary.type,
             value=primary.value,
@@ -1719,6 +1732,8 @@ class MainWindow(QMainWindow):
             long_press_ms=self._long_press_delay.value(),
             icon_data=icon_data,
             icon_source=icon_source,
+            long_icon_data=long_icon_data,
+            long_icon_source=long_icon_source,
         )
         self._profile.keys[self._selection] = action
         self._store.save(self._profile)
@@ -1765,6 +1780,8 @@ class MainWindow(QMainWindow):
                 self._long_preset_combo,
                 self._text("long_press"),
             ),
+            icon_data=self._long_icon_data,
+            icon_source=self._long_icon_source,
         )
 
     @staticmethod
@@ -2381,48 +2398,67 @@ class MainWindow(QMainWindow):
     def _refresh_website_icons(self) -> None:
         profile_name = self._profile.name
         for identifier, action in self._profile.keys.items():
-            if action.type != "open_url" or not action.value or action.icon_source == "custom":
-                continue
-            pending_key = (profile_name, identifier, action.value)
-            if pending_key in self._favicon_pending:
-                continue
-            self._favicon_pending.add(pending_key)
-            task = _FaviconTask(profile_name, identifier, action.value)
-            task.signals.finished.connect(self._website_icon_refreshed)
-            self._favicon_pool.start(task)
+            candidates = (
+                ("short", action.type, action.value, action.icon_source),
+                ("long", action.long_type, action.long_value, action.long_icon_source),
+            )
+            for press, action_type, url, icon_source in candidates:
+                if action_type != "open_url" or not url or icon_source == "custom":
+                    continue
+                pending_key = (profile_name, identifier, press, url)
+                if pending_key in self._favicon_pending:
+                    continue
+                self._favicon_pending.add(pending_key)
+                task = _FaviconTask(profile_name, identifier, press, url)
+                task.signals.finished.connect(self._website_icon_refreshed)
+                self._favicon_pool.start(task)
 
     def _website_icon_refreshed(
         self,
         profile_name: str,
         identifier: str,
+        press: str,
         url: str,
         payload: bytes,
     ) -> None:
-        self._favicon_pending.discard((profile_name, identifier, url))
+        self._favicon_pending.discard((profile_name, identifier, press, url))
         if profile_name != self._profile.name or not payload:
             return
         action = self._profile.keys.get(identifier)
-        if (
-            action is None
-            or action.type != "open_url"
-            or action.value != url
-            or action.icon_source == "custom"
-        ):
+        if action is None:
+            return
+        if press == "long":
+            if (
+                action.long_type != "open_url"
+                or action.long_value != url
+                or action.long_icon_source == "custom"
+            ):
+                return
+        elif action.type != "open_url" or action.value != url or action.icon_source == "custom":
             return
         pixmap = QPixmap()
         if not pixmap.loadFromData(payload):
             return
         refreshed = self._encode_icon(QIcon(pixmap))
-        if refreshed == action.icon_data:
+        current_icon = action.long_icon_data if press == "long" else action.icon_data
+        if refreshed == current_icon:
             return
-        action.icon_data = refreshed
-        action.icon_source = "auto"
+        if press == "long":
+            action.long_icon_data = refreshed
+            action.long_icon_source = "auto"
+        else:
+            action.icon_data = refreshed
+            action.icon_source = "auto"
         self._store.save(self._profile)
         self._refresh_control_labels()
         self._schedule_pro_sync(force=True)
         if self._selection == identifier:
-            self._custom_icon_data = refreshed
-            self._icon_source = "auto"
+            if press == "long":
+                self._long_icon_data = refreshed
+                self._long_icon_source = "auto"
+            else:
+                self._custom_icon_data = refreshed
+                self._icon_source = "auto"
 
     def _installed_applications(self) -> list[tuple[str, str]]:
         if self._application_choices is not None:

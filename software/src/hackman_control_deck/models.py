@@ -18,6 +18,8 @@ class Action:
     long_press_ms: int = 650
     icon_data: str = ""
     icon_source: str = ""
+    long_icon_data: str = ""
+    long_icon_source: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Action:
@@ -45,6 +47,10 @@ class Action:
         icon_source = str(data.get("icon_source", ""))
         if icon_source not in {"auto", "custom"}:
             icon_source = "auto" if action_type == "open_url" and icon_data else ""
+        long_icon_data = str(data.get("long_icon_data", ""))
+        long_icon_source = str(data.get("long_icon_source", ""))
+        if long_icon_source not in {"auto", "custom"}:
+            long_icon_source = "auto" if long_type == "open_url" and long_icon_data else ""
         return cls(
             type=action_type,
             value=str(short_data.get("value", "")),
@@ -55,10 +61,18 @@ class Action:
             long_press_ms=max(200, min(5000, long_press_ms)),
             icon_data=icon_data,
             icon_source=icon_source,
+            long_icon_data=long_icon_data,
+            long_icon_source=long_icon_source,
         )
 
     def long_action(self) -> Action:
-        return Action(type=self.long_type, value=self.long_value, label=self.long_label)
+        return Action(
+            type=self.long_type,
+            value=self.long_value,
+            label=self.long_label,
+            icon_data=self.long_icon_data,
+            icon_source=self.long_icon_source,
+        )
 
 
 def default_key_actions() -> dict[str, Action]:

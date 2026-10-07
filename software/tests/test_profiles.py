@@ -103,6 +103,8 @@ def test_short_and_long_press_actions_round_trip(tmp_path) -> None:
         long_value="/Applications/Terminal.app",
         long_label="Terminal",
         long_press_ms=900,
+        long_icon_data="favicon-payload",
+        long_icon_source="auto",
     )
     store.save(profile)
 
@@ -113,6 +115,9 @@ def test_short_and_long_press_actions_round_trip(tmp_path) -> None:
     assert loaded.long_type == "launch"
     assert loaded.long_value == "/Applications/Terminal.app"
     assert loaded.long_press_ms == 900
+    assert loaded.long_icon_data == "favicon-payload"
+    assert loaded.long_icon_source == "auto"
+    assert loaded.long_action().icon_data == "favicon-payload"
 
 
 def test_legacy_sequences_keep_their_first_action() -> None:

@@ -256,8 +256,11 @@ class DevicePreview(QWidget):
         panel_width = grid_size + padding * 2
         panel_height = grid_size + label_height + padding * 2
         margin = max(12, round(24 * scale))
+        horizontal_offset = max(28, round(104 * scale))
+        panel_left = self._image_rect.right() - panel_width - margin + horizontal_offset
+        panel_left = min(panel_left, self.width() - panel_width - margin)
         panel = QRect(
-            self._image_rect.right() - panel_width - margin,
+            panel_left,
             self._image_rect.top() + margin,
             panel_width,
             panel_height,
