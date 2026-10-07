@@ -884,6 +884,7 @@ class MainWindow(QMainWindow):
         self._value_edit = QLineEdit()
         self._value_edit.setEnabled(False)
         self._value_edit.textChanged.connect(self._schedule_action_save)
+        self._value_edit.editingFinished.connect(self._website_editing_finished)
         short_layout.addWidget(self._value_edit)
         self._preset_combo = QComboBox()
         self._preset_combo.setIconSize(QSize(30, 30))
@@ -927,6 +928,7 @@ class MainWindow(QMainWindow):
         self._long_value_edit = QLineEdit()
         self._long_value_edit.setEnabled(False)
         self._long_value_edit.textChanged.connect(self._schedule_action_save)
+        self._long_value_edit.editingFinished.connect(self._website_editing_finished)
         long_layout.addWidget(self._long_value_edit)
         self._long_preset_combo = QComboBox()
         self._long_preset_combo.setIconSize(QSize(30, 30))
@@ -1659,6 +1661,14 @@ class MainWindow(QMainWindow):
             return
         self._action_save_timer.start()
 
+    def _website_editing_finished(self) -> None:
+        if self._loading_action or not self._selection:
+            return
+        self._action_save_timer.stop()
+        self._save_action(False)
+        self._refresh_website_icons()
+        self._schedule_pro_sync()
+
     def _encoder_mode_changed(self, index: int = -1) -> None:
         del index
         if not self._selection or not self._selection.startswith("P"):
@@ -1712,16 +1722,19 @@ class MainWindow(QMainWindow):
             return
         primary = self._editor_action()
         long_primary = self._long_editor_action()
+        previous = self._profile.keys.get(self._selection, Action())
         icon_data = self._custom_icon_data
         icon_source = self._icon_source
         if primary.type == "open_url" and icon_source != "custom":
-            icon_data = self._favicon_data(primary.value)
-            icon_source = "auto" if icon_data else ""
+            if previous.type != "open_url" or previous.value != primary.value:
+                icon_data = ""
+                icon_source = ""
         long_icon_data = getattr(self, "_long_icon_data", "")
         long_icon_source = getattr(self, "_long_icon_source", "")
         if long_primary.type == "open_url" and long_icon_source != "custom":
-            long_icon_data = self._favicon_data(long_primary.value)
-            long_icon_source = "auto" if long_icon_data else ""
+            if previous.long_type != "open_url" or previous.long_value != long_primary.value:
+                long_icon_data = ""
+                long_icon_source = ""
         action = Action(
             type=primary.type,
             value=primary.value,
@@ -1738,7 +1751,13 @@ class MainWindow(QMainWindow):
         self._profile.keys[self._selection] = action
         self._store.save(self._profile)
         self._refresh_control_labels()
-        if hasattr(self, "_schedule_pro_sync"):
+        value_editor = getattr(self, "_value_edit", None)
+        long_value_editor = getattr(self, "_long_value_edit", None)
+        editing_value = bool(
+            (value_editor is not None and value_editor.hasFocus())
+            or (long_value_editor is not None and long_value_editor.hasFocus())
+        )
+        if hasattr(self, "_schedule_pro_sync") and not editing_value:
             self._schedule_pro_sync()
         if show_status:
             self.statusBar().showMessage(self._text("saved", name=action.label), 2500)
@@ -2387,13 +2406,6 @@ class MainWindow(QMainWindow):
         pixmap.save(buffer, "PNG")
         buffer.close()
         return base64.b64encode(bytes(data)).decode("ascii")
-
-    def _favicon_data(self, value: str) -> str:
-        payload = download_favicon(value)
-        pixmap = QPixmap()
-        if payload and pixmap.loadFromData(payload):
-            return self._encode_icon(QIcon(pixmap))
-        return ""
 
     def _refresh_website_icons(self) -> None:
         profile_name = self._profile.name
