@@ -23,3 +23,13 @@ def test_duplicate_shortcuts_are_reported_with_their_press_types() -> None:
 
 def test_unassigned_keys_are_not_conflicts() -> None:
     assert find_action_conflicts(Profile()) == []
+
+
+def test_conflicts_ignore_controls_hidden_by_current_model() -> None:
+    profile = Profile()
+    profile.keys["10"] = Action(type="shortcut", value="CTRL+C")
+    profile.keys["11"] = Action(type="shortcut", value="CTRL+C")
+
+    visible_base_keys = {str(index) for index in range(1, 10)}
+    assert find_action_conflicts(profile, visible_base_keys) == []
+    assert len(find_action_conflicts(profile)) == 1

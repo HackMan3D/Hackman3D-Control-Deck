@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "latest_version": "1.6.1",
+  "latest_version": "1.6.2",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "linux": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "website": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases"
   },
-  "release_notes": "Fixes freezes when assigning Windows applications and improves cross-platform update reliability.",
+  "release_notes": "Adds a larger HCD-BASE long-press preview and limits conflict warnings to the connected model.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },

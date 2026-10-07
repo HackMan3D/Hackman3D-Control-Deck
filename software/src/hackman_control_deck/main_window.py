@@ -1806,6 +1806,7 @@ class MainWindow(QMainWindow):
         self._runner.run(action)
 
     def _refresh_control_labels(self) -> None:
+        long_press_icons: dict[str, QIcon] = {}
         for identifier, button in self._control_buttons.items():
             action = self._action_for(identifier)
             full_label = action.label or f"Key {identifier}"
@@ -1814,6 +1815,17 @@ class MainWindow(QMainWindow):
             button.setToolTip(
                 f"{full_label}\n{action.value}" if action.type == "launch" else full_label
             )
+            if (
+                self._device_model_identifier == "HCD-BASE"
+                and identifier.isdigit()
+                and 1 <= int(identifier) <= 9
+                and action.long_type != "none"
+            ):
+                long_press_icons[identifier] = self._action_icon(action.long_action())
+        self._device_preview.set_base_long_press_preview(
+            long_press_icons,
+            self._text("long_press"),
+        )
         self._refresh_conflicts()
 
     def _schedule_pro_sync(self, force: bool = False) -> None:
@@ -1899,7 +1911,7 @@ class MainWindow(QMainWindow):
         return bytes(rgb565.constBits()[: rgb565.sizeInBytes()])
 
     def _refresh_conflicts(self) -> None:
-        conflicts = find_action_conflicts(self._profile)
+        conflicts = find_action_conflicts(self._profile, self._control_buttons.keys())
         self._conflicts_button.setVisible(bool(conflicts))
         self._conflicts_button.setText(
             self._text("conflicts_found", count=len(conflicts))
@@ -1908,7 +1920,7 @@ class MainWindow(QMainWindow):
         )
 
     def _show_conflicts(self) -> None:
-        conflicts = find_action_conflicts(self._profile)
+        conflicts = find_action_conflicts(self._profile, self._control_buttons.keys())
         if not conflicts:
             return
         lines = []

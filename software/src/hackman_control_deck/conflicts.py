@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass
 
 from .models import Profile
@@ -13,9 +14,14 @@ class ActionConflict:
     assignments: tuple[tuple[str, str], ...]
 
 
-def find_action_conflicts(profile: Profile) -> list[ActionConflict]:
+def find_action_conflicts(
+    profile: Profile,
+    visible_controls: Collection[str] | None = None,
+) -> list[ActionConflict]:
     assignments: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)
     for key_id, action in profile.keys.items():
+        if visible_controls is not None and key_id not in visible_controls:
+            continue
         if action.type != "none" and action.value.strip():
             assignments[(action.type, action.value.strip().casefold())].append((key_id, "short"))
         if action.long_type != "none" and action.long_value.strip():

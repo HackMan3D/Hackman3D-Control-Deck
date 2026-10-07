@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QPointF, QRect, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
+    QIcon,
     QPaintEvent,
     QPainter,
     QPen,
@@ -74,6 +75,8 @@ class DevicePreview(QWidget):
         self._pro_slider_value = 50
         self._pro_microphone_value = 50
         self._pro_second_fader = False
+        self._base_long_press_icons: dict[str, QIcon] = {}
+        self._base_long_press_label = "Long press"
         self._pro_colors = {
             "screen": "#080808",
             "key": "#171717",
@@ -153,6 +156,16 @@ class DevicePreview(QWidget):
         self._apply_pro_button_colors()
         self.update()
 
+    def set_base_long_press_preview(
+        self,
+        icons: dict[str, QIcon],
+        label: str,
+    ) -> None:
+        self._base_long_press_icons = dict(icons)
+        self._base_long_press_label = label
+        if self._model_identifier == "HCD-BASE":
+            self.update()
+
     def _apply_pro_button_colors(self) -> None:
         if self._model_identifier != "HCD-PRO":
             for button in self.buttons.values():
@@ -219,6 +232,7 @@ class DevicePreview(QWidget):
         elif not self._scaled.isNull():
             if self._model_identifier == "HCD-BASE":
                 painter.drawPixmap(self._image_rect, self._scaled)
+                self._paint_base_long_press_preview(painter)
 
         scale = (
             self._image_rect.width() / self._SOURCE_WIDTH
@@ -229,6 +243,60 @@ class DevicePreview(QWidget):
             self._paint_connection_led(painter, scale)
         if self._feedback_active:
             self._paint_feedback_led(painter, scale)
+
+    def _paint_base_long_press_preview(self, painter: QPainter) -> None:
+        if self._image_rect.isEmpty():
+            return
+        scale = self._image_rect.width() / self._SOURCE_WIDTH
+        cell_size = max(38, round(92 * scale))
+        gap = max(4, round(9 * scale))
+        padding = max(10, round(16 * scale))
+        label_height = max(21, round(34 * scale))
+        grid_size = cell_size * 3 + gap * 2
+        panel_width = grid_size + padding * 2
+        panel_height = grid_size + label_height + padding * 2
+        margin = max(12, round(24 * scale))
+        panel = QRect(
+            self._image_rect.right() - panel_width - margin,
+            self._image_rect.top() + margin,
+            panel_width,
+            panel_height,
+        )
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor(255, 255, 255, 145), max(1, round(scale))))
+        painter.setBrush(QColor(8, 8, 8, 215))
+        painter.drawRoundedRect(panel, max(6, round(10 * scale)), max(6, round(10 * scale)))
+        painter.setPen(QColor(245, 245, 245))
+        font = painter.font()
+        font.setPixelSize(max(13, round(20 * scale)))
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(
+            QRect(panel.left() + padding, panel.top() + padding, grid_size, label_height),
+            Qt.AlignCenter,
+            self._base_long_press_label,
+        )
+
+        grid_top = panel.top() + padding + label_height
+        for index in range(1, 10):
+            row = (index - 1) // 3
+            column = (index - 1) % 3
+            cell = QRect(
+                panel.left() + padding + column * (cell_size + gap),
+                grid_top + row * (cell_size + gap),
+                cell_size,
+                cell_size,
+            )
+            painter.setPen(QPen(QColor(255, 255, 255, 115), 1))
+            painter.setBrush(QColor(28, 28, 28, 235))
+            painter.drawRoundedRect(cell, max(2, round(4 * scale)), max(2, round(4 * scale)))
+            icon = self._base_long_press_icons.get(str(index))
+            if icon is not None and not icon.isNull():
+                inset = max(2, round(cell_size * 0.05))
+                icon.paint(painter, cell.adjusted(inset, inset, -inset, -inset))
+        painter.restore()
 
     def _paint_plus_device(self, painter: QPainter) -> None:
         panel = self.rect().adjusted(
