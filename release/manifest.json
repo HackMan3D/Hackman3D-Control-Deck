@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "latest_version": "1.6.3",
+  "latest_version": "1.6.4",
   "downloads": {
     "macos": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
     "windows": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest",
@@ -9,23 +9,23 @@
   },
   "installers": {
     "macos": {
-      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.3/HackMan3D-Control-Deck-macOS-1.6.3.dmg",
-      "sha256": "4e546a7fee954a8e797b5424162cecc2c63f380b9230a6987543049999cbc7d9"
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.4/HackMan3D-Control-Deck-macOS-1.6.4.dmg",
+      "sha256": "c1cb861f752b18885be41957bbdb27f07bafe6d880a4ac4ea4205990684cf6e8"
     },
     "windows": {
-      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.3/HackMan3D-Control-Deck-Windows-1.6.3-Setup.exe",
-      "sha256": "1c7745a65afb846f7c5549a2c7f579f2ebdc9e83b9d83065cf1e9d67d31dbd68"
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.4/HackMan3D-Control-Deck-Windows-1.6.4-Setup.exe",
+      "sha256": "ebec36265d4663aca868fb635938d3144807101e7979d8db1191b1efd4b30411"
     },
     "linux_x86_64": {
-      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.3/HackMan3D-Control-Deck-Linux-x86_64-1.6.3-r7.AppImage",
-      "sha256": "467100a0735002c84644ae25dfc5cfb1da63702c41547d0cf3f0fb7800823ab6"
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.4/HackMan3D-Control-Deck-Linux-x86_64-1.6.4-r7.AppImage",
+      "sha256": "85cc3baf9482eaa7013f9b0d623fa71fff45145cfb8a8ab2703e3c1fb89bd8f6"
     },
     "linux_aarch64": {
-      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.3/HackMan3D-Control-Deck-Linux-aarch64-1.6.3-r7.AppImage",
-      "sha256": "d52d658b98308011fd5e878d6797583bdbc553ef80b6589b2e58dd2a4a8a00c8"
+      "url": "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.4/HackMan3D-Control-Deck-Linux-aarch64-1.6.4-r7.AppImage",
+      "sha256": "6737daee0a52ca800ec3dd0f7ab2ec85369be3721693e6a865069bdd7581b413"
     }
   },
-  "release_notes": "Completes the HCD-BASE long-press preview with website favicons and positions it farther right so short-press controls remain fully visible.",
+  "release_notes": "Fixes freezes and Control Deck reconnects while typing website addresses by loading favicons asynchronously after editing is complete.",
   "anonymous_usage": {
     "endpoint": "https://hackman3d-control-deck-usage.hackman3d-control-deck.workers.dev/v1/usage"
   },
