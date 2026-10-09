@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 
-MINIMUM_ACTIONS = 50
-MINIMUM_AGE_SECONDS = 7 * 24 * 60 * 60
-REMINDER_COOLDOWN_SECONDS = 90 * 24 * 60 * 60
+MINIMUM_ACTIONS = 0
+MINIMUM_AGE_SECONDS = 0
+REMINDER_COOLDOWN_SECONDS = 7 * 24 * 60 * 60
+REMINDER_SNOOZE_SECONDS = 4 * 24 * 60 * 60
 
 
 def support_reminder_due(
@@ -13,8 +14,11 @@ def support_reminder_due(
     last_shown: int,
     disabled: bool,
     now: int,
+    snoozed_until: int = 0,
 ) -> bool:
     if disabled:
+        return False
+    if snoozed_until > now:
         return False
     experienced = action_count >= MINIMUM_ACTIONS or now - first_seen >= MINIMUM_AGE_SECONDS
     if not experienced:

@@ -106,6 +106,9 @@ class ProfileStore:
 
     def import_profile(self, source: Path) -> Profile:
         data = self._read_json(source)
+        return self.import_profile_data(data)
+
+    def import_profile_data(self, data: dict[str, object]) -> Profile:
         if data.get("format") != self.PROFILE_FORMAT or not isinstance(data.get("profile"), dict):
             raise ValueError("Unsupported HackMan3D Control Deck profile file")
         source_model = data.get("model")

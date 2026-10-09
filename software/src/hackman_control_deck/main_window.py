@@ -51,6 +51,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -90,6 +91,8 @@ from .conflicts import find_action_conflicts
 from .device import HcdDeviceManager
 from .device_preview import DevicePreview
 from .diagnostics_dialog import DiagnosticsDialog
+from .first_run_dialog import FirstRunDialog
+from .community_profiles_dialog import CommunityProfilesDialog
 from .firmware_dialog import FirmwareDialog
 from .firmware_updater import (
     FirmwareUpdater,
@@ -107,7 +110,7 @@ from .profile_store import ProfileStore
 from .permissions_dialog import MacPermissionsDialog
 from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
-from .support_reminder import support_reminder_due
+from .support_reminder import REMINDER_SNOOZE_SECONDS, support_reminder_due
 from .supporter import SupporterClient, SupporterStatus
 from .startup_integration import is_start_at_login_enabled, set_start_at_login
 from .translations import LANGUAGES, translate
@@ -310,6 +313,7 @@ class MainWindow(QMainWindow):
         self._firmware_update_message: QMessageBox | None = None
         self._firmware_update_prompted_for: tuple[str, str] | None = None
         self._diagnostics_dialog: DiagnosticsDialog | None = None
+        self._first_run_dialog: FirstRunDialog | None = None
         self._background_mode_active = False
         self._ignore_dock_activation_until = 0.0
         self._allow_exit = False
@@ -725,11 +729,17 @@ class MainWindow(QMainWindow):
         self._backup_profiles_action.triggered.connect(self._backup_profiles)
         self._restore_profiles_action = profile_menu.addAction("Restore backup…")
         self._restore_profiles_action.triggered.connect(self._restore_profiles)
+        profile_menu.addSeparator()
+        self._community_profiles_action = profile_menu.addAction("Community profiles…")
+        self._community_profiles_action.triggered.connect(self._open_community_profiles)
         self._profile_tools_button.setMenu(profile_menu)
         layout.addWidget(self._profile_tools_button)
         self._deck_settings_button = QPushButton("Deck settings…")
         self._deck_settings_button.clicked.connect(self._open_deck_settings)
         layout.addWidget(self._deck_settings_button)
+        self._first_run_button = QPushButton("First launch assistant…")
+        self._first_run_button.clicked.connect(self.show_first_run_assistant)
+        layout.addWidget(self._first_run_button)
         self._language_label = QLabel("Language")
         layout.addWidget(self._language_label)
         self._language_combo = QComboBox()
@@ -803,6 +813,7 @@ class MainWindow(QMainWindow):
         self._device_preview = DevicePreview(ASSET_DIR / "hcd_device_render_off.png")
         self._device_preview.setMaximumSize(1100, 660)
         self._device_preview.control_selected.connect(self._select)
+        self._device_preview.long_press_control_selected.connect(self._select_long_press)
         self._device_preview.application_dropped.connect(self._application_dropped)
         self._control_buttons = self._device_preview.buttons
         layout.addWidget(self._device_preview, 1)
@@ -879,6 +890,16 @@ class MainWindow(QMainWindow):
         self._action_type.setEnabled(False)
         self._action_type.currentIndexChanged.connect(self._action_type_changed)
         short_layout.addWidget(self._action_type)
+        self._action_search = QLineEdit()
+        self._action_search.setPlaceholderText("Search actions…")
+        self._action_search.textChanged.connect(lambda query: self._search_actions(query, False))
+        short_layout.addWidget(self._action_search)
+        self._action_search_results = QListWidget()
+        self._action_search_results.setVisible(False)
+        self._action_search_results.itemClicked.connect(
+            lambda item: self._apply_action_search_result(item, False)
+        )
+        short_layout.addWidget(self._action_search_results)
         self._value_caption = QLabel("Value")
         short_layout.addWidget(self._value_caption)
         self._value_edit = QLineEdit()
@@ -923,6 +944,16 @@ class MainWindow(QMainWindow):
         self._long_action_type.setEnabled(False)
         self._long_action_type.currentIndexChanged.connect(self._long_action_type_changed)
         long_layout.addWidget(self._long_action_type)
+        self._long_action_search = QLineEdit()
+        self._long_action_search.setPlaceholderText("Search actions…")
+        self._long_action_search.textChanged.connect(lambda query: self._search_actions(query, True))
+        long_layout.addWidget(self._long_action_search)
+        self._long_action_search_results = QListWidget()
+        self._long_action_search_results.setVisible(False)
+        self._long_action_search_results.itemClicked.connect(
+            lambda item: self._apply_action_search_result(item, True)
+        )
+        long_layout.addWidget(self._long_action_search_results)
         self._long_value_caption = QLabel("Value")
         long_layout.addWidget(self._long_value_caption)
         self._long_value_edit = QLineEdit()
@@ -1026,6 +1057,7 @@ class MainWindow(QMainWindow):
         self._export_profile_action.setText(self._text("export_profile"))
         self._backup_profiles_action.setText(self._text("backup_profiles"))
         self._restore_profiles_action.setText(self._text("restore_profiles"))
+        self._community_profiles_action.setText(self._text("community_profiles"))
         self._language_label.setText(self._text("language"))
         if self._background_button is not None:
             self._background_button.setText(self._text("run_background"))
@@ -1066,6 +1098,9 @@ class MainWindow(QMainWindow):
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )
         self._deck_settings_button.setText(self._text("deck_settings"))
+        self._first_run_button.setText(self._text("first_run_button"))
+        self._action_search.setPlaceholderText(self._text("search_actions"))
+        self._long_action_search.setPlaceholderText(self._text("search_actions"))
         self._anonymous_usage_checkbox.setText(self._text("share_anonymous_usage"))
         self._anonymous_usage_help.setText(self._text("anonymous_usage_help"))
         self._shortcut_hint.setText(self._text("shortcut_hint"))
@@ -1265,7 +1300,10 @@ class MainWindow(QMainWindow):
         if not support_reminder_due(
             first_seen=self._support_first_seen,
             action_count=self._support_action_count,
-            last_shown=self._settings.value("support/lastShown", 0, type=int),
+            # Without an explicit four-day snooze, show the invitation at
+            # every normal foreground launch once the user has tried the app.
+            last_shown=0,
+            snoozed_until=self._settings.value("support/snoozedUntil", 0, type=int),
             disabled=(
                 self._supporter_active
                 or self._settings.value("support/reminderDisabled", False, type=bool)
@@ -1282,16 +1320,29 @@ class MainWindow(QMainWindow):
         message.button(QMessageBox.Ok).setText(self._text("ok"))
         kofi_button = message.addButton(self._text("support_with_kofi"), QMessageBox.ActionRole)
         paypal_button = message.addButton(self._text("support_with_paypal"), QMessageBox.ActionRole)
-        opt_out = QCheckBox(self._text("dont_show_again"))
-        message.setCheckBox(opt_out)
+        social_urls = {key: url for key, _tooltip, url in SOCIAL_LINKS}
+        tiktok_button = message.addButton("TikTok", QMessageBox.ActionRole)
+        instagram_button = message.addButton("Instagram", QMessageBox.ActionRole)
+        youtube_button = message.addButton("YouTube", QMessageBox.ActionRole)
+        snooze = QCheckBox(self._text("remind_in_four_days"))
+        message.setCheckBox(snooze)
         message.exec()
-        self._settings.setValue("support/lastShown", now)
-        if opt_out.isChecked():
-            self._settings.setValue("support/reminderDisabled", True)
+        if snooze.isChecked():
+            self._settings.setValue("support/lastShown", 0)
+            self._settings.setValue("support/snoozedUntil", now + REMINDER_SNOOZE_SECONDS)
+        else:
+            self._settings.remove("support/lastShown")
+            self._settings.remove("support/snoozedUntil")
         if message.clickedButton() is kofi_button:
             self._open_external_link(KOFI_URL)
         elif message.clickedButton() is paypal_button:
             self._open_external_link(PAYPAL_URL)
+        elif message.clickedButton() is tiktok_button:
+            self._open_external_link(social_urls["tiktok"])
+        elif message.clickedButton() is instagram_button:
+            self._open_external_link(social_urls["instagram"])
+        elif message.clickedButton() is youtube_button:
+            self._open_external_link(social_urls["youtube"])
 
     def _open_supporter_manager(self) -> None:
         if self._supporter_active:
@@ -1393,7 +1444,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_support_banner"):
             self._support_banner.setVisible(not self._supporter_active)
         if hasattr(self, "_roadmap_banner"):
-            self._roadmap_banner.setVisible(not self._supporter_active)
+            self._roadmap_banner.setVisible(True)
         if hasattr(self, "_supporter_status_button"):
             self._supporter_status_button.setText(
                 self._text("supporter_active")
@@ -1492,6 +1543,38 @@ class MainWindow(QMainWindow):
         self._reload_profile_list(profile.name)
         self.statusBar().showMessage(self._text("profile_duplicated", name=profile.name), 2500)
 
+    def _open_community_profiles(self) -> None:
+        model = self._store.model_identifier or "HCD-BASE"
+        dialog = CommunityProfilesDialog(
+            self._text,
+            ASSET_DIR / "community_profiles.json",
+            model,
+            self._install_community_profile,
+            "https://github.com/HackMan3D/Hackman3D-Control-Deck/tree/main/community-profiles",
+            self,
+        )
+        dialog.exec()
+
+    def _install_community_profile(self, entry: dict[str, object]) -> None:
+        raw_profile = entry.get("profile")
+        if not isinstance(raw_profile, dict):
+            raise ValueError(self._text("invalid_community_profile"))
+        payload: dict[str, object] = {
+            "format": ProfileStore.PROFILE_FORMAT,
+            "version": ProfileStore.FORMAT_VERSION,
+            "model": (
+                self._store.model_identifier
+                if entry.get("model") == "*"
+                else entry.get("model", self._store.model_identifier)
+            ),
+            "profile": raw_profile,
+        }
+        profile = self._store.import_profile_data(payload)
+        self._reload_profile_list(profile.name)
+        self.statusBar().showMessage(
+            self._text("community_profile_installed", name=profile.name), 3000
+        )
+
     def _import_profile(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self, self._text("import_profile"), str(Path.home()), "HCD Profile (*.hcdprofile)"
@@ -1563,11 +1646,22 @@ class MainWindow(QMainWindow):
 
     def _select(self, identifier: str) -> None:
         self._selection = identifier
+        # The large device rendering represents the normal/short press.  A
+        # selection made there must therefore leave the long-press editor,
+        # even when the same key was previously selected in the miniature.
+        press_tabs = getattr(self, "_press_tabs", None)
+        if press_tabs is not None and press_tabs.isVisible():
+            press_tabs.setCurrentIndex(0)
         for item, button in self._control_buttons.items():
             button.setProperty("selected", item == identifier)
             button.style().unpolish(button)
             button.style().polish(button)
         self._show_action(identifier)
+
+    def _select_long_press(self, identifier: str) -> None:
+        self._select(identifier)
+        if self._press_tabs.isVisible():
+            self._press_tabs.setCurrentIndex(1)
 
     def _action_for(self, identifier: str) -> Action:
         self._profile.ensure_controls(
@@ -2064,6 +2158,57 @@ class MainWindow(QMainWindow):
         self._primary_preset_value = selected_value if matching_index > 0 else ""
         self._preset_combo.setVisible(action_type in {"shortcut", "system", "launch"})
         self._preset_combo.blockSignals(False)
+
+    def _action_catalog(self) -> list[tuple[str, str, str]]:
+        catalog = [
+            (label, "shortcut", value) for label, value in self._shortcut_presets()
+        ]
+        catalog.extend(
+            (self._text(label_key), "system", command)
+            for label_key, command in self._system_command_presets()
+        )
+        catalog.extend(
+            (
+                (self._text("open_website"), "open_url", ""),
+                (self._text("type_text"), "text", ""),
+                (self._text("launch_application"), "launch", ""),
+            )
+        )
+        return catalog
+
+    def _search_actions(self, query: str, long_press: bool) -> None:
+        results = self._long_action_search_results if long_press else self._action_search_results
+        results.clear()
+        normalized = query.strip().casefold()
+        if not normalized:
+            results.setVisible(False)
+            return
+        for label, action_type, value in self._action_catalog():
+            if normalized not in f"{label} {value}".casefold():
+                continue
+            item = QListWidgetItem(label if not value else f"{label} — {value}")
+            item.setData(Qt.UserRole, (action_type, value, label))
+            results.addItem(item)
+        results.setVisible(results.count() > 0)
+        results.setMaximumHeight(min(180, 34 * max(1, results.count())))
+
+    def _apply_action_search_result(self, item: QListWidgetItem, long_press: bool) -> None:
+        data = item.data(Qt.UserRole)
+        if not isinstance(data, tuple) or len(data) != 3:
+            return
+        action_type, value, label = (str(part) for part in data)
+        type_combo = self._long_action_type if long_press else self._action_type
+        value_edit = self._long_value_edit if long_press else self._value_edit
+        label_edit = self._long_label_edit if long_press else self._label_edit
+        search = self._long_action_search if long_press else self._action_search
+        results = self._long_action_search_results if long_press else self._action_search_results
+        index = type_combo.findData(action_type)
+        if index >= 0:
+            type_combo.setCurrentIndex(index)
+        value_edit.setText(value)
+        label_edit.setText(label)
+        search.clear()
+        results.hide()
 
     def _update_long_presets(self, action_type: str) -> None:
         selected_value = self._long_value_edit.text()
@@ -3202,6 +3347,40 @@ $result | ConvertTo-Json -Compress
         for identifier in self._pressed_keys:
             dialog.set_key_state(identifier, True)
         dialog.open()
+
+    def show_first_run_assistant(self) -> None:
+        if self._first_run_dialog is not None:
+            self._first_run_dialog.raise_()
+            self._first_run_dialog.activateWindow()
+            return
+        dialog = FirstRunDialog(
+            self._text,
+            connected=self._connected,
+            start_at_login=self._start_at_login_checkbox.isChecked(),
+            parent=self,
+        )
+        self._first_run_dialog = dialog
+
+        def open_firmware() -> None:
+            dialog.accept()
+            QTimer.singleShot(0, self._open_firmware_manager)
+
+        def open_permissions() -> None:
+            dialog.accept()
+            QTimer.singleShot(0, self._open_permissions_assistant)
+
+        dialog.firmware_requested.connect(open_firmware)
+        dialog.permissions_requested.connect(open_permissions)
+        dialog.finished.connect(lambda result: self._first_run_finished(dialog, result))
+        dialog.open()
+
+    def _first_run_finished(self, dialog: FirstRunDialog, result: int) -> None:
+        del result
+        self._settings.setValue("onboarding/completed", True)
+        if dialog.start_at_login.isChecked() != self._start_at_login_checkbox.isChecked():
+            self._start_at_login_checkbox.setChecked(dialog.start_at_login.isChecked())
+        self._first_run_dialog = None
+        QTimer.singleShot(350, self.show_usage_reminder)
 
     def _diagnostics_closed(self, result: int) -> None:
         del result

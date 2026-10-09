@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "name": "Media Essentials",
+      "author": "HackMan3D Community",
+      "model": "*",
+      "description": "Volume, playback, brightness and computer controls ready to use on all supported systems.",
+      "profile": {
+        "name": "Media Essentials",
+        "keys": {
+          "1": {"type": "system", "value": "volume_down", "label": "Volume -"},
+          "2": {"type": "system", "value": "volume_mute", "label": "Mute"},
+          "3": {"type": "system", "value": "volume_up", "label": "Volume +"},
+          "4": {"type": "system", "value": "media_previous", "label": "Previous"},
+          "5": {"type": "system", "value": "media_play_pause", "label": "Play / Pause"},
+          "6": {"type": "system", "value": "media_next", "label": "Next"},
+          "7": {"type": "system", "value": "brightness_down", "label": "Brightness -"},
+          "8": {"type": "system", "value": "brightness_up", "label": "Brightness +"},
+          "9": {"type": "system", "value": "lock", "label": "Lock"}
+        }
+      }
+    },
+    {
+      "name": "Creator Starter",
+      "author": "HackMan3D Community",
+      "model": "HCD-BASE",
+      "description": "A starter layout for creators with editing shortcuts and media controls. Shortcut values can be adjusted for your operating system.",
+      "profile": {
+        "name": "Creator Starter",
+        "keys": {
+          "1": {"type": "shortcut", "value": "CTRL+Z", "label": "Undo"},
+          "2": {"type": "shortcut", "value": "CTRL+SHIFT+Z", "label": "Redo"},
+          "3": {"type": "shortcut", "value": "CTRL+S", "label": "Save"},
+          "4": {"type": "shortcut", "value": "CTRL+C", "label": "Copy"},
+          "5": {"type": "shortcut", "value": "CTRL+V", "label": "Paste"},
+          "6": {"type": "shortcut", "value": "CTRL+X", "label": "Cut"},
+          "7": {"type": "system", "value": "volume_down", "label": "Volume -"},
+          "8": {"type": "system", "value": "media_play_pause", "label": "Play / Pause"},
+          "9": {"type": "system", "value": "volume_up", "label": "Volume +"}
+        }
+      }
+    }
+  ]
+}

@@ -38,11 +38,21 @@ def test_selecting_a_key_does_not_redraw_every_assigned_icon(monkeypatch) -> Non
     window = type("Window", (), {})()
     window._selection = None
     window._control_buttons = {str(index): Button() for index in range(1, 29)}
+    selected_tabs: list[int] = []
+    window._press_tabs = type(
+        "Tabs",
+        (),
+        {
+            "isVisible": lambda self: True,
+            "setCurrentIndex": lambda self, index: selected_tabs.append(index),
+        },
+    )()
     window._show_action = lambda identifier: None
     window._refresh_control_labels = lambda: (_ for _ in ()).throw(
         AssertionError("selecting one key redrew every icon")
     )
 
     MainWindow._select(window, "1")
+    assert selected_tabs == [0]
 
     assert window._selection == "1"

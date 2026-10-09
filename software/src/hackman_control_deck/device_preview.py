@@ -14,6 +14,7 @@ from PySide6.QtGui import (
     QResizeEvent,
     QDragEnterEvent,
     QDropEvent,
+    QMouseEvent,
 )
 from PySide6.QtWidgets import QSizePolicy, QToolButton, QWidget
 
@@ -40,6 +41,7 @@ class DropKeyButton(QToolButton):
 
 class DevicePreview(QWidget):
     control_selected = Signal(str)
+    long_press_control_selected = Signal(str)
     application_dropped = Signal(str, str)
 
     _SOURCE_WIDTH = 1536
@@ -76,6 +78,7 @@ class DevicePreview(QWidget):
         self._pro_microphone_value = 50
         self._pro_second_fader = False
         self._base_long_press_icons: dict[str, QIcon] = {}
+        self._base_long_press_cells: dict[str, QRect] = {}
         self._base_long_press_label = "Long press"
         self._pro_colors = {
             "screen": "#080808",
@@ -245,6 +248,7 @@ class DevicePreview(QWidget):
             self._paint_feedback_led(painter, scale)
 
     def _paint_base_long_press_preview(self, painter: QPainter) -> None:
+        self._base_long_press_cells.clear()
         if self._image_rect.isEmpty():
             return
         scale = self._image_rect.width() / self._SOURCE_WIDTH
@@ -292,6 +296,7 @@ class DevicePreview(QWidget):
                 cell_size,
                 cell_size,
             )
+            self._base_long_press_cells[str(index)] = cell
             painter.setPen(QPen(QColor(255, 255, 255, 115), 1))
             painter.setBrush(QColor(28, 28, 28, 235))
             painter.drawRoundedRect(cell, max(2, round(4 * scale)), max(2, round(4 * scale)))
@@ -300,6 +305,15 @@ class DevicePreview(QWidget):
                 inset = max(2, round(cell_size * 0.05))
                 icon.paint(painter, cell.adjusted(inset, inset, -inset, -inset))
         painter.restore()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if self._model_identifier == "HCD-BASE" and event.button() == Qt.LeftButton:
+            for identifier, cell in self._base_long_press_cells.items():
+                if cell.contains(event.position().toPoint()):
+                    self.long_press_control_selected.emit(identifier)
+                    event.accept()
+                    return
+        super().mousePressEvent(event)
 
     def _paint_plus_device(self, painter: QPainter) -> None:
         panel = self.rect().adjusted(

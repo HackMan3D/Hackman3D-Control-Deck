@@ -47,7 +47,10 @@ def main() -> int:
         window.start_in_background()
     else:
         window.show()
-        QTimer.singleShot(350, window.show_usage_reminder)
+        if QSettings().value("onboarding/completed", False, type=bool):
+            QTimer.singleShot(350, window.show_usage_reminder)
+        else:
+            QTimer.singleShot(350, window.show_first_run_assistant)
     return app.exec()
 
 

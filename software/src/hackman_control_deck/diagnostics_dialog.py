@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
+import platform
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
+    QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -15,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from .protocol import DeviceInfo
+from .constants import APP_NAME, APP_VERSION
 
 
 class DiagnosticsDialog(QDialog):
@@ -41,6 +46,8 @@ class DiagnosticsDialog(QDialog):
         self._key_grid = QGridLayout()
         self._keys: dict[str, QLabel] = {}
         self._pot_values: dict[int, QLabel] = {}
+        self._key_states: dict[str, bool] = {}
+        self._feedback_active = False
         layout.addLayout(self._key_grid)
         self.set_controls(9, 0)
 
@@ -51,9 +58,15 @@ class DiagnosticsDialog(QDialog):
         leds.addWidget(self._feedback_led)
         layout.addLayout(leds)
         layout.addStretch()
+        actions = QHBoxLayout()
+        export = QPushButton(text("export_diagnostic_report"))
+        export.clicked.connect(self._export_report)
+        actions.addWidget(export)
+        actions.addStretch()
         close = QPushButton(text("close"))
         close.clicked.connect(self.accept)
-        layout.addWidget(close, alignment=Qt.AlignRight)
+        actions.addWidget(close)
+        layout.addLayout(actions)
 
     def set_controls(self, key_count: int, potentiometer_count: int) -> None:
         while self._key_grid.count():
@@ -62,6 +75,7 @@ class DiagnosticsDialog(QDialog):
             if widget is not None:
                 widget.deleteLater()
         self._keys.clear()
+        self._key_states.clear()
         self._pot_values.clear()
         for index in range(1, key_count + 1):
             indicator = QLabel(str(index), objectName="diagnosticKey")
@@ -70,6 +84,7 @@ class DiagnosticsDialog(QDialog):
             indicator.setMinimumSize(90, 55)
             self._key_grid.addWidget(indicator, (index - 1) // 4, (index - 1) % 4)
             self._keys[str(index)] = indicator
+            self._key_states[str(index)] = False
         row = (key_count + 3) // 4
         for index in range(1, potentiometer_count + 1):
             indicator = QLabel(f"Encoder {index} click", objectName="diagnosticKey")
@@ -82,6 +97,7 @@ class DiagnosticsDialog(QDialog):
             self._key_grid.addWidget(indicator, row, column)
             self._key_grid.addWidget(value, row, column + 1)
             self._keys[f"P{index}"] = indicator
+            self._key_states[f"P{index}"] = False
             self._pot_values[index] = value
 
     def update_device(
@@ -105,10 +121,48 @@ class DiagnosticsDialog(QDialog):
     def set_key_state(self, identifier: str, pressed: bool) -> None:
         indicator = self._keys.get(identifier)
         if indicator is not None:
+            self._key_states[identifier] = pressed
             self._set_indicator(indicator, pressed)
 
     def set_feedback_led(self, active: bool) -> None:
+        self._feedback_active = active
         self._set_indicator(self._feedback_led, active)
+
+    def _report(self) -> str:
+        lines = [
+            f"{APP_NAME} — diagnostic report",
+            f"Generated: {datetime.now().astimezone().isoformat(timespec='seconds')}",
+            f"Desktop app: {APP_VERSION}",
+            f"System: {platform.system()} {platform.release()}",
+            "",
+        ]
+        for key in ("connection", "model", "firmware", "serial_port", "heartbeat"):
+            lines.append(f"{self._text(key)}: {self._values[key].text()}")
+        active = [key for key, pressed in self._key_states.items() if pressed]
+        lines.extend(
+            (
+                f"Controls reported: {len(self._key_states)}",
+                f"Controls currently pressed: {', '.join(active) if active else 'none'}",
+                f"Feedback LED active: {'yes' if self._feedback_active else 'no'}",
+                "",
+                "This report contains technical status only and no profile actions or personal files.",
+            )
+        )
+        return "\n".join(lines) + "\n"
+
+    def _export_report(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._text("export_diagnostic_report"),
+            str(Path.home() / "HackMan3D-diagnostic.txt"),
+            "Text report (*.txt)",
+        )
+        if not path:
+            return
+        destination = Path(path)
+        if destination.suffix.lower() != ".txt":
+            destination = destination.with_suffix(".txt")
+        destination.write_text(self._report(), encoding="utf-8")
 
     def set_potentiometer_value(self, identifier: int, value: int) -> None:
         label = self._pot_values.get(identifier)

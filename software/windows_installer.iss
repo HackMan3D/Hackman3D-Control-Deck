@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "1.6.4"
+  #define MyAppVersion "1.6.5"
 #endif
 
 #define MyAppName "HackMan3D Control Deck"
