@@ -1,4 +1,4 @@
-from hackman_control_deck.models import Action, Profile
+from hackman_control_deck.models import Action, Profile, matching_chord
 from hackman_control_deck.profile_store import ProfileStore
 
 
@@ -12,6 +12,22 @@ def test_profile_round_trip(tmp_path) -> None:
     assert loaded.name == "Fusion 360"
     assert loaded.keys["1"] == Action("shortcut", "CTRL+S", "Save")
     assert len(loaded.keys) == 9
+
+
+def test_key_combinations_round_trip_and_prefer_three_keys(tmp_path) -> None:
+    store = ProfileStore(tmp_path)
+    profile = Profile(name="Chords")
+    profile.chords["1+2"] = Action("shortcut", "CTRL+C", "Two keys")
+    profile.chords["1+2+3"] = Action("system", "volume_mute", "Three keys")
+    store.save(profile)
+
+    loaded = store.load("Chords")
+
+    assert loaded.chords["1+2"].label == "Two keys"
+    assert matching_chord(loaded.chords, {"1", "2", "3"}) == (
+        "1+2+3",
+        loaded.chords["1+2+3"],
+    )
 
 
 def test_profile_rename_preserves_actions(tmp_path) -> None:

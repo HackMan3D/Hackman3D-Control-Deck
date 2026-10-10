@@ -93,6 +93,20 @@ def default_control_action(identifier: str) -> Action:
     return Action(label=f"Key {identifier}")
 
 
+def matching_chord(
+    chords: dict[str, Action], pressed_identifiers: set[str]
+) -> tuple[str, Action] | None:
+    """Return the most specific configured chord contained in the pressed keys."""
+    matches = [
+        (key, action)
+        for key, action in chords.items()
+        if set(key.split("+")) <= pressed_identifiers
+    ]
+    if not matches:
+        return None
+    return max(matches, key=lambda item: (len(item[0].split("+")), item[0]))
+
+
 @dataclass(slots=True)
 class Profile:
     name: str = "Default"
@@ -100,6 +114,7 @@ class Profile:
     encoder_modes: dict[str, str] = field(
         default_factory=lambda: {"1": "volume", "2": "microphone"}
     )
+    chords: dict[str, Action] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -143,5 +158,18 @@ class Profile:
                     "volume", "microphone", "brightness"
                 }:
                     profile.encoder_modes[str(identifier)] = str(mode)
+
+        raw_chords = data.get("chords", {})
+        if isinstance(raw_chords, dict):
+            for raw_keys, raw_action in raw_chords.items():
+                identifiers = tuple(str(raw_keys).split("+"))
+                if (
+                    len(identifiers) in {2, 3}
+                    and len(set(identifiers)) == len(identifiers)
+                    and all(item.isdigit() and 1 <= int(item) <= 64 for item in identifiers)
+                    and isinstance(raw_action, dict)
+                ):
+                    key = "+".join(sorted(identifiers, key=int))
+                    profile.chords[key] = Action.from_dict(raw_action)
 
         return profile

@@ -93,6 +93,7 @@ from .device_preview import DevicePreview
 from .diagnostics_dialog import DiagnosticsDialog
 from .first_run_dialog import FirstRunDialog
 from .community_profiles_dialog import CommunityProfilesDialog
+from .key_combinations_dialog import KeyCombinationsEditor
 from .firmware_dialog import FirmwareDialog
 from .firmware_updater import (
     FirmwareUpdater,
@@ -100,7 +101,7 @@ from .firmware_updater import (
     firmware_update_available,
 )
 from .favicon import download_favicon
-from .models import ACTION_TYPES, Action, Profile
+from .models import ACTION_TYPES, Action, Profile, matching_chord
 from .macos_integration import (
     MacMenuBarIcon,
     MacWindowMinimizeHandler,
@@ -431,6 +432,13 @@ class MainWindow(QMainWindow):
         self._device_info_data: DeviceInfo | None = None
         self._pressed_keys: set[str] = set()
         self._key_pressed_at: dict[str, float] = {}
+        self._chord_candidates: set[str] = set()
+        self._chord_consumed: set[str] = set()
+        self._short_action_executed: set[str] = set()
+        self._chord_timer = QTimer(self)
+        self._chord_timer.setSingleShot(True)
+        self._chord_timer.setInterval(110)
+        self._chord_timer.timeout.connect(self._resolve_chord_candidates)
         self._has_activity = False
         self._loading_action = False
         self._last_pro_layout_fingerprint = ""
@@ -985,8 +993,18 @@ class MainWindow(QMainWindow):
         long_layout.addWidget(self._long_press_delay)
         long_layout.addStretch()
 
+        self._key_combinations_editor = KeyCombinationsEditor(
+            self._text,
+            self._profile,
+            9,
+            self._combination_action_catalog,
+            lambda: self._store.save(self._profile),
+            self._runner.run,
+            self,
+        )
         self._press_tabs.addTab(short_tab, "Short press")
         self._press_tabs.addTab(long_tab, "Long press")
+        self._press_tabs.addTab(self._key_combinations_editor, "Combination")
         layout.addWidget(self._press_tabs, 1)
         self._save_action_button = QPushButton("Save actions", objectName="accent")
         self._save_action_button.clicked.connect(lambda: self._save_action(True))
@@ -1091,6 +1109,7 @@ class MainWindow(QMainWindow):
         self._encoder_mode_help.setText(self._text("encoder_help"))
         self._press_tabs.setTabText(0, self._text("short_press"))
         self._press_tabs.setTabText(1, self._text("long_press"))
+        self._press_tabs.setTabText(2, self._text("combination"))
         self._firmware_button.setText(self._text("firmware_button"))
         self._updates_button.setText(self._text("check_updates"))
         self._diagnostics_button.setText(self._text("diagnostics_button"))
@@ -1468,6 +1487,11 @@ class MainWindow(QMainWindow):
         if not name:
             return
         self._profile = self._store.load(name)
+        if hasattr(self, "_key_combinations_editor"):
+            self._key_combinations_editor.set_context(
+                self._profile,
+                self._current_key_count(),
+            )
         self._profile_name.setText(self._profile.name)
         self._refresh_control_labels()
         self._schedule_pro_sync(force=True)
@@ -1669,6 +1693,11 @@ class MainWindow(QMainWindow):
             self._device_info_data.potentiometer_count if self._device_info_data else 0,
         )
         return self._profile.keys[identifier]
+
+    def _current_key_count(self) -> int:
+        if self._device_info_data is not None:
+            return self._device_info_data.key_count
+        return {"HCD-PLUS": 12, "HCD-PRO": 28}.get(self._store.model_identifier, 9)
 
     def _show_action(self, identifier: str) -> None:
         action = self._action_for(identifier)
@@ -2174,6 +2203,18 @@ class MainWindow(QMainWindow):
                 (self._text("launch_application"), "launch", ""),
             )
         )
+        return catalog
+
+    def _combination_action_catalog(
+        self, action_type: str
+    ) -> list[tuple[str, str, str]]:
+        catalog = self._action_catalog()
+        if action_type == "launch":
+            return [
+                (name, "launch", path) for name, path in self._installed_applications()
+            ]
+        if action_type:
+            return [item for item in catalog if item[1] == action_type]
         return catalog
 
     def _search_actions(self, query: str, long_press: bool) -> None:
@@ -2779,6 +2820,10 @@ $result | ConvertTo-Json -Compress
         self._device_preview.set_connection_active(connected)
         if not connected:
             self._pressed_keys.clear()
+            self._chord_candidates.clear()
+            self._chord_consumed.clear()
+            self._short_action_executed.clear()
+            self._chord_timer.stop()
             self._device_preview.set_feedback_active(False)
             self._device_preview.clear_model()
             self._device_title.setText(self._text("control_deck"))
@@ -3247,6 +3292,7 @@ $result | ConvertTo-Json -Compress
             self._store.set_model(profile_model)
             self._reload_profile_list()
         self._device_info_data = info
+        self._key_combinations_editor.set_context(self._profile, info.key_count)
         self._device_product = info.product
         self._device_model_identifier = info.model_identifier
         brightness = self._led_brightness.get(info.model_identifier)
@@ -3615,6 +3661,24 @@ $result | ConvertTo-Json -Compress
         if self._diagnostics_dialog is not None:
             self._diagnostics_dialog.set_key_state(identifier, should_run)
             self._diagnostics_dialog.set_feedback_led(self._connected and bool(self._pressed_keys))
+
+        if event.kind == EventKind.KEY and self._key_participates_in_chord(identifier):
+            if should_run:
+                self._chord_candidates.add(identifier)
+                if not self._chord_timer.isActive():
+                    self._chord_timer.start()
+                return
+            if identifier in self._chord_consumed:
+                self._chord_consumed.discard(identifier)
+                self._chord_candidates.discard(identifier)
+                self._key_pressed_at.pop(identifier, None)
+                return
+            if identifier in self._short_action_executed:
+                self._short_action_executed.discard(identifier)
+                self._key_pressed_at.pop(identifier, None)
+                return
+            self._chord_candidates.discard(identifier)
+
         has_long_action = action.long_type != "none"
         if should_run and not has_long_action:
             self._run_device_action(identifier, "short", action)
@@ -3626,6 +3690,30 @@ $result | ConvertTo-Json -Compress
                     self._run_device_action(identifier, "long", action.long_action())
                 else:
                     self._run_device_action(identifier, "short", action)
+
+    def _key_participates_in_chord(self, identifier: str) -> bool:
+        return any(identifier in key.split("+") for key in self._profile.chords)
+
+    def _resolve_chord_candidates(self) -> None:
+        match = matching_chord(self._profile.chords, self._pressed_keys)
+        if match is not None:
+            chord_key, action = match
+            identifiers = set(chord_key.split("+"))
+            self._chord_consumed.update(identifiers)
+            self._chord_candidates.difference_update(identifiers)
+            self._has_activity = True
+            self._activity_label.setText(action.label)
+            self._run_device_action(chord_key, "chord", action)
+
+        pending = tuple(self._chord_candidates)
+        self._chord_candidates.clear()
+        for identifier in pending:
+            if identifier not in self._pressed_keys or identifier in self._chord_consumed:
+                continue
+            action = self._action_for(identifier)
+            if action.long_type == "none":
+                self._short_action_executed.add(identifier)
+                self._run_device_action(identifier, "short", action)
 
     def _run_device_action(self, identifier: str, press_kind: str, action: Action) -> None:
         del identifier, press_kind
