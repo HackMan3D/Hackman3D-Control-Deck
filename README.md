@@ -170,6 +170,16 @@ ground. The connection LED and key-feedback light are switched by separate
 IRLB8721 MOSFETs. See the [complete wiring notes](docs/WIRING.md) before
 powering the controller.
 
+### HCD Base Slim wiring
+
+![HackMan3D Control Deck Base Slim wiring diagram](docs/images/HCD_BASE_SLIM_Wiring_Diagram.png)
+
+The Base Slim uses an ESP32-C3 Super Mini, nine low-profile switches, a red
+connection LED on GPIO20 and a 5 V white feedback strip controlled from GPIO21
+through a logic-level MOSFET. See the
+[complete Base Slim wiring notes](docs/HCD_BASE_SLIM_WIRING.md) before applying
+power.
+
 ## Future hardware previews
 
 The firmware manager shows **HCD Plus (in development)** and
@@ -463,7 +473,8 @@ ESP32-S3 source in `firmware/HackMan3DControlDeckPro/`, for firmware development
 app. It gives each model its own USB product name and sets the manufacturer to
 **HackMan3D**.
 
-See the [HCD-BASE wiring notes](docs/WIRING.md) or the
+See the [HCD-BASE wiring notes](docs/WIRING.md), the
+[HCD Base Slim wiring notes](docs/HCD_BASE_SLIM_WIRING.md), or the
 [HCD Plus wiring notes](docs/HCD_PLUS_WIRING.md) before connecting hardware.
 HCD Pro setup and USB requirements are documented in
 [docs/HCD_PRO.md](docs/HCD_PRO.md).
