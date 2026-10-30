@@ -172,6 +172,12 @@ powering the controller.
 
 ### HCD Base Slim wiring
 
+![HackMan3D Control Deck Base Slim](software/src/hackman_control_deck/assets/hcd_base_slim.png)
+
+The Base Slim is the compact, low-profile nine-key version of the HackMan3D
+Control Deck. The desktop application uses this dedicated visual when a Base
+Slim is connected.
+
 ![HackMan3D Control Deck Base Slim wiring diagram](docs/images/HCD_BASE_SLIM_Wiring_Diagram.png)
 
 The Base Slim uses an ESP32-C3 Super Mini, nine low-profile switches, a red
