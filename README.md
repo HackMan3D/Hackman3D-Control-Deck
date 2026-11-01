@@ -191,6 +191,26 @@ component options to select, with AliExpress and Amazon purchase links. Check
 the option column carefully because several marketplace pages group
 incompatible variants together.
 
+### HCD Base Slim component links
+
+Some links below are affiliate links. Using them supports HackMan3D development
+without changing the buyer's price.
+
+| Component | Exact option to select | AliExpress | Amazon |
+| --- | --- | --- | --- |
+| ESP32-C3 Super Mini | **USB-C, with solderable pins** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c2xGStWx) | [Buy on Amazon](https://link.amazon/B0c0GSeeM) |
+| 9 low-profile switches | **Low-profile switch**, not standard-height MX | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4KR3RQF) | [Buy on Amazon](https://link.amazon/B0eGV0Wzt) |
+| Red connection LED | **Red, 5 mm, 2–2.2 V** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3YHBgMF) | [Buy on Amazon](https://link.amazon/B05HMu4Cu) |
+| Red LED resistors | **100R, 1/4 W**, quantity 2 | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4OATELh) | [Buy on Amazon](https://link.amazon/B0byWhsql) |
+| White LED strip | **5 V, 3 mm, 2 wires, white, 0.5 m** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c2RHDkfD) | [Buy on Amazon](https://link.amazon/B03S62oht) |
+| N-channel MOSFET | **IRLB8721 / IRLB8721PBF, TO-220** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3tLt3CX) | [Buy on Amazon](https://link.amazon/B074mJqXJ) |
+| MOSFET gate resistor | **100R, 1/4 W**, quantity 1 | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4OATELh) | [Buy on Amazon](https://link.amazon/B0byWhsql) |
+| USB-C cable | **Data + charging**, not charge-only | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4qXiokb) | [Buy on Amazon](https://link.amazon/B075uRWBR) |
+| Dupont leads | **Female-to-female, 2.54 mm** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c40SPRKx) | [Buy on Amazon](https://link.amazon/B0e1pGaxf) |
+| Flexible wire | **Stranded, approximately 24–28 AWG** | Link to add | [Buy on Amazon](https://link.amazon/B08XqEbn6) |
+| Heat-shrink tubing | **Small diameter** for individual Dupont contacts | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3riUoer) | [Buy on Amazon](https://link.amazon/B06use4Lj) |
+| 6 screws | **M2 × 10 mm, countersunk / flat head** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3LS3Kv9) | [Buy on Amazon](https://link.amazon/B04AuJdUT) |
+
 ## Future hardware previews
 
 The firmware manager shows **HCD Plus (in development)** and
