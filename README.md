@@ -186,6 +186,11 @@ through a logic-level MOSFET. See the
 [complete Base Slim wiring notes](docs/HCD_BASE_SLIM_WIRING.md) before applying
 power.
 
+The [Base Slim bill of materials](docs/HCD_BASE_SLIM_BOM.md) lists the exact
+component options to select, with AliExpress and Amazon purchase links. Check
+the option column carefully because several marketplace pages group
+incompatible variants together.
+
 ## Future hardware previews
 
 The firmware manager shows **HCD Plus (in development)** and
