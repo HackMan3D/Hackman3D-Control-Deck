@@ -70,6 +70,27 @@ build_pro_firmware() {
   echo "Firmware ready: $packaged_bin"
 }
 
+build_c3_test_firmware() {
+  local sketch_name="HackMan3DControlDeckC3Test"
+  local model="HCD-C3-TEST"
+  local version="0.4.0"
+  local firmware_dir="$PROJECT_DIR/firmware/$sketch_name"
+  local build_dir="$BUILD_ROOT/$model"
+  local output_dir="$OUTPUT_ROOT/$model"
+  local packaged_bin="$PACKAGE_DIR/HackMan3DControlDeck-$model-$version.bin"
+
+  "$ARDUINO_CLI" core install esp32:esp32@3.3.10
+  mkdir -p "$build_dir" "$output_dir" "$PACKAGE_DIR"
+  "$ARDUINO_CLI" compile \
+    --fqbn 'esp32:esp32:esp32c3:CDCOnBoot=cdc,FlashSize=4M,PartitionScheme=default,FlashMode=dio' \
+    --build-path "$build_dir" \
+    --output-dir "$output_dir" \
+    "$firmware_dir"
+  cp "$output_dir/$sketch_name.ino.merged.bin" "$packaged_bin"
+  echo "Firmware ready: $packaged_bin"
+}
+
 build_firmware "HackMan3DControlDeck" "HCD-BASE" "1.7.1" "HackMan3D Control Deck"
 build_firmware "HackMan3DControlDeckPlus" "HCD-PLUS" "1.1.2" "HackMan3D Control Deck Plus"
+build_c3_test_firmware
 build_pro_firmware

@@ -8,7 +8,7 @@ LEGACY_APP_NAME = "HackMan Control Deck"
 COMPATIBLE_PRODUCT_NAMES = (APP_NAME, LEGACY_APP_NAME)
 APP_SHORT_NAME = "HCD"
 ORGANIZATION_NAME = "HackMan3D"
-APP_VERSION = "1.6.6"
+APP_VERSION = "1.6.7"
 RELEASES_URL = "https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/latest"
 RELEASE_MANIFEST_URL = os.environ.get(
     "HCD_RELEASE_MANIFEST_URL",
@@ -20,6 +20,27 @@ CONTACT_EMAIL = "hackman3d.pro@gmail.com"
 CONTACT_URL = "mailto:hackman3d.pro@gmail.com?subject=HackMan3D%20Control%20Deck%20feedback"
 KOFI_URL = "https://ko-fi.com/hackman3d"
 PAYPAL_URL = "https://paypal.me/Hackman3D"
+
+HCD_BASE_SLIM_MODEL_LINKS = (
+    (
+        "creality",
+        "Creality Cloud",
+        "https://www.crealitycloud.com/fr/model-detail/6ae7460c9ec5138bb62d7686",
+        "social_creality.svg",
+    ),
+    (
+        "makerworld",
+        "MakerWorld",
+        "https://makerworld.com/fr/models/3529353-hackman3d-control-deck-base-slim",
+        "social_makerworld.svg",
+    ),
+    (
+        "printables",
+        "Printables",
+        "https://www.printables.com/model/1898404-hackman3d-control-deck-base-slim",
+        "social_printables.svg",
+    ),
+)
 
 SOCIAL_LINKS = (
     (

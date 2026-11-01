@@ -8,6 +8,16 @@ def test_device_render_is_packaged() -> None:
     assert render.stat().st_size > 100_000
 
 
+def test_slim_device_render_is_packaged() -> None:
+    render = ASSET_DIR / "hcd_base_slim.png"
+    feedback_render = ASSET_DIR / "hcd_base_slim_feedback.png"
+
+    assert render.is_file()
+    assert render.stat().st_size > 100_000
+    assert feedback_render.is_file()
+    assert feedback_render.stat().st_size > 100_000
+
+
 def test_macos_icon_has_rounded_transparent_source() -> None:
     preview = ASSET_DIR / "hcd_app_icon_rounded.png"
     icon = ASSET_DIR / "hcd_app_icon.icns"

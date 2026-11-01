@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtSerialPort import QSerialPortInfo
 from PySide6.QtWidgets import (
     QComboBox,
@@ -273,9 +273,11 @@ class FirmwareDialog(QDialog):
         identity = " ".join(
             (info.portName(), info.description(), info.manufacturer())
         ).casefold()
-        if vendor == 0x303A or (vendor, product) == (0x1A86, 0x55D3):
+        if "esp32-c3" in identity or "esp32c3" in identity:
+            return "HCD-C3-TEST"
+        if (vendor, product) == (0x1A86, 0x55D3):
             return "HCD-PRO"
-        if "esp32" in identity or "espressif" in identity:
+        if "esp32-s3" in identity or "esp32s3" in identity:
             return "HCD-PRO"
         return ""
 
@@ -307,7 +309,6 @@ class FirmwareDialog(QDialog):
 
     def _update_install_enabled(self, value: str = "") -> None:
         del value
-        model = self._model_combo.currentData()
         self._install_button.setEnabled(
             self._port_combo.count() > 0
             and not self._busy

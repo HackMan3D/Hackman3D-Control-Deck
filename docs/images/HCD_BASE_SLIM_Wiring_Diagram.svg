@@ -94,7 +94,8 @@
   <text x="1220" y="275" class="label" fill="#dc2638">RED CONNECTION LED · GPIO20</text>
   <path class="signal" d="M585 778 V815 H1140 V330 H1230"/>
   <rect x="1230" y="305" width="115" height="50" rx="9" fill="#f1dfbd" stroke="#9b6a26" stroke-width="2"/>
-  <text x="1288" y="337" text-anchor="middle" class="label">220–330 Ω</text>
+  <text x="1288" y="327" text-anchor="middle" class="label">2 × 100 Ω</text>
+  <text x="1288" y="348" text-anchor="middle" class="small">in series · 200 Ω total</text>
   <path class="signal" d="M1345 330 H1420"/>
   <circle cx="1460" cy="330" r="30" fill="#ef3340" stroke="#9f1728" stroke-width="5"/>
   <text x="1460" y="337" text-anchor="middle" fill="#fff" font-family="Arial" font-size="16" font-weight="700">LED</text>

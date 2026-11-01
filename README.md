@@ -1,6 +1,6 @@
 # HackMan3D Control Deck
 
-![Version](https://img.shields.io/badge/Version-1.6.6-0A84FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.6.7-0A84FF?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-0A84FF?style=flat-square)
 ![Hardware](https://img.shields.io/badge/Hardware-ATmega32U4%20%7C%20ESP32--S3-00979D?style=flat-square&logo=arduino&logoColor=white)
 ![Firmware](https://img.shields.io/badge/Firmware-Integrated%20Flashing-39A845?style=flat-square)
@@ -14,15 +14,15 @@ HCD-BASE and HCD Plus use an Arduino Pro Micro; HCD Pro uses an ESP32-S3
 touchscreen. This repository contains the shared Windows/macOS/Linux
 configuration app, the branded interface and the firmware for all three models.
 
-## Download the app — version 1.6.6
+## Download the app — version 1.6.7
 
 The project and its source code are publicly available. Use the ready-to-install
 downloads below if you simply want to build and use the controller.
 
-- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-macOS-1.6.6.dmg)
-- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Windows-1.6.6-Setup.exe)
-- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Linux-x86_64-1.6.6-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Linux-x86_64-1.6.6-r7.deb)
-- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Linux-aarch64-1.6.6-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Linux-aarch64-1.6.6-r7.deb)
+- [Download for macOS (.dmg)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-macOS-1.6.7.dmg)
+- [Download for Windows (.exe)](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Windows-1.6.7-Setup.exe)
+- Linux x86_64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Linux-x86_64-1.6.7-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Linux-x86_64-1.6.7-r7.deb)
+- Linux ARM64: [AppImage](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Linux-aarch64-1.6.7-r7.AppImage) · [.deb](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Linux-aarch64-1.6.7-r7.deb)
 
 ## Quick start — recommended
 
@@ -33,9 +33,9 @@ working HackMan3D Control Deck.
    [wiring diagram](docs/images/HCD_Wiring_Diagram_V1.svg) and
    [wiring notes](docs/WIRING.md).
 2. Download and install the HCD application for
-   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-macOS-1.6.6.dmg)
+   [macOS](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-macOS-1.6.7.dmg)
    or
-   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.6/HackMan3D-Control-Deck-Windows-1.6.6-Setup.exe).
+   [Windows](https://github.com/HackMan3D/Hackman3D-Control-Deck/releases/download/v1.6.7/HackMan3D-Control-Deck-Windows-1.6.7-Setup.exe).
    Linux users can choose the `.deb` or AppImage matching their x86_64 or ARM64
    computer from the links above. Apple Silicon virtual machines normally need
    the **ARM64/aarch64** package.
@@ -168,6 +168,16 @@ powering the controller.
 ### HCD Base Slim wiring
 
 ![HackMan3D Control Deck Base Slim](software/src/hackman_control_deck/assets/hcd_base_slim.png)
+
+The printable HCD Base Slim files are available on
+[Creality Cloud](https://www.crealitycloud.com/fr/model-detail/6ae7460c9ec5138bb62d7686),
+[MakerWorld](https://makerworld.com/fr/models/3529353-hackman3d-control-deck-base-slim)
+and
+[Printables](https://www.printables.com/model/1898404-hackman3d-control-deck-base-slim).
+Liking and sharing the model on your preferred platform directly supports the
+project.
+
+![HackMan3D Control Deck Base Slim presentation](assets/renders/slim/HCD-Base-Slim-Presentation-4x3-v2.png)
 
 The Base Slim is the compact, low-profile nine-key version of the HackMan3D
 Control Deck. The desktop application uses this dedicated visual when a Base
@@ -464,7 +474,7 @@ installer.
 On a Windows 10 or Windows 11 computer, install Python 3.11 or newer and Inno
 Setup 6, then run `software\build_windows.ps1` from PowerShell. The script builds
 the portable application and creates
-`software\dist\HackMan3D-Control-Deck-Windows-1.6.6-Setup.exe`. The installer is
+`software\dist\HackMan3D-Control-Deck-Windows-1.6.7-Setup.exe`. The installer is
 per-user, requires no administrator rights, includes the HCD firmware and AVRDUDE,
 and provides clean Start menu, optional desktop and uninstall entries.
 

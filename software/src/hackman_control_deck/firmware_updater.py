@@ -21,14 +21,26 @@ class FirmwareTarget:
     key_count: int
     potentiometer_count: int
     architecture: str = "avr"
+    esp_chip: str = ""
+    flash_size: str = ""
 
     @property
     def filename(self) -> str:
-        extension = "bin" if self.architecture == "esp32s3" else "hex"
+        extension = "bin" if self.architecture == "esp32" else "hex"
         return f"HackMan3DControlDeck-{self.model_identifier}-{self.version}.{extension}"
 
 FIRMWARE_TARGETS = {
     "HCD-BASE": FirmwareTarget("HCD-BASE", "HCD-BASE", "1.7.1", 9, 0),
+    "HCD-C3-TEST": FirmwareTarget(
+        "HCD-C3-TEST",
+        "HCD Base Slim — 9 buttons",
+        "0.4.0",
+        9,
+        0,
+        "esp32",
+        "esp32c3",
+        "4MB",
+    ),
     "HCD-PLUS": FirmwareTarget("HCD-PLUS", "HCD Plus", "1.1.2", 12, 2),
     "HCD-PRO": FirmwareTarget(
         "HCD-PRO",
@@ -36,7 +48,9 @@ FIRMWARE_TARGETS = {
         "1.3.6",
         28,
         0,
+        "esp32",
         "esp32s3",
+        "8MB",
     ),
 }
 BUNDLED_MODEL_IDENTIFIER = "HCD-BASE"
@@ -134,7 +148,7 @@ class FirmwareUpdater(QObject):
 
         self._displayed_progress = 0
 
-        if target.architecture == "esp32s3":
+        if target.architecture == "esp32":
             self._start_esp32_install(port_name)
             return
 
@@ -212,7 +226,7 @@ class FirmwareUpdater(QObject):
     @staticmethod
     def esp32_resource_paths(model_identifier: str = "HCD-PRO") -> tuple[Path, Path]:
         target = firmware_target(model_identifier)
-        if target is None or target.architecture != "esp32s3":
+        if target is None or target.architecture != "esp32":
             raise ValueError(f"Unsupported ESP32 model: {model_identifier}")
         platform_directory = {
             "win32": "windows",
@@ -237,10 +251,14 @@ class FirmwareUpdater(QObject):
         port: str,
         firmware: Path,
         manual_bootloader: bool = False,
+        model_identifier: str = "HCD-PRO",
     ) -> list[str]:
+        target = firmware_target(model_identifier)
+        if target is None or target.architecture != "esp32":
+            raise ValueError(f"Unsupported ESP32 model: {model_identifier}")
         return [
             "--chip",
-            "esp32s3",
+            target.esp_chip,
             "--port",
             port,
             "--baud",
@@ -255,7 +273,7 @@ class FirmwareUpdater(QObject):
             "--flash-freq",
             "80m",
             "--flash-size",
-            "8MB",
+            target.flash_size,
             "0x0",
             str(firmware),
         ]
@@ -275,16 +293,22 @@ class FirmwareUpdater(QObject):
         self.log_changed.emit("")
         self.progress_changed.emit(10)
         self._displayed_progress = 10
-        self.status_changed.emit("Uploading the HCD Pro firmware to the ESP32-S3…")
+        self.status_changed.emit(
+            f"Uploading the {self._target.display_name} firmware…"
+        )
         self._process.setProgram(str(executable))
         self._process.setArguments(
-            self.esptool_arguments(self._original_port, firmware)
+            self.esptool_arguments(
+                self._original_port,
+                firmware,
+                model_identifier=self._target.model_identifier,
+            )
         )
         self._process.start()
 
     @Slot()
     def resume_esp32_install(self) -> None:
-        """Continue after the user has placed the ESP32-S3 in download mode."""
+        """Continue after the user has placed the ESP32 in download mode."""
         if not self._busy or not self._esp32_manual_retry_pending:
             return
         executable, firmware = self.esp32_resource_paths(self._target.model_identifier)
@@ -294,10 +318,17 @@ class FirmwareUpdater(QObject):
         self._attempt_output = ""
         self.progress_changed.emit(10)
         self._displayed_progress = max(self._displayed_progress, 10)
-        self.status_changed.emit("Bootloader ready. Installing HCD Pro firmware…")
+        self.status_changed.emit(
+            f"Bootloader ready. Installing {self._target.display_name} firmware…"
+        )
         self._process.setProgram(str(executable))
         self._process.setArguments(
-            self.esptool_arguments(port, firmware, manual_bootloader=True)
+            self.esptool_arguments(
+                port,
+                firmware,
+                manual_bootloader=True,
+                model_identifier=self._target.model_identifier,
+            )
         )
         self._process.start()
 
@@ -547,7 +578,7 @@ class FirmwareUpdater(QObject):
             return
         # Drain output that may have arrived immediately before QProcess.finished.
         self._read_process_output()
-        if self._target.architecture == "esp32s3":
+        if self._target.architecture == "esp32":
             if exit_status == QProcess.NormalExit and exit_code == 0:
                 self._finish_success()
                 return

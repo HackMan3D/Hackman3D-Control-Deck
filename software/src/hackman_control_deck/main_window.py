@@ -113,6 +113,7 @@ from .protocol import DeviceEvent, DeviceInfo, EventKind
 from .release_feed import ReleaseFeedClient, ReleaseFeedData
 from .support_reminder import REMINDER_SNOOZE_SECONDS, support_reminder_due
 from .supporter import SupporterClient, SupporterStatus
+from .slim_announcement_dialog import SlimAnnouncementDialog
 from .startup_integration import is_start_at_login_enabled, set_start_at_login
 from .translations import LANGUAGES, translate
 
@@ -315,6 +316,7 @@ class MainWindow(QMainWindow):
         self._firmware_update_prompted_for: tuple[str, str] | None = None
         self._diagnostics_dialog: DiagnosticsDialog | None = None
         self._first_run_dialog: FirstRunDialog | None = None
+        self._slim_announcement_dialog: SlimAnnouncementDialog | None = None
         self._background_mode_active = False
         self._ignore_dock_activation_until = 0.0
         self._allow_exit = False
@@ -425,6 +427,7 @@ class MainWindow(QMainWindow):
         self._system_level_timer.timeout.connect(self._sync_pro_slider_from_system)
         self._system_level_timer.start()
         self._connected = False
+        self._usb_connection_paused = False
         self._heartbeat_active = False
         self._connected_port = ""
         self._device_product = ""
@@ -766,6 +769,15 @@ class MainWindow(QMainWindow):
         self._start_at_login_checkbox.setChecked(start_at_login)
         self._start_at_login_checkbox.toggled.connect(self._set_start_at_login)
         layout.addWidget(self._start_at_login_checkbox)
+        self._usb_port_button = QPushButton("Release USB port")
+        self._usb_port_button.clicked.connect(self._toggle_usb_connection)
+        layout.addWidget(self._usb_port_button)
+        self._usb_port_help = QLabel(
+            "Release the serial port before using Arduino IDE or another USB tool.",
+            objectName="subtitle",
+        )
+        self._usb_port_help.setWordWrap(True)
+        layout.addWidget(self._usb_port_help)
         if sys.platform == "darwin":
             self._macos_title = QLabel("macOS", objectName="sectionTitle")
             layout.addWidget(self._macos_title)
@@ -1134,6 +1146,8 @@ class MainWindow(QMainWindow):
         self._apply_supporter_state()
 
         self._start_at_login_checkbox.setText(self._text("start_with_system"))
+        self._update_usb_port_controls()
+        self._usb_port_help.setText(self._text("usb_port_help"))
         if sys.platform == "darwin":
             self._start_minimized_checkbox.setText(self._text("start_minimized"))
             self._permissions_button.setText(self._text("macos_permissions"))
@@ -1362,6 +1376,38 @@ class MainWindow(QMainWindow):
             self._open_external_link(social_urls["instagram"])
         elif message.clickedButton() is youtube_button:
             self._open_external_link(social_urls["youtube"])
+
+    def show_startup_notices(self) -> None:
+        if not self._settings.value(
+            "announcements/hcdBaseSlimModelLinkOpened", False, type=bool
+        ):
+            if self._slim_announcement_dialog is not None:
+                self._slim_announcement_dialog.raise_()
+                self._slim_announcement_dialog.activateWindow()
+                return
+            dialog = SlimAnnouncementDialog(self._text, self)
+            self._slim_announcement_dialog = dialog
+            dialog.finished.connect(
+                lambda result: self._slim_announcement_finished(dialog, result)
+            )
+            dialog.open()
+            return
+        self._continue_startup_notices()
+
+    def _slim_announcement_finished(
+        self, dialog: SlimAnnouncementDialog, result: int
+    ) -> None:
+        del result
+        if dialog.link_opened:
+            self._settings.setValue("announcements/hcdBaseSlimModelLinkOpened", True)
+        self._slim_announcement_dialog = None
+        QTimer.singleShot(250, self._continue_startup_notices)
+
+    def _continue_startup_notices(self) -> None:
+        if self._settings.value("onboarding/completed", False, type=bool):
+            self.show_usage_reminder()
+        else:
+            self.show_first_run_assistant()
 
     def _open_supporter_manager(self) -> None:
         if self._supporter_active:
@@ -1697,7 +1743,10 @@ class MainWindow(QMainWindow):
     def _current_key_count(self) -> int:
         if self._device_info_data is not None:
             return self._device_info_data.key_count
-        return {"HCD-PLUS": 12, "HCD-PRO": 28}.get(self._store.model_identifier, 9)
+        return {"HCD-C3-TEST": 9, "HCD-PLUS": 12, "HCD-PRO": 28}.get(
+            self._store.model_identifier,
+            9,
+        )
 
     def _show_action(self, identifier: str) -> None:
         action = self._action_for(identifier)
@@ -1975,7 +2024,7 @@ class MainWindow(QMainWindow):
                 f"{full_label}\n{action.value}" if action.type == "launch" else full_label
             )
             if (
-                self._device_model_identifier == "HCD-BASE"
+                self._device_model_identifier in {"HCD-BASE", "HCD-C3-TEST"}
                 and identifier.isdigit()
                 and 1 <= int(identifier) <= 9
                 and action.long_type != "none"
@@ -2913,6 +2962,31 @@ $result | ConvertTo-Json -Compress
                 self._text("login_error", error=error),
             )
 
+    def _toggle_usb_connection(self) -> None:
+        if self._firmware_updater.is_busy:
+            return
+        self._usb_connection_paused = not self._usb_connection_paused
+        if self._usb_connection_paused:
+            self._pro_sync_timer.stop()
+            self._device.stop()
+            self.statusBar().showMessage(self._text("usb_port_released_status"))
+        else:
+            self.statusBar().showMessage(self._text("starting_discovery"))
+            self._device.start()
+        self._update_usb_port_controls()
+
+    def _update_usb_port_controls(self) -> None:
+        if not hasattr(self, "_usb_port_button"):
+            return
+        self._usb_port_button.setText(
+            self._text(
+                "reconnect_usb_port"
+                if self._usb_connection_paused
+                else "release_usb_port"
+            )
+        )
+        self._usb_port_button.setEnabled(not self._firmware_updater.is_busy)
+
     def _set_start_minimized(self, checked: bool) -> None:
         self._start_minimized = checked
         self._settings.setValue("macos/startMinimized", checked)
@@ -3293,7 +3367,12 @@ $result | ConvertTo-Json -Compress
             self._reload_profile_list()
         self._device_info_data = info
         self._key_combinations_editor.set_context(self._profile, info.key_count)
-        self._device_product = info.product
+        display_product = (
+            "HackMan3D Control Deck Base Slim"
+            if info.model_identifier == "HCD-C3-TEST"
+            else info.product
+        )
+        self._device_product = display_product
         self._device_model_identifier = info.model_identifier
         brightness = self._led_brightness.get(info.model_identifier)
         if brightness is not None:
@@ -3305,7 +3384,7 @@ $result | ConvertTo-Json -Compress
             info.key_count,
             info.potentiometer_count,
         )
-        self._device_title.setText(info.product)
+        self._device_title.setText(display_product)
         self._selection = None
         self._refresh_control_labels()
         # Update an outdated Pro before sending its display snapshot. Besides
@@ -3319,7 +3398,7 @@ $result | ConvertTo-Json -Compress
         self._reset_keys_button.setText(
             self._text("reset_visible_controls", count=len(self._control_buttons))
         )
-        self._connection_label.setText(info.product)
+        self._connection_label.setText(display_product)
         self._connection_label.setToolTip(f"{info.model_identifier} · {self._connected_port}")
         self._firmware_label.setText(f"Firmware {info.firmware_version}")
         if self._firmware_dialog is not None and not self._firmware_updater.is_busy:
@@ -3491,7 +3570,9 @@ $result | ConvertTo-Json -Compress
         message.setIcon(QMessageBox.Warning)
         message.setText(
             self._text(
-                "new_esp32_firmware_warning"
+                "new_esp32_c3_test_warning"
+                if model_identifier == "HCD-C3-TEST"
+                else "new_esp32_firmware_warning"
                 if model_identifier == "HCD-PRO"
                 else "new_model_firmware_warning",
                 port=port,
@@ -3523,6 +3604,7 @@ $result | ConvertTo-Json -Compress
         self._pro_sync_timer.stop()
         self._system_level_timer.stop()
         self._device.stop()
+        self._usb_port_button.setEnabled(False)
         QTimer.singleShot(
             650 if sys.platform == "win32" else 250,
             lambda: self._firmware_updater.start(
@@ -3565,7 +3647,9 @@ $result | ConvertTo-Json -Compress
             self._firmware_dialog.finish(successful, message)
         if not self._system_level_timer.isActive():
             self._system_level_timer.start()
-        QTimer.singleShot(1800, self._device.start)
+        self._update_usb_port_controls()
+        if not self._usb_connection_paused:
+            QTimer.singleShot(1800, self._device.start)
 
     def _device_event(self, event: DeviceEvent) -> None:
         if event.kind == EventKind.SLIDER:

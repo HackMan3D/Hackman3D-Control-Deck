@@ -1,6 +1,4 @@
 import hashlib
-from pathlib import Path
-
 import pytest
 
 from hackman_control_deck.app_updater import download_update

@@ -60,6 +60,20 @@ class DevicePreview(QWidget):
     _CONNECTION_LED_CENTER = QPointF(1161, 191)
     _FEEDBACK_LED_START = QPointF(438, 718)
     _FEEDBACK_LED_END = QPointF(870, 816)
+    _SLIM_SOURCE_WIDTH = 1450
+    _SLIM_SOURCE_HEIGHT = 1086
+    _SLIM_KEY_CENTERS = (
+        (559, 350),
+        (747, 390),
+        (930, 433),
+        (476, 505),
+        (660, 552),
+        (843, 602),
+        (395, 663),
+        (579, 716),
+        (769, 773),
+    )
+    _SLIM_CONNECTION_LED_CENTER = QPointF(1112, 273)
 
     def __init__(self, image_path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -67,8 +81,15 @@ class DevicePreview(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self._source = QPixmap(str(image_path))
+        self._slim_source = QPixmap(str(image_path.with_name("hcd_base_slim.png")))
+        self._slim_feedback_source = QPixmap(
+            str(image_path.with_name("hcd_base_slim_feedback.png"))
+        )
         self._scaled = QPixmap()
+        self._slim_scaled = QPixmap()
+        self._slim_feedback_scaled = QPixmap()
         self._image_rect = QRect()
+        self._slim_image_rect = QRect()
         self._connection_active = False
         self._feedback_active = False
         self._model_identifier = ""
@@ -109,7 +130,7 @@ class DevicePreview(QWidget):
     ) -> None:
         normalized_model = (
             model_identifier
-            if model_identifier in {"HCD-BASE", "HCD-PLUS", "HCD-PRO"}
+            if model_identifier in {"HCD-BASE", "HCD-C3-TEST", "HCD-PLUS", "HCD-PRO"}
             else "HCD-BASE"
         )
         if (
@@ -166,7 +187,7 @@ class DevicePreview(QWidget):
     ) -> None:
         self._base_long_press_icons = dict(icons)
         self._base_long_press_label = label
-        if self._model_identifier == "HCD-BASE":
+        if self._model_identifier in {"HCD-BASE", "HCD-C3-TEST"}:
             self.update()
 
     def _apply_pro_button_colors(self) -> None:
@@ -232,26 +253,47 @@ class DevicePreview(QWidget):
             self._paint_plus_device(painter)
         elif self._model_identifier == "HCD-PRO":
             self._paint_pro_device(painter)
+        elif self._model_identifier == "HCD-C3-TEST":
+            slim = (
+                self._slim_feedback_scaled
+                if self._feedback_active and not self._slim_feedback_scaled.isNull()
+                else self._slim_scaled
+            )
+            if not slim.isNull():
+                painter.drawPixmap(self._slim_image_rect, slim)
+            self._paint_base_long_press_preview(painter)
         elif not self._scaled.isNull():
             if self._model_identifier == "HCD-BASE":
                 painter.drawPixmap(self._image_rect, self._scaled)
                 self._paint_base_long_press_preview(painter)
 
         scale = (
-            self._image_rect.width() / self._SOURCE_WIDTH
+            self._slim_image_rect.width() / self._SLIM_SOURCE_WIDTH
+            if self._model_identifier == "HCD-C3-TEST"
+            else self._image_rect.width() / self._SOURCE_WIDTH
             if self._model_identifier == "HCD-BASE"
             else max(0.45, min(self.width() / 900, self.height() / 600))
         )
         if self._connection_active:
             self._paint_connection_led(painter, scale)
-        if self._feedback_active:
+        if self._feedback_active and self._model_identifier != "HCD-C3-TEST":
             self._paint_feedback_led(painter, scale)
 
     def _paint_base_long_press_preview(self, painter: QPainter) -> None:
         self._base_long_press_cells.clear()
-        if self._image_rect.isEmpty():
+        image_rect = (
+            self._slim_image_rect
+            if self._model_identifier == "HCD-C3-TEST"
+            else self._image_rect
+        )
+        source_width = (
+            self._SLIM_SOURCE_WIDTH
+            if self._model_identifier == "HCD-C3-TEST"
+            else self._SOURCE_WIDTH
+        )
+        if image_rect.isEmpty():
             return
-        scale = self._image_rect.width() / self._SOURCE_WIDTH
+        scale = image_rect.width() / source_width
         cell_size = max(38, round(92 * scale))
         gap = max(4, round(9 * scale))
         padding = max(10, round(16 * scale))
@@ -261,11 +303,11 @@ class DevicePreview(QWidget):
         panel_height = grid_size + label_height + padding * 2
         margin = max(12, round(24 * scale))
         horizontal_offset = max(28, round(104 * scale))
-        panel_left = self._image_rect.right() - panel_width - margin + horizontal_offset
+        panel_left = image_rect.right() - panel_width - margin + horizontal_offset
         panel_left = min(panel_left, self.width() - panel_width - margin)
         panel = QRect(
             panel_left,
-            self._image_rect.top() + margin,
+            image_rect.top() + margin,
             panel_width,
             panel_height,
         )
@@ -307,7 +349,10 @@ class DevicePreview(QWidget):
         painter.restore()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if self._model_identifier == "HCD-BASE" and event.button() == Qt.LeftButton:
+        if (
+            self._model_identifier in {"HCD-BASE", "HCD-C3-TEST"}
+            and event.button() == Qt.LeftButton
+        ):
             for identifier, cell in self._base_long_press_cells.items():
                 if cell.contains(event.position().toPoint()):
                     self.long_press_control_selected.emit(identifier)
@@ -402,6 +447,8 @@ class DevicePreview(QWidget):
         elif self._model_identifier == "HCD-PLUS":
             panel = self._plus_panel()
             center = QPointF(panel.right() - 32, panel.top() + 32)
+        elif self._model_identifier == "HCD-C3-TEST":
+            center = self._map_slim_point(self._SLIM_CONNECTION_LED_CENTER, scale)
         else:
             center = self._map_point(self._CONNECTION_LED_CENTER, scale)
         painter.save()
@@ -479,6 +526,12 @@ class DevicePreview(QWidget):
                 painter.drawEllipse(point, scaled_radius, scaled_radius)
         painter.restore()
 
+    def _map_slim_point(self, point: QPointF, scale: float) -> QPointF:
+        return QPointF(
+            self._slim_image_rect.left() + point.x() * scale,
+            self._slim_image_rect.top() + point.y() * scale,
+        )
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         if self._source.isNull():
@@ -489,6 +542,20 @@ class DevicePreview(QWidget):
         offset_y = (self.height() - scaled.height()) // 2
         self._scaled = scaled
         self._image_rect = QRect(offset_x, offset_y, scaled.width(), scaled.height())
+        if not self._slim_source.isNull():
+            slim_scaled = self._slim_source.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            slim_offset_x = (self.width() - slim_scaled.width()) // 2
+            slim_offset_y = (self.height() - slim_scaled.height()) // 2
+            self._slim_scaled = slim_scaled
+            self._slim_image_rect = QRect(
+                slim_offset_x, slim_offset_y, slim_scaled.width(), slim_scaled.height()
+            )
+        if not self._slim_feedback_source.isNull():
+            self._slim_feedback_scaled = self._slim_feedback_source.scaled(
+                self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
         self._layout_controls()
         self.update()
 
@@ -500,6 +567,9 @@ class DevicePreview(QWidget):
             return
         if self._model_identifier == "HCD-PRO":
             self._layout_pro_controls()
+            return
+        if self._model_identifier == "HCD-C3-TEST":
+            self._layout_slim_controls()
             return
         scale = self._scaled.width() / self._SOURCE_WIDTH
         button_width = max(48, round(148 * scale))
@@ -517,6 +587,28 @@ class DevicePreview(QWidget):
                     button_width,
                     button_height,
                 )
+            )
+            button.raise_()
+
+    def _layout_slim_controls(self) -> None:
+        if self._slim_scaled.isNull():
+            return
+        scale = self._slim_scaled.width() / self._SLIM_SOURCE_WIDTH
+        button_width = max(48, round(155 * scale))
+        button_height = max(42, round(124 * scale))
+        icon_size = max(20, round(66 * scale))
+        for index, center in enumerate(self._SLIM_KEY_CENTERS, start=1):
+            button = self.buttons.get(str(index))
+            if button is None:
+                continue
+            center_x = self._slim_image_rect.left() + round(center[0] * scale)
+            center_y = self._slim_image_rect.top() + round(center[1] * scale)
+            button.setIconSize(QSize(icon_size, icon_size))
+            button.setGeometry(
+                center_x - button_width // 2,
+                center_y - button_height // 2,
+                button_width,
+                button_height,
             )
             button.raise_()
 

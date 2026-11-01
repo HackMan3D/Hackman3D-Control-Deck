@@ -12,7 +12,7 @@ class ProfileStore:
     BACKUP_FORMAT = "hackman-control-deck-backup"
     FORMAT_VERSION = 1
 
-    MODELS = {"HCD-BASE", "HCD-PLUS", "HCD-PRO"}
+    MODELS = {"HCD-BASE", "HCD-C3-TEST", "HCD-PLUS", "HCD-PRO"}
 
     def __init__(
         self,
