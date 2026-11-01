@@ -207,7 +207,6 @@ without changing the buyer's price.
 | MOSFET gate resistor | **100R, 1/4 W**, quantity 1 | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4OATELh) | [Buy on Amazon](https://link.amazon/B0byWhsql) |
 | USB-C cable | **Data + charging**, not charge-only | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c4qXiokb) | [Buy on Amazon](https://link.amazon/B075uRWBR) |
 | Dupont leads | **Female-to-female, 2.54 mm** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c40SPRKx) | [Buy on Amazon](https://link.amazon/B0e1pGaxf) |
-| Flexible wire | **Stranded, approximately 24–28 AWG** | Link to add | [Buy on Amazon](https://link.amazon/B08XqEbn6) |
 | Heat-shrink tubing | **Small diameter** for individual Dupont contacts | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3riUoer) | [Buy on Amazon](https://link.amazon/B06use4Lj) |
 | 6 screws | **M2 × 10 mm, countersunk / flat head** | [Buy on AliExpress](https://s.click.aliexpress.com/e/_c3LS3Kv9) | [Buy on Amazon](https://link.amazon/B04AuJdUT) |
 

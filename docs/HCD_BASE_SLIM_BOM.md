@@ -26,7 +26,6 @@ model files.
 | Quantity | Component | Exact specification | Option to select | AliExpress | Amazon |
 | ---: | --- | --- | --- | --- | --- |
 | As required | Female Dupont leads | 2.54 mm jumper wires; connector retained only at the ESP32 end | **Female-to-female** | [Affiliate link](https://s.click.aliexpress.com/e/_c40SPRKx) | [Female-to-female Dupont wires](https://link.amazon/B0e1pGaxf) |
-| As required | Flexible hook-up wire | Approximately 24–28 AWG; the component end is cut and soldered | **Flexible stranded wire, 24–28 AWG** | Link to add | [Fermerry 22 AWG silicone wire](https://link.amazon/B08XqEbn6) |
 | As required | Heat-shrink tubing | Small diameter, sized to insulate each bare Dupont contact separately | **Small-diameter heat-shrink tubing** | [Affiliate link](https://s.click.aliexpress.com/e/_c3riUoer) | [HUAKAYO heat-shrink assortment](https://link.amazon/B06use4Lj) |
 | 6 | Screws | M2 × 10 mm, countersunk / flat head | **M2 · 10 mm · countersunk head** | [Affiliate link](https://s.click.aliexpress.com/e/_c3LS3Kv9) | [WZHUIDA M2 assortment](https://link.amazon/B04AuJdUT) |
 
